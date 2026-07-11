@@ -1,4 +1,5 @@
-﻿using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+﻿using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Data.Queries;
@@ -18,9 +19,13 @@ public static class ConfigureCoreServices
         services.AddScoped<IBasketService, BasketService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IBasketQueryService, BasketQueryService>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         var catalogSettings = configuration.Get<CatalogSettings>() ?? new CatalogSettings();
         services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
+
+        services.Configure<MaxioSettings>(configuration.GetSection("Maxio"));
+        services.AddScoped<IBillingClient, MaxioBillingClient>();
 
         services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
         services.AddTransient<IEmailSender, EmailSender>();
