@@ -138,6 +138,25 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// UC2 startup validation (plan.md): confirm the configured metered component handle resolves to a
+// component of metered kind before any usage call is attempted. Never blocks startup - a misconfigured
+// sandbox surfaces as a logged warning here and as a MeteredComponentMisconfiguredException on first use.
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = scope.ServiceProvider.GetRequiredService<IBillingClient>();
+        if (!await billingClient.IsMeteredComponentConfiguredCorrectlyAsync())
+        {
+            app.Logger.LogWarning("Maxio metered component is missing or not of metered kind - usage recording (UC2) will fail until the sandbox seed is corrected.");
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not validate the Maxio metered component at startup - it will be re-checked on first use.");
+    }
+}
+
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;
 if (!string.IsNullOrEmpty(catalogBaseUrl))
 {

@@ -1,5 +1,6 @@
 ﻿using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Data.Queries;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -24,6 +25,14 @@ public static class ConfigureCoreServices
 
         services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
         services.AddTransient<IEmailSender, EmailSender>();
+
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.Configure<MaxioSettings>(configuration.GetSection("Maxio"));
+
+        // The BaseAddress is intentionally left unset here - MaxioBillingClient resolves the outbound
+        // server (explicit Maxio:BaseUrl override, else the Subdomain-derived host) itself from
+        // MaxioSettings when it constructs the underlying MaxioAdvancedBillingClient (plan.md §2.3).
+        services.AddHttpClient<IBillingClient, MaxioBillingClient>();
 
         return services;
     }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +13,8 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Subscription module (plan.md §2.1/§4.3): ISubscriptionService is the use-case surface consumed by the
+// admin/programmatic endpoints below; MaxioBillingClient is the sole class that talks to Maxio, and
+// resolves its own outbound server from MaxioSettings (explicit Maxio:BaseUrl override, else the
+// Subdomain-derived host) - the BaseAddress is intentionally left unset here.
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SubscriptionService).Assembly));
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -144,6 +156,25 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+}
+
+// UC2 startup validation (plan.md): confirm the configured metered component handle resolves to a
+// component of metered kind before any usage call is attempted. Never blocks startup - a misconfigured
+// sandbox surfaces as a logged warning here and as a MeteredComponentMisconfiguredException on first use.
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = scope.ServiceProvider.GetRequiredService<IBillingClient>();
+        if (!await billingClient.IsMeteredComponentConfiguredCorrectlyAsync())
+        {
+            app.Logger.LogWarning("Maxio metered component is missing or not of metered kind - usage recording (UC2) will fail until the sandbox seed is corrected.");
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not validate the Maxio metered component at startup - it will be re-checked on first use.");
     }
 }
 
