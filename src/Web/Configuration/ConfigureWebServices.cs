@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Web.Interfaces;
 using Microsoft.eShopWeb.Web.Services;
 
@@ -8,8 +9,10 @@ public static class ConfigureWebServices
 {
     public static IServiceCollection AddWebServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddMediatR(cfg => 
-            cfg.RegisterServicesFromAssembly(typeof(BasketViewModelService).Assembly));
+        // Scans both Web (order/basket view-model handlers) and ApplicationCore (SubscriptionService's
+        // notifications + the UC2 OrderPlacedUsageHandler) for MediatR handlers.
+        services.AddMediatR(cfg =>
+            cfg.RegisterServicesFromAssemblies(typeof(BasketViewModelService).Assembly, typeof(SubscriptionService).Assembly));
         services.AddScoped<IBasketViewModelService, BasketViewModelService>();
         services.AddScoped<CatalogViewModelService>();
         services.AddScoped<ICatalogItemViewModelService, CatalogItemViewModelService>();

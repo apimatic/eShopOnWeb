@@ -9,15 +9,18 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,23 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// SubscriptionService publishes MediatR notifications (§2.5); PublicApi has no host-specific
+// notification handlers of its own (those live in Web), but the UC2 OrderPlacedUsageHandler lives
+// in ApplicationCore, and IPublisher must resolve regardless.
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(typeof(Program).Assembly, typeof(SubscriptionService).Assembly));
+
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+
+// Typed client via IHttpClientFactory. The BaseAddress is resolved from configuration so the
+// SAME build can target prod / dev / a local mock — explicit Maxio:BaseUrl wins, else derive
+// from Subdomain (+ region). See §2.3. Do NOT hardcode the host.
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>((sp, http) =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    http.BaseAddress = new Uri(maxioSettings.ResolveBaseUrl());
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
