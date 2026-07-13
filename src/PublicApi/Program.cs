@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -9,9 +10,11 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssemblies(typeof(ISubscriptionService).Assembly, typeof(EmailSender).Assembly));
+builder.Services.AddSubscriptionServices(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -144,6 +152,27 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+}
+
+app.Logger.LogInformation("Validating Maxio metered component configuration...");
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = scope.ServiceProvider.GetRequiredService<IBillingClient>();
+        var catalogOptions = scope.ServiceProvider.GetRequiredService<ISubscriptionCatalogOptions>();
+        var component = await billingClient.GetComponentAsync(catalogOptions.MeteredComponentHandle);
+        if (!component.IsMetered)
+        {
+            app.Logger.LogWarning("Maxio component '{Handle}' is not metered (kind: {Kind}). UC2 usage recording will fail until this is corrected (see UC0).",
+                catalogOptions.MeteredComponentHandle, component.Kind);
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not validate the Maxio metered component at startup. UC2 usage recording will re-validate on first call.");
     }
 }
 

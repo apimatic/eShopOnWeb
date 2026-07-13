@@ -138,6 +138,27 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.Logger.LogInformation("Validating Maxio metered component configuration...");
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = scope.ServiceProvider.GetRequiredService<IBillingClient>();
+        var catalogOptions = scope.ServiceProvider.GetRequiredService<ISubscriptionCatalogOptions>();
+        var component = await billingClient.GetComponentAsync(catalogOptions.MeteredComponentHandle);
+        if (!component.IsMetered)
+        {
+            app.Logger.LogWarning("Maxio component '{Handle}' is not metered (kind: {Kind}). UC2 usage recording will fail until this is corrected (see UC0).",
+                catalogOptions.MeteredComponentHandle, component.Kind);
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not validate the Maxio metered component at startup. UC2 usage recording will re-validate on first call.");
+    }
+}
+
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;
 if (!string.IsNullOrEmpty(catalogBaseUrl))
 {

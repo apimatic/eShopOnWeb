@@ -1,8 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +44,29 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    // Shared by both hosts (Web + PublicApi) so the Maxio integration is wired identically
+    // wherever subscription endpoints are exposed, and the provider stays touched in exactly
+    // one class (plan §2.2/§4.1/§4.3).
+    public static IServiceCollection AddSubscriptionServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.Configure<MaxioSettings>(configuration.GetSection("Maxio"));
+        services.AddSingleton<ISubscriptionCatalogOptions>(sp => sp.GetRequiredService<IOptions<MaxioSettings>>().Value);
+
+        services.AddHttpClient<IBillingClient, MaxioBillingClient>((sp, http) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+
+            // Explicit Maxio:BaseUrl wins verbatim; otherwise derive the host from Subdomain + region.
+            // This is the one place the outbound target server is resolved (§2.3) — do not hardcode it.
+            http.BaseAddress = new Uri(settings.ResolveBaseUrl() + "/");
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:x")));
+            http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+
+        return services;
     }
 }
