@@ -1,6 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +42,41 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    /// <summary>
+    /// Registers the single Maxio Advanced Billing seam (§2.2/§4.3) — <see cref="MaxioSettings"/>
+    /// bound from the "Maxio" configuration section, the generated SDK client, and
+    /// <see cref="IBillingClient"/>/<see cref="MaxioBillingClient"/>. Called identically from both
+    /// hosts (Web and PublicApi) since neither shares the other's DI composition root.
+    /// </summary>
+    public static void AddMaxioBillingServices(IConfiguration configuration, IServiceCollection services)
+    {
+        var maxioSection = configuration.GetSection("Maxio");
+        services.Configure<MaxioSettings>(maxioSection);
+        var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+
+        services.AddMaxioAdvancedBillingClient(options =>
+        {
+            options.BasicAuth = new BasicAuthCredentials { Username = maxioSettings.ApiKey, Password = "x" };
+
+            // Explicit Maxio:BaseUrl wins verbatim over the Subdomain-derived host (§2.3) — the
+            // same build can target production, a dev/sandbox tenant, or a local mock server
+            // purely through configuration.
+            if (maxioSettings.IsEuEnvironment)
+            {
+                options.Environment = ServerEnvironment.Eu;
+                options.Server.Production.Eu.Site = maxioSettings.Subdomain;
+                options.Server.Production.Eu.BaseUrl = maxioSettings.ResolveBaseUrl();
+            }
+            else
+            {
+                options.Environment = ServerEnvironment.Us;
+                options.Server.Production.Us.Site = maxioSettings.Subdomain;
+                options.Server.Production.Us.BaseUrl = maxioSettings.ResolveBaseUrl();
+            }
+        });
+
+        services.AddScoped<IBillingClient, MaxioBillingClient>();
     }
 }

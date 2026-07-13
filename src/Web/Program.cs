@@ -136,6 +136,19 @@ using (var scope = app.Services.CreateScope())
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
     }
+
+    try
+    {
+        var billingClient = scopedProvider.GetRequiredService<IBillingClient>();
+        await billingClient.ValidateMeteredComponentAsync();
+        app.Logger.LogInformation("Maxio metered component validated.");
+    }
+    catch (Exception ex)
+    {
+        // Non-fatal (§2.5/hard rule: Maxio failures must never block eShopOnWeb's own lifecycle) —
+        // UC2 preconditions are re-verified before every usage call regardless of this startup check.
+        app.Logger.LogError(ex, "Maxio metered component startup validation failed (UC2 preconditions) — points back at UC0 seeding.");
+    }
 }
 
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;

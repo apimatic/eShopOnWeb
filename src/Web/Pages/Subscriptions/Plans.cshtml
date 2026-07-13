@@ -1,0 +1,55 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2>Subscription Plans</h2>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-info" role="alert">@Model.StatusMessage</div>
+    }
+
+    <p>
+        <a asp-page="Mine">View my subscriptions</a>
+    </p>
+
+    @if (!Model.Plans.Any())
+    {
+        <p>No plans are currently available. Please try again later.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="esh-basket-items" style="padding: 20px; margin-bottom: 20px;">
+                        <h3>@plan.Name</h3>
+                        <p>$@plan.Price.ToString("N2") / month</p>
+                        <p>@(plan.RequiresPaymentMethod ? "Requires a payment method" : "No payment method required")</p>
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="productHandle" value="@plan.Handle" />
+                            <div class="form-group">
+                                <label>First name</label>
+                                <input class="form-control" name="firstName" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Last name</label>
+                                <input class="form-control" name="lastName" required />
+                            </div>
+                            <button type="submit" class="btn esh-basket-checkout">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

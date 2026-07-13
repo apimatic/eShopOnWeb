@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -9,6 +10,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -44,6 +46,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+Dependencies.AddMaxioBillingServices(builder.Configuration, builder.Services);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -144,6 +150,19 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+
+    try
+    {
+        var billingClient = scopedProvider.GetRequiredService<IBillingClient>();
+        await billingClient.ValidateMeteredComponentAsync();
+        app.Logger.LogInformation("Maxio metered component validated.");
+    }
+    catch (Exception ex)
+    {
+        // Non-fatal (§2.5/hard rule: Maxio failures must never block eShopOnWeb's own lifecycle) —
+        // UC2 preconditions are re-verified before every usage call regardless of this startup check.
+        app.Logger.LogError(ex, "Maxio metered component startup validation failed (UC2 preconditions) — points back at UC0 seeding.");
     }
 }
 
