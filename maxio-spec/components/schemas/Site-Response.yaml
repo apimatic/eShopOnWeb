@@ -1,0 +1,7 @@
+title: Site Response
+type: object
+properties:
+  site:
+    $ref: "./Site.yaml"
+required:
+  - site
