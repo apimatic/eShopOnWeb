@@ -1,0 +1,134 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@{
+    ViewData["Title"] = "My Subscription";
+}
+
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2>My Subscription</h2>
+
+    @if (Model.ErrorMessage != null)
+    {
+        <div class="text-danger">@Model.ErrorMessage</div>
+    }
+    @if (Model.StatusMessage != null)
+    {
+        <div class="text-success">@Model.StatusMessage</div>
+    }
+
+    @if (Model.ActiveSubscription == null)
+    {
+        <p>You don't have an active subscription yet. <a asp-page="Plans">Browse plans</a>.</p>
+    }
+    else
+    {
+        var sub = Model.ActiveSubscription;
+        <article class="esh-basket-items row" style="padding: 1em;">
+            <section class="col-md-3"><strong>Plan</strong><br />@sub.ProductName</section>
+            <section class="col-md-2"><strong>Price</strong><br />$@((sub.PriceInCents / 100m).ToString("N2")) / @sub.IntervalUnit</section>
+            <section class="col-md-2"><strong>State</strong><br />@sub.State</section>
+            <section class="col-md-2"><strong>Next billing</strong><br />@(sub.NextAssessmentAt?.ToString("d") ?? "-")</section>
+            <section class="col-md-3">
+                <strong>Period ends</strong><br />@(sub.CurrentPeriodEndsAt?.ToString("d") ?? "-")
+                @if (sub.CancelAtEndOfPeriod)
+                {
+                    <div class="text-warning">Scheduled to cancel at end of period.</div>
+                }
+            </section>
+        </article>
+
+        <h3>Usage (pay-as-you-go)</h3>
+        @if (Model.UsageStatus != null)
+        {
+            <p>
+                Period-to-date usage: <strong>@Model.UsageStatus.PeriodToDateUnitBalance</strong> units
+                @if (Model.UsageStatus.PeriodToDateUnavailable)
+                {
+                    <span class="text-warning">(running total temporarily unavailable)</span>
+                }
+                — billed on the next renewal invoice.
+            </p>
+        }
+        <form method="post" asp-page-handler="RecordUsage" class="form-inline">
+            <input type="number" name="quantity" min="1" value="1" class="form-control" style="width:6em;" />
+            <input type="text" name="memo" placeholder="Memo (optional)" class="form-control" />
+            <button type="submit" class="btn esh-basket-checkout">[ Record Usage ]</button>
+        </form>
+
+        <h3>Change Plan</h3>
+        @if (Model.OtherPlans.Any())
+        {
+            <form method="post" asp-page-handler="PreviewPlanChange" class="form-inline">
+                <select name="targetProductHandle" class="form-control">
+                    @foreach (var plan in Model.OtherPlans)
+                    {
+                        <option value="@plan.Handle">@plan.Name ($@((plan.PriceInCents / 100m).ToString("N2"))/@plan.IntervalUnit)</option>
+                    }
+                </select>
+                <select name="applyImmediately" class="form-control">
+                    <option value="true">Apply now (prorated)</option>
+                    <option value="false">Apply at next renewal (no proration)</option>
+                </select>
+                <button type="submit" class="btn esh-basket-checkout">[ Preview ]</button>
+            </form>
+
+            @if (Model.Preview != null)
+            {
+                var p = Model.Preview;
+                <div class="esh-basket-items" style="padding: 1em; margin-top: 1em;">
+                    <p>@p.CurrentProductHandle &rarr; @p.TargetProductHandle</p>
+                    @if (p.ApplyImmediately)
+                    {
+                        <p>Prorated adjustment: $@((p.ProratedAdjustmentInCents / 100m).ToString("N2")) — Payment due now: $@((p.PaymentDueInCents / 100m).ToString("N2")) — Credit applied: $@((p.CreditAppliedInCents / 100m).ToString("N2"))</p>
+                    }
+                    else
+                    {
+                        <p>New price effective next renewal: $@((p.ChargeInCents / 100m).ToString("N2")) — no proration.</p>
+                    }
+                    <form method="post" asp-page-handler="CommitPlanChange">
+                        <input type="hidden" name="currentProductHandle" value="@p.CurrentProductHandle" />
+                        <input type="hidden" name="targetProductHandle" value="@p.TargetProductHandle" />
+                        <input type="hidden" name="applyImmediately" value="@p.ApplyImmediately" />
+                        <input type="hidden" name="proratedAdjustmentInCents" value="@p.ProratedAdjustmentInCents" />
+                        <input type="hidden" name="chargeInCents" value="@p.ChargeInCents" />
+                        <input type="hidden" name="paymentDueInCents" value="@p.PaymentDueInCents" />
+                        <input type="hidden" name="creditAppliedInCents" value="@p.CreditAppliedInCents" />
+                        <button type="submit" class="btn esh-basket-checkout">[ Confirm Plan Change ]</button>
+                    </form>
+                </div>
+            }
+        }
+
+        <h3>Manage</h3>
+        <div class="esh-basket-items row">
+            <section class="col-md-3">
+                <form method="post" asp-page-handler="Pause">
+                    <button type="submit" class="btn esh-basket-checkout">[ Pause ]</button>
+                </form>
+            </section>
+            <section class="col-md-3">
+                <form method="post" asp-page-handler="Resume">
+                    <button type="submit" class="btn esh-basket-checkout">[ Resume ]</button>
+                </form>
+            </section>
+            <section class="col-md-3">
+                <form method="post" asp-page-handler="Reactivate">
+                    <button type="submit" class="btn esh-basket-checkout">[ Reactivate ]</button>
+                </form>
+            </section>
+        </div>
+        <form method="post" asp-page-handler="Cancel" class="form-inline" style="margin-top: 1em;">
+            <input type="text" name="reason" placeholder="Reason (optional)" class="form-control" />
+            <label class="form-control-static" style="margin: 0 0.5em;">
+                <input type="checkbox" name="endOfPeriod" value="true" /> at end of period
+            </label>
+            <button type="submit" class="btn esh-basket-checkout">[ Cancel ]</button>
+        </form>
+    }
+</div>
