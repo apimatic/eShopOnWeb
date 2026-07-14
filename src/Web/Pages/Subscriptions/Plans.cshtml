@@ -1,0 +1,46 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+
+<div class="esh-orders">
+    <div class="container">
+        <h1>@ViewData["Title"]</h1>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="text-danger">@Model.ErrorMessage</div>
+        }
+
+        @if (Model.Plans.Any())
+        {
+            <article class="esh-orders-titles row">
+                <section class="esh-orders-title col-xs-3">Plan</section>
+                <section class="esh-orders-title col-xs-3">Price</section>
+                <section class="esh-orders-title col-xs-3">Billing interval</section>
+                <section class="esh-orders-title col-xs-3"></section>
+            </article>
+            @foreach (var plan in Model.Plans)
+            {
+                <article class="esh-orders-items row">
+                    <section class="esh-orders-item col-xs-3">@plan.Name</section>
+                    <section class="esh-orders-item col-xs-3">$ @((plan.PriceInCents / 100m).ToString("N2"))</section>
+                    <section class="esh-orders-item col-xs-3">Every @plan.Interval @(plan.IntervalUnit.ToString().ToLower())(s)</section>
+                    <section class="esh-orders-item col-xs-3">
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="productHandle" value="@plan.Handle" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Subscribe ]</button>
+                        </form>
+                    </section>
+                </article>
+            }
+        }
+        else
+        {
+            <h3 class="esh-catalog-items row">No plans are currently available.</h3>
+        }
+
+        <p><a asp-page="./Mine">View my subscriptions</a></p>
+    </div>
+</div>
