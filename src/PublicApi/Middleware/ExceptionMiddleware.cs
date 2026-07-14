@@ -32,23 +32,29 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is DuplicateException or InvalidSubscriptionStateException or StalePreviewException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+        }
+        else if (exception is SubscriptionNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+        }
+        else if (exception is BillingProviderException)
+        {
+            // The billing provider itself failed or was unreachable; this is an upstream-dependency
+            // failure, not a bug in this request.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
         }
+
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }

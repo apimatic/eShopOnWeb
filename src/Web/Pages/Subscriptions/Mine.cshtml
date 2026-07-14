@@ -1,0 +1,138 @@
+@page
+@model MineModel
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@{
+    ViewData["Title"] = "My Subscription";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="text-danger">@Model.ErrorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="text-success">@Model.StatusMessage</div>
+    }
+
+    @if (Model.Subscription is null)
+    {
+        <h3 class="esh-catalog-items row">You don't have an active subscription yet.</h3>
+        <section class="esh-basket-item">
+            <a asp-page="/Subscriptions/Plans" class="btn esh-basket-checkout text-white">[ View plans ]</a>
+        </section>
+    }
+    else
+    {
+        var subscription = Model.Subscription;
+
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-3">Plan</section>
+            <section class="esh-basket-title col-xs-2">Price</section>
+            <section class="esh-basket-title col-xs-2">State</section>
+            <section class="esh-basket-title col-xs-3">Next billing date</section>
+        </article>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">@subscription.ProductName</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @((subscription.PriceInCents / 100m).ToString("N2"))</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">@subscription.State</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">@(subscription.NextAssessmentAt?.ToString("d") ?? "-")</section>
+        </article>
+
+        <h3 class="esh-basket-titles row">Usage (pay-as-you-go)</h3>
+        <form method="post" asp-page-handler="RecordUsage" class="esh-basket-items row">
+            <section class="esh-basket-item col-xs-3">
+                <input type="number" min="1" name="quantity" value="1" class="esh-basket-input" />
+            </section>
+            <section class="esh-basket-item col-xs-6">
+                <input type="text" name="memo" placeholder="Memo (optional)" class="esh-basket-input" />
+            </section>
+            <section class="esh-basket-item col-xs-3">
+                <button class="btn esh-basket-checkout" type="submit">[ Report usage ]</button>
+            </section>
+        </form>
+
+        @if (Model.AlternatePlan is not null)
+        {
+            <h3 class="esh-basket-titles row">Change plan</h3>
+            <form method="post" asp-page-handler="Preview" class="esh-basket-items row">
+                <input type="hidden" name="targetProductHandle" value="@Model.AlternatePlan.Handle" />
+                <section class="esh-basket-item col-xs-4">
+                    Switch to @Model.AlternatePlan.Name ($ @((Model.AlternatePlan.PriceInCents / 100m).ToString("N2")) / @Model.AlternatePlan.IntervalUnit)
+                </section>
+                <section class="esh-basket-item col-xs-4">
+                    <select name="applyNow" class="esh-basket-input">
+                        <option value="true">Apply now (prorated)</option>
+                        <option value="false">At next renewal</option>
+                    </select>
+                </section>
+                <section class="esh-basket-item col-xs-4">
+                    <button class="btn esh-basket-checkout" type="submit">[ Preview ]</button>
+                </section>
+            </form>
+
+            @if (Model.Preview is not null)
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item col-xs-3">Prorated adjustment: $ @((Model.Preview.ProratedAdjustmentInCents / 100m).ToString("N2"))</section>
+                    <section class="esh-basket-item col-xs-3">Charge: $ @((Model.Preview.ChargeInCents / 100m).ToString("N2"))</section>
+                    <section class="esh-basket-item col-xs-3">Payment due: $ @((Model.Preview.PaymentDueInCents / 100m).ToString("N2"))</section>
+                    <section class="esh-basket-item col-xs-3">Credit applied: $ @((Model.Preview.CreditAppliedInCents / 100m).ToString("N2"))</section>
+                </article>
+                <form method="post" asp-page-handler="ConfirmPlanChange" class="esh-basket-items row">
+                    <input type="hidden" name="targetProductHandle" value="@Model.Preview.TargetProductHandle" />
+                    <input type="hidden" name="applyNow" value="@Model.PreviewApplyNow" />
+                    <input type="hidden" name="expectedProratedAdjustmentInCents" value="@Model.Preview.ProratedAdjustmentInCents" />
+                    <input type="hidden" name="expectedChargeInCents" value="@Model.Preview.ChargeInCents" />
+                    <input type="hidden" name="expectedPaymentDueInCents" value="@Model.Preview.PaymentDueInCents" />
+                    <input type="hidden" name="expectedCreditAppliedInCents" value="@Model.Preview.CreditAppliedInCents" />
+                    <section class="esh-basket-item col-xs-12">
+                        <button class="btn esh-basket-checkout" type="submit">[ Confirm plan change ]</button>
+                    </section>
+                </form>
+            }
+        }
+
+        <h3 class="esh-basket-titles row">Manage subscription</h3>
+        <div class="esh-basket-items row">
+            @if (subscription.State == SubscriptionState.Active || subscription.State == SubscriptionState.Trialing)
+            {
+                <form method="post" asp-page-handler="Lifecycle" class="col-xs-3">
+                    <input type="hidden" name="action" value="pause" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Pause ]</button>
+                </form>
+            }
+            @if (subscription.State == SubscriptionState.Paused || subscription.State == SubscriptionState.OnHold)
+            {
+                <form method="post" asp-page-handler="Lifecycle" class="col-xs-3">
+                    <input type="hidden" name="action" value="resume" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Resume ]</button>
+                </form>
+            }
+            @if (subscription.State != SubscriptionState.Canceled && subscription.State != SubscriptionState.Expired)
+            {
+                <form method="post" asp-page-handler="Lifecycle" class="col-xs-6">
+                    <input type="hidden" name="action" value="cancel" />
+                    <select name="endOfPeriod" class="esh-basket-input">
+                        <option value="false">Cancel immediately</option>
+                        <option value="true">Cancel at end of period</option>
+                    </select>
+                    <input type="text" name="reason" placeholder="Reason (optional)" class="esh-basket-input" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Cancel ]</button>
+                </form>
+            }
+            @if (subscription.State == SubscriptionState.Canceled || subscription.State == SubscriptionState.Expired || subscription.State == SubscriptionState.PastDue)
+            {
+                <form method="post" asp-page-handler="Lifecycle" class="col-xs-3">
+                    <input type="hidden" name="action" value="reactivate" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Reactivate ]</button>
+                </form>
+            }
+        </div>
+    }
+</div>

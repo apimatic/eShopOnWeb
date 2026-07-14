@@ -9,9 +9,11 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SubscriptionService).Assembly));
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +92,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// SubscriptionEndpoints' LifecycleRequest.Action (LifecycleAction) is bound from the minimal-API
+// JSON request body; without this, System.Text.Json requires the numeric enum value instead of the
+// readable "Pause"/"Resume"/"Cancel"/"Reactivate" strings.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

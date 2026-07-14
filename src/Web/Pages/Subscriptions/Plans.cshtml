@@ -1,0 +1,58 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="text-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-4">Plan</section>
+            <section class="esh-basket-title col-xs-2">Price</section>
+            <section class="esh-basket-title col-xs-3">Billing interval</section>
+            <section class="esh-basket-title col-xs-3"></section>
+        </article>
+        <div class="esh-catalog-items row">
+            @foreach (var plan in Model.Plans)
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-4">@plan.Name</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @((plan.PriceInCents / 100m).ToString("N2"))</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-3">every @plan.Interval @plan.IntervalUnit</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                        @if (string.Equals(Model.ActiveProductHandle, plan.Handle, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <span class="btn esh-basket-checkout text-white">[ Current plan ]</span>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Subscribe">
+                                <input type="hidden" name="productHandle" value="@plan.Handle" />
+                                <button class="btn esh-basket-checkout" type="submit">[ Subscribe ]</button>
+                            </form>
+                        }
+                    </section>
+                </article>
+            }
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No plans are available right now.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="/Subscriptions/Mine" class="btn esh-basket-checkout text-white">[ My subscription ]</a>
+    </section>
+</div>
