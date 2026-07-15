@@ -1,5 +1,6 @@
 ﻿using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Data.Queries;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -18,12 +19,17 @@ public static class ConfigureCoreServices
         services.AddScoped<IBasketService, BasketService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IBasketQueryService, BasketQueryService>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         var catalogSettings = configuration.Get<CatalogSettings>() ?? new CatalogSettings();
         services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 
         services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
         services.AddTransient<IEmailSender, EmailSender>();
+
+        // Single registration point for the Maxio billing integration (plan.md §2.2/§4.3) — the
+        // provider's own SDK types never appear outside Infrastructure.
+        services.AddMaxioBillingClient(configuration);
 
         return services;
     }

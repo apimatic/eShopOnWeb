@@ -14,6 +14,14 @@
     <PackageVersion Include="Ardalis.Result" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Specification" Version="7.0.0" />
     <PackageVersion Include="Ardalis.ListStartupServices" Version="1.1.4" />
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
+    <!-- AsadAli.AdvancedBilling.Sdk pulls in Microsoft.Extensions.Http 10.0.8 transitively, which
+         requires Microsoft.Extensions.Configuration(.Binder) >= 10.0.8 - these four are only used by
+         SubscriptionsSeed (a standalone console tool), so bumping them doesn't affect the net8.0 hosts. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.8" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.1" />
     <PackageVersion Include="Azure.Identity" Version="1.10.4" />
     <PackageVersion Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />

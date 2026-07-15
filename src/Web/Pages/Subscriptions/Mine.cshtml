@@ -1,0 +1,149 @@
+@page
+@model MineModel
+@{
+    ViewData["Title"] = "My Subscriptions";
+}
+
+<div class="container">
+    <h2>My Subscriptions</h2>
+
+    @if (Model.StatusMessage is not null)
+    {
+        <div class="alert alert-success">@Model.StatusMessage</div>
+    }
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (!Model.UserSubscriptions.Any())
+    {
+        <p>You don't have any subscriptions yet. <a asp-page="/Subscriptions/Plans">Browse plans</a>.</p>
+    }
+    else
+    {
+        foreach (var subscription in Model.UserSubscriptions)
+        {
+            <div style="border: 1px solid #ddd; padding: 1rem; margin-bottom: 1.5rem;">
+                <h3>Subscription #@subscription.Id &mdash; @subscription.ProductHandle</h3>
+                <p>
+                    State: <strong>@subscription.State</strong>
+                    @if (subscription.CurrentPeriodEndsAt is not null)
+                    {
+                        <text> &mdash; current period ends @subscription.CurrentPeriodEndsAt.Value.ToString("g")</text>
+                    }
+                    @if (subscription.NextAssessmentAt is not null)
+                    {
+                        <text> &mdash; next billing date @subscription.NextAssessmentAt.Value.ToString("g")</text>
+                    }
+                </p>
+                <p>Price: $@((subscription.ProductPriceInCents / 100m).ToString("N2"))</p>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <h4>Lifecycle</h4>
+                        @if (subscription.CanPause)
+                        {
+                            <form method="post" asp-page-handler="Pause" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn esh-basket-checkout">Pause</button>
+                            </form>
+                        }
+                        @if (subscription.CanResume)
+                        {
+                            <form method="post" asp-page-handler="Resume" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn esh-basket-checkout">Resume</button>
+                            </form>
+                        }
+                        @if (subscription.CanReactivate)
+                        {
+                            <form method="post" asp-page-handler="Reactivate" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn esh-basket-checkout">Reactivate</button>
+                            </form>
+                        }
+                        @if (subscription.CanCancel)
+                        {
+                            <form method="post" asp-page-handler="Cancel" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <select name="timing">
+                                    <option value="Immediate">Cancel immediately</option>
+                                    <option value="EndOfPeriod">Cancel at end of period</option>
+                                </select>
+                                <input type="text" name="reason" placeholder="Reason (optional)" />
+                                <button type="submit" class="btn esh-basket-checkout">Cancel</button>
+                            </form>
+                        }
+                    </div>
+
+                    <div class="col-md-4">
+                        <h4>Pay-as-you-go usage</h4>
+                        <form method="post" asp-page-handler="RecordUsage">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="number" name="quantity" value="1" min="1" style="width: 4rem;" />
+                            <button type="submit" class="btn esh-basket-checkout">Record usage</button>
+                        </form>
+                    </div>
+
+                    <div class="col-md-4">
+                        @if (subscription.CanChangePlan)
+                        {
+                            <h4>Change plan</h4>
+                            <form method="post" asp-page-handler="PreviewPlanChange">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <select name="targetProductHandle">
+                                    @foreach (var plan in Model.Plans.Where(p => p.Handle != subscription.ProductHandle))
+                                    {
+                                        <option value="@plan.Handle">@plan.Name</option>
+                                    }
+                                </select>
+                                <select name="timing">
+                                    <option value="Now">Apply now (prorated)</option>
+                                    <option value="AtNextRenewal">Apply at next renewal</option>
+                                </select>
+                                <button type="submit" class="btn esh-basket-checkout">Preview</button>
+                            </form>
+
+                            @if (Model.PendingPreview is not null && Model.PendingPreview.SubscriptionId == subscription.Id)
+                            {
+                                var preview = Model.PendingPreview;
+                                <div class="alert alert-info" style="margin-top: 0.5rem;">
+                                    <p>Change to <strong>@preview.TargetProductHandle</strong> (@preview.Timing)</p>
+                                    @if (preview.ProratedAdjustmentInCents is not null)
+                                    {
+                                        <p>Prorated adjustment: $@((preview.ProratedAdjustmentInCents.Value / 100m).ToString("N2"))</p>
+                                    }
+                                    @if (preview.PaymentDueInCents is not null)
+                                    {
+                                        <p>Payment due now: $@((preview.PaymentDueInCents.Value / 100m).ToString("N2"))</p>
+                                    }
+                                    <p>New plan price: $@((preview.NewPlanPriceInCents / 100m).ToString("N2"))</p>
+                                    @if (preview.EffectiveAt is not null)
+                                    {
+                                        <p>Effective: @preview.EffectiveAt.Value.ToString("g")</p>
+                                    }
+                                    <form method="post" asp-page-handler="CommitPlanChange">
+                                        <input type="hidden" name="subscriptionId" value="@preview.SubscriptionId" />
+                                        <input type="hidden" name="currentProductHandle" value="@preview.CurrentProductHandle" />
+                                        <input type="hidden" name="targetProductHandle" value="@preview.TargetProductHandle" />
+                                        <input type="hidden" name="timing" value="@preview.Timing" />
+                                        <input type="hidden" name="proratedAdjustmentInCents" value="@preview.ProratedAdjustmentInCents" />
+                                        <input type="hidden" name="chargeInCents" value="@preview.ChargeInCents" />
+                                        <input type="hidden" name="paymentDueInCents" value="@preview.PaymentDueInCents" />
+                                        <input type="hidden" name="creditAppliedInCents" value="@preview.CreditAppliedInCents" />
+                                        <input type="hidden" name="newPlanPriceInCents" value="@preview.NewPlanPriceInCents" />
+                                        <input type="hidden" name="effectiveAt" value="@preview.EffectiveAt?.ToString("O")" />
+                                        <button type="submit" class="btn esh-basket-checkout">Confirm change</button>
+                                    </form>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <p><a asp-page="/Subscriptions/Plans">Browse plans</a></p>
+</div>

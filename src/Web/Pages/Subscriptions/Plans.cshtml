@@ -1,0 +1,50 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Plans";
+}
+
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2>Subscription Plans</h2>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.ActiveSubscription is not null)
+    {
+        <div class="alert alert-info">
+            You already have an active subscription to <strong>@Model.ActiveSubscription.ProductHandle</strong>.
+            <a asp-page="/Subscriptions/Mine">Manage your subscription</a>.
+        </div>
+    }
+    else if (!Model.Plans.Any())
+    {
+        <p>No plans are available right now.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="esh-basket-items" style="padding: 1rem; margin-bottom: 1rem; border: 1px solid #ddd;">
+                        <h3>@plan.Name</h3>
+                        <p>$@((plan.PriceInCents / 100m).ToString("N2")) / @plan.IntervalUnit (every @plan.Interval)</p>
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="productHandle" value="@plan.Handle" />
+                            <button type="submit" class="btn esh-basket-checkout">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
