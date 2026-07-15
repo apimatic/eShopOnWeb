@@ -1,0 +1,56 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1>Subscription Plans</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.ErrorMessage == null && !Model.Plans.Any())
+    {
+        <p>No subscription plans are currently available.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h3 class="card-title">@plan.Name</h3>
+                            <p class="card-text">
+                                $@((plan.PriceInCents / 100m).ToString("N2")) / @plan.BillingIntervalUnit
+                                @if (plan.BillingIntervalCount > 1)
+                                {
+                                    <text>(every @plan.BillingIntervalCount @(plan.BillingIntervalUnit)s)</text>
+                                }
+                            </p>
+                            @if (plan.RequiresPaymentMethod)
+                            {
+                                <p class="text-muted"><small>Requires a payment method.</small></p>
+                            }
+                            <form asp-page="Plans" asp-page-handler="Subscribe" method="post">
+                                <input type="hidden" name="planHandle" value="@plan.Handle" />
+                                <button type="submit" class="btn esh-basket-checkout">Subscribe</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <a asp-page="Mine">View my subscriptions &raquo;</a>
+</div>

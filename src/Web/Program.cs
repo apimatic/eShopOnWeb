@@ -138,6 +138,24 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.Logger.LogInformation("Validating Maxio billing provider configuration...");
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = scope.ServiceProvider.GetRequiredService<IBillingClient>();
+        await billingClient.EnsureMeteredComponentIsValidAsync();
+        app.Logger.LogInformation("Maxio billing provider configuration validated.");
+    }
+    catch (Exception ex)
+    {
+        // Non-fatal: subscription flows will surface a friendly error until this is fixed;
+        // the rest of eShopOnWeb's storefront must keep working regardless (see UC0/UC1).
+        app.Logger.LogWarning(ex, "Maxio billing provider validation failed at startup. Subscription features may be unavailable until this is resolved.");
+    }
+}
+
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;
 if (!string.IsNullOrEmpty(catalogBaseUrl))
 {

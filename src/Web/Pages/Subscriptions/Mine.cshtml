@@ -1,0 +1,146 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@using Microsoft.eShopWeb.ApplicationCore.Entities.Subscriptions
+@{
+    ViewData["Title"] = "My Subscriptions";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1>My Subscriptions</h1>
+
+    @if (!string.IsNullOrEmpty(Model.InfoMessage))
+    {
+        <div class="alert alert-success">@Model.InfoMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (!Model.Subscriptions.Any())
+    {
+        <p>You don't have any subscriptions yet. <a asp-page="Plans">Browse plans &raquo;</a></p>
+    }
+    else
+    {
+        @foreach (var subscription in Model.Subscriptions)
+        {
+            var otherPlans = Model.AvailablePlans.Where(p => p.Handle != subscription.PlanHandle).ToList();
+            var isPreviewingThis = Model.PreviewedSubscriptionId == subscription.Id && Model.Preview != null;
+            var canChangePlan = subscription.State is "active" or "trialing";
+            var isPaused = subscription.State is "paused" or "on_hold";
+            var isCancelled = subscription.State is "canceled" or "expired";
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">Subscription #@subscription.Id — @subscription.PlanName</h3>
+                    <p>
+                        State: <strong>@subscription.State</strong>
+                        &middot; $@((subscription.PriceInCents / 100m).ToString("N2")) / period
+                        @if (subscription.CurrentPeriodEndsAt.HasValue)
+                        {
+                            <text>&middot; current period ends @subscription.CurrentPeriodEndsAt.Value.ToString("d")</text>
+                        }
+                    </p>
+                    @if (subscription.CancelAtEndOfPeriod)
+                    {
+                        <p class="text-warning">This subscription is scheduled to cancel at the end of the current period.</p>
+                    }
+                    @if (!string.IsNullOrEmpty(subscription.NextPlanHandle))
+                    {
+                        <p class="text-info">A plan change to '@subscription.NextPlanHandle' is scheduled for the next renewal.</p>
+                    }
+
+                    <h5>Record usage</h5>
+                    <form asp-page="Mine" asp-page-handler="RecordUsage" method="post" class="form-inline mb-3">
+                        <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                        <input type="number" name="quantity" step="0.01" min="0.01" value="1" class="form-control mr-2" style="width:100px;display:inline-block;" required />
+                        <button type="submit" class="btn esh-basket-checkout">Record API call usage</button>
+                    </form>
+
+                    @if (canChangePlan && otherPlans.Any())
+                    {
+                        <h5>Change plan</h5>
+                        <form asp-page="Mine" asp-page-handler="PreviewPlanChange" method="post" class="form-inline mb-2">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <select name="targetPlanHandle" class="form-control mr-2">
+                                @foreach (var plan in otherPlans)
+                                {
+                                    <option value="@plan.Handle" selected="@(plan.Handle == Model.PreviewedTargetPlanHandle)">@plan.Name</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-secondary">Preview proration</button>
+                        </form>
+
+                        @if (isPreviewingThis)
+                        {
+                            var preview = Model.Preview!;
+                            <div class="alert alert-info">
+                                Moving to <strong>@preview.TargetPlanHandle</strong> now: prorated adjustment
+                                $@((preview.ProratedAdjustmentInCents / 100m).ToString("N2")),
+                                charge $@((preview.ChargeInCents / 100m).ToString("N2")),
+                                payment due $@((preview.PaymentDueInCents / 100m).ToString("N2")),
+                                credit applied $@((preview.CreditAppliedInCents / 100m).ToString("N2")).
+                            </div>
+                            <form asp-page="Mine" asp-page-handler="CommitPlanChange" method="post" class="form-inline mb-3">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <input type="hidden" name="targetPlanHandle" value="@preview.TargetPlanHandle" />
+                                <input type="hidden" name="expectedProratedAdjustmentInCents" value="@preview.ProratedAdjustmentInCents" />
+                                <select name="timing" class="form-control mr-2">
+                                    <option value="Now">Apply now (with proration)</option>
+                                    <option value="AtNextRenewal">Apply at next renewal (no proration)</option>
+                                </select>
+                                <button type="submit" class="btn esh-basket-checkout">Confirm plan change</button>
+                            </form>
+                        }
+                    }
+
+                    <h5>Lifecycle</h5>
+                    <div class="btn-group" role="group">
+                        @if (!isPaused && !isCancelled)
+                        {
+                            <form asp-page="Mine" asp-page-handler="Pause" method="post" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn btn-outline-secondary">Pause</button>
+                            </form>
+                        }
+                        @if (isPaused)
+                        {
+                            <form asp-page="Mine" asp-page-handler="Resume" method="post" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn btn-outline-secondary">Resume</button>
+                            </form>
+                        }
+                        @if (!isCancelled)
+                        {
+                            <form asp-page="Mine" asp-page-handler="Cancel" method="post" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <input type="hidden" name="endOfPeriod" value="false" />
+                                <button type="submit" class="btn btn-outline-danger">Cancel now</button>
+                            </form>
+                            <form asp-page="Mine" asp-page-handler="Cancel" method="post" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <input type="hidden" name="endOfPeriod" value="true" />
+                                <button type="submit" class="btn btn-outline-danger">Cancel at period end</button>
+                            </form>
+                        }
+                        @if (isCancelled)
+                        {
+                            <form asp-page="Mine" asp-page-handler="Reactivate" method="post" class="d-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <button type="submit" class="btn btn-outline-secondary">Reactivate</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <a asp-page="Plans">Browse subscription plans &raquo;</a>
+</div>
