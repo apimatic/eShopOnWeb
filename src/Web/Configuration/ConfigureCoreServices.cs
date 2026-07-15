@@ -25,6 +25,8 @@ public static class ConfigureCoreServices
         services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
         services.AddTransient<IEmailSender, EmailSender>();
 
+        services.AddMaxioBillingServices(configuration);
+
         return services;
     }
 }

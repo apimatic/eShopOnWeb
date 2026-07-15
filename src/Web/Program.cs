@@ -86,7 +86,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services
     .AddHealthChecks()
     .AddCheck<ApiHealthCheck>("api_health_check", tags: new[] { "apiHealthCheck" })
-    .AddCheck<HomePageHealthCheck>("home_page_health_check", tags: new[] { "homePageHealthCheck" });
+    .AddCheck<HomePageHealthCheck>("home_page_health_check", tags: new[] { "homePageHealthCheck" })
+    .AddCheck<MaxioHealthCheck>("maxio_health_check", tags: new[] { "maxioHealthCheck" });
 builder.Services.Configure<ServiceConfig>(config =>
 {
     config.Services = new List<ServiceDescriptor>(builder.Services);
@@ -195,6 +196,7 @@ app.MapControllerRoute("default", "{controller:slugify=Home}/{action:slugify=Ind
 app.MapRazorPages();
 app.MapHealthChecks("home_page_health_check", new HealthCheckOptions { Predicate = check => check.Tags.Contains("homePageHealthCheck") });
 app.MapHealthChecks("api_health_check", new HealthCheckOptions { Predicate = check => check.Tags.Contains("apiHealthCheck") });
+app.MapHealthChecks("maxio_health_check", new HealthCheckOptions { Predicate = check => check.Tags.Contains("maxioHealthCheck") });
 //endpoints.MapBlazorHub("/admin");
 app.MapFallbackToFile("index.html");
 

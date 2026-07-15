@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionValidationException subscriptionValidationException)
+        {
+            // Rejected before any billing-provider call (illegal transition, no-op change, stale preview, etc.).
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = subscriptionValidationException.Message
+            }.ToString());
+        }
+        else if (exception is BillingProviderException billingProviderException)
+        {
+            // The billing provider rejected the request or was unreachable — an upstream failure, not ours.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingProviderException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
