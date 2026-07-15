@@ -1,0 +1,56 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+
+<div class="container">
+    <h1>@ViewData["Title"]</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.CurrentPlanHandle != null)
+    {
+        <div class="alert alert-info">
+            You already have an active subscription on <strong>@Model.CurrentPlanHandle</strong>.
+            Manage it from <a asp-page="/Subscriptions/Mine">My Subscription</a>.
+        </div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h4 class="card-title">@plan.Name</h4>
+                            <p class="card-text">
+                                $@((plan.PriceInCents / 100m).ToString("N2")) / @plan.IntervalUnit
+                                @if (plan.Interval > 1)
+                                {
+                                    <span>(every @plan.Interval @(plan.IntervalUnit)s)</span>
+                                }
+                            </p>
+                            @if (Model.CurrentPlanHandle == null)
+                            {
+                                <form method="post" asp-page-handler="Subscribe">
+                                    <input type="hidden" name="productHandle" value="@plan.Handle" />
+                                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <p>No plans are currently available.</p>
+    }
+</div>

@@ -138,6 +138,23 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Best-effort, non-blocking: validates the Maxio configuration/sandbox seed in the
+// background so an unreachable billing provider never delays app startup (or, in
+// WebApplicationFactory-based tests, adds real network calls to every test run).
+_ = Task.Run(async () =>
+{
+    using var validationScope = app.Services.CreateScope();
+    try
+    {
+        var billingClient = validationScope.ServiceProvider.GetRequiredService<IBillingClient>();
+        await billingClient.ValidateConfigurationAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Maxio configuration validation failed at startup (UC1/UC2 will fail until the sandbox seed and/or Maxio:* configuration is fixed).");
+    }
+});
+
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;
 if (!string.IsNullOrEmpty(catalogBaseUrl))
 {

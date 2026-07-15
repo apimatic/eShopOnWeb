@@ -1,0 +1,129 @@
+@page
+@model MineModel
+@using Microsoft.eShopWeb.ApplicationCore.Interfaces
+@{
+    ViewData["Title"] = "My Subscription";
+}
+
+<div class="container">
+    <h1>@ViewData["Title"]</h1>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Subscription == null)
+    {
+        <p>You do not have a subscription yet. <a asp-page="/Subscriptions/Plans">Browse plans</a> to get started.</p>
+    }
+    else
+    {
+        var subscription = Model.Subscription;
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">@subscription.ProductName (@subscription.ProductHandle)</h4>
+                <p class="card-text">
+                    Price: $@((subscription.PriceInCents / 100m).ToString("N2"))<br />
+                    State: <strong>@subscription.State</strong><br />
+                    @if (subscription.NextBillingDate != null)
+                    {
+                        <span>Next billing date: @subscription.NextBillingDate.Value.ToString("D")<br /></span>
+                    }
+                    @if (subscription.DelayedCancelAt != null)
+                    {
+                        <span>Scheduled to cancel at: @subscription.DelayedCancelAt.Value.ToString("D")<br /></span>
+                    }
+                </p>
+
+                <div class="btn-group" role="group">
+                    @if (subscription.State == BillingSubscriptionState.Paused || subscription.State == BillingSubscriptionState.OnHold)
+                    {
+                        <form method="post" asp-page-handler="Resume" class="d-inline">
+                            <button type="submit" class="btn btn-primary">Resume</button>
+                        </form>
+                    }
+                    else if (subscription.State == BillingSubscriptionState.Canceled || subscription.State == BillingSubscriptionState.TrialEnded || subscription.State == BillingSubscriptionState.Unpaid)
+                    {
+                        <form method="post" asp-page-handler="Reactivate" class="d-inline">
+                            <button type="submit" class="btn btn-primary">Reactivate</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Pause" class="d-inline">
+                            <button type="submit" class="btn btn-secondary">Pause</button>
+                        </form>
+                        <form method="post" asp-page-handler="Cancel" class="d-inline">
+                            <input type="hidden" name="endOfPeriod" value="false" />
+                            <button type="submit" class="btn btn-danger">Cancel now</button>
+                        </form>
+                        <form method="post" asp-page-handler="Cancel" class="d-inline">
+                            <input type="hidden" name="endOfPeriod" value="true" />
+                            <button type="submit" class="btn btn-outline-danger">Cancel at period end</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Pay-as-you-go usage</h4>
+                <form method="post" asp-page-handler="RecordUsage" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label>Quantity</label>
+                        <input type="number" step="1" min="1" name="quantity" value="1" class="form-control" />
+                    </div>
+                    <div class="col-auto">
+                        <label>Memo (optional)</label>
+                        <input type="text" name="memo" class="form-control" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Record usage</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Change plan</h4>
+                <p>Move to the other plan, previewing the cost before committing.</p>
+                <form method="post" asp-page-handler="PreviewPlanChange" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label>Target plan handle</label>
+                        <input type="text" name="targetProductHandle" value="@(Model.PreviewTargetHandle)" class="form-control" placeholder="eshop-pro or basic-plan" />
+                    </div>
+                    <div class="col-auto form-check">
+                        <input type="checkbox" name="applyNow" value="true" class="form-check-input" id="applyNow" checked="@Model.PreviewApplyNow" />
+                        <label class="form-check-label" for="applyNow">Apply now (prorated)</label>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-secondary">Preview</button>
+                    </div>
+                </form>
+
+                @if (Model.Preview != null)
+                {
+                    <div class="alert alert-info mt-3">
+                        Prorated adjustment: $@((Model.Preview.ProratedAdjustmentInCents / 100m).ToString("N2"))<br />
+                        Charge: $@((Model.Preview.ChargeInCents / 100m).ToString("N2"))<br />
+                        Payment due: $@((Model.Preview.PaymentDueInCents / 100m).ToString("N2"))<br />
+                        Credit applied: $@((Model.Preview.CreditAppliedInCents / 100m).ToString("N2"))<br />
+                        Effective: @Model.Preview.EffectiveAt.ToString("D")
+                    </div>
+                    <form method="post" asp-page-handler="CommitPlanChange">
+                        <input type="hidden" name="targetProductHandle" value="@Model.PreviewTargetHandle" />
+                        <input type="hidden" name="applyNow" value="@Model.PreviewApplyNow" />
+                        <button type="submit" class="btn btn-primary">Confirm plan change</button>
+                    </form>
+                }
+            </div>
+        </div>
+    }
+</div>
