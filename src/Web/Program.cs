@@ -138,6 +138,23 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.Logger.LogInformation("Validating Maxio billing configuration...");
+
+using (var maxioScope = app.Services.CreateScope())
+{
+    try
+    {
+        var billingClient = maxioScope.ServiceProvider.GetRequiredService<IBillingClient>();
+        await billingClient.EnsureMeteredComponentConfiguredAsync();
+    }
+    catch (Exception ex)
+    {
+        // Non-fatal: Maxio failures must never block eShopOnWeb's own startup or order lifecycle
+        // (plan.md). UC2 (usage recording) will surface a configuration error until this is corrected.
+        app.Logger.LogError(ex, "Maxio billing configuration validation failed.");
+    }
+}
+
 var catalogBaseUrl = builder.Configuration.GetValue(typeof(string), "CatalogBaseUrl") as string;
 if (!string.IsNullOrEmpty(catalogBaseUrl))
 {

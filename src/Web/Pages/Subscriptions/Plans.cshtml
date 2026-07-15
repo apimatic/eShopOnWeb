@@ -1,0 +1,54 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2>Subscription Plans</h2>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    <p><a asp-page="./Mine">View my subscriptions</a></p>
+
+    @if (Model.Plans.Any())
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-xs-12 col-sm-6 col-md-4">
+                    <div class="esh-basket-items" style="border:1px solid #ddd; padding:1em; margin-bottom:1em;">
+                        <h3>@plan.Name</h3>
+                        <p>
+                            @if (plan.PriceInCents.HasValue)
+                            {
+                                <strong>$@((plan.PriceInCents.Value / 100m).ToString("N2"))</strong>
+                                <span> / @(plan.IntervalCount ?? 1) @(plan.IntervalUnit ?? "month")</span>
+                            }
+                        </p>
+                        <p>Handle: <code>@plan.Handle</code></p>
+                        <p>
+                            @(plan.RequiresPaymentMethod ? "Requires a payment method" : "No payment method required")
+                        </p>
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="productHandle" value="@plan.Handle" />
+                            <button type="submit" class="btn esh-basket-checkout">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <p>No plans are currently available.</p>
+    }
+</div>

@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
+using MediatR;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.IntegrationEvents;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -15,16 +18,22 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly IPublisher _publisher;
+    private readonly IAppLogger<OrderService> _logger;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
         IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+        IUriComposer uriComposer,
+        IPublisher publisher,
+        IAppLogger<OrderService> logger)
     {
         _orderRepository = orderRepository;
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -49,5 +58,17 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+
+        // Best-effort, in-process hook (plan.md §8): one order placed raises a notification that a
+        // subscription-side handler uses to record one billable usage unit. Never blocks or rolls back
+        // the order itself if publishing fails.
+        try
+        {
+            await _publisher.Publish(new OrderPlaced(order.BuyerId, order.Id));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to publish {0}: {1}", nameof(OrderPlaced), ex.Message);
+        }
     }
 }
