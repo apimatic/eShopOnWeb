@@ -1,0 +1,45 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Plans";
+}
+
+<div class="container">
+    <h2>Subscription Plans</h2>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (!Model.Plans.Any())
+    {
+        <p>No plans are available right now.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="card" style="margin-bottom: 1rem; padding: 1rem;">
+                        <h3>@(plan.Name ?? plan.Handle)</h3>
+                        <p>
+                            <strong>$@plan.Price.ToString("N2")</strong>
+                            @if (!string.IsNullOrEmpty(plan.IntervalUnit))
+                            {
+                                <span> / every @plan.Interval @plan.IntervalUnit</span>
+                            }
+                        </p>
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="productHandle" value="@plan.Handle" />
+                            <button type="submit" class="btn btn-primary">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <p><a asp-page="/Subscriptions/Mine">My Subscriptions</a></p>
+</div>
