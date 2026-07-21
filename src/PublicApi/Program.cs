@@ -6,12 +6,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using MediatR;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+// Subscription feature (mirrors the Web host's ConfigureCoreServices/ConfigureWebServices
+// wiring): the same ApplicationCore service and single Maxio integration point are reused here
+// for the admin/programmatic surface (§4.1/§4.3). IEmailSender above is also required here
+// because AddMediatR (below) discovers ApplicationCore's SubscriptionActivatedHandler, which
+// depends on it.
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SubscriptionService).Assembly));
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

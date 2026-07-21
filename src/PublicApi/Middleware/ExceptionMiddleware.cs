@@ -41,6 +41,53 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionNotFoundException notFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notFoundException.Message
+            }.ToString());
+        }
+        else if (exception is InvalidSubscriptionStateException or PlanChangePreviewStaleException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = argumentException.Message
+            }.ToString());
+        }
+        else if (exception is BillingConfigurationException configurationException)
+        {
+            // A misconfigured/stale provider handle is an eShopOnWeb-side operational problem,
+            // not the caller's fault, but it is not a generic 500 either — surface it distinctly.
+            context.Response.StatusCode = (int)HttpStatusCode.FailedDependency;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = configurationException.Message
+            }.ToString());
+        }
+        else if (exception is BillingProviderException billingProviderException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingProviderException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
