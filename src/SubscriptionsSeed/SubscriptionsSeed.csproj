@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Microsoft.eShopWeb.SubscriptionsSeed</RootNamespace>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
+	</ItemGroup>
+
+</Project>
