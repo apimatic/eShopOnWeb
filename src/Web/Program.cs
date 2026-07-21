@@ -42,6 +42,8 @@ else{
     });
 }
 
+Microsoft.eShopWeb.Infrastructure.Dependencies.AddMaxioBillingClient(builder.Configuration, builder.Services);
+
 builder.Services.AddCookieSettings();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

@@ -1,0 +1,48 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h3 class="esh-catalog-items row">Subscription Plans</h3>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="text-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <div class="esh-catalog-items row">
+            @foreach (var plan in Model.Plans)
+            {
+                <article class="esh-basket-items row">
+                    <div>
+                        <section class="esh-basket-item esh-basket-item--middle col-xs-3">@plan.Name</section>
+                        <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @plan.Price.ToString("N2") / @plan.IntervalUnit.ToLower()</section>
+                        <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                            <form method="post" asp-page-handler="Subscribe">
+                                <input type="hidden" name="productHandle" value="@plan.Handle" />
+                                <button type="submit" class="btn esh-basket-checkout">[ Subscribe ]</button>
+                            </form>
+                        </section>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No plans are currently available.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ My Subscriptions ]</a>
+    </section>
+</div>

@@ -41,6 +41,15 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingProviderException billingProviderException)
+        {
+            context.Response.StatusCode = (int)MapBillingErrorToStatusCode(billingProviderException.Kind);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingProviderException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +60,13 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static HttpStatusCode MapBillingErrorToStatusCode(BillingErrorKind kind) => kind switch
+    {
+        BillingErrorKind.Validation => HttpStatusCode.BadRequest,
+        BillingErrorKind.NotFound => HttpStatusCode.NotFound,
+        BillingErrorKind.ProviderRejected => HttpStatusCode.Conflict,
+        BillingErrorKind.ConnectionFailure => HttpStatusCode.BadGateway,
+        _ => HttpStatusCode.InternalServerError
+    };
 }

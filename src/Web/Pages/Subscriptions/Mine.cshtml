@@ -1,0 +1,86 @@
+@page
+@model MineModel
+@{
+    ViewData["Title"] = "My Subscriptions";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h3 class="esh-catalog-items row">My Subscriptions</h3>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="text-danger">@Model.ErrorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="text-success">@Model.StatusMessage</div>
+    }
+
+    @if (Model.Subscriptions.Any())
+    {
+        @foreach (var subscription in Model.Subscriptions)
+        {
+            <article class="esh-basket-items row">
+                <div>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-3">@subscription.ProductName</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @subscription.Price.ToString("N2")</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">@subscription.Status</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">
+                        @(subscription.NextBillingAt?.ToString("yyyy-MM-dd") ?? "-")
+                    </section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                        <form method="post" asp-page-handler="Usage" class="esh-basket-checkout">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="number" name="quantity" min="1" value="1" class="esh-basket-input" style="width:60px" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Record Usage ]</button>
+                        </form>
+                    </section>
+                </div>
+                <div class="row">
+                    <section class="esh-basket-item col-xs-12">
+                        <form method="post" asp-page-handler="Lifecycle" style="display:inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="hidden" name="action" value="pause" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Pause ]</button>
+                        </form>
+                        <form method="post" asp-page-handler="Lifecycle" style="display:inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="hidden" name="action" value="resume" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Resume ]</button>
+                        </form>
+                        <form method="post" asp-page-handler="Lifecycle" style="display:inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="hidden" name="action" value="cancel" />
+                            <input type="hidden" name="endOfPeriod" value="true" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Cancel at Period End ]</button>
+                        </form>
+                        <form method="post" asp-page-handler="Lifecycle" style="display:inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="hidden" name="action" value="cancel" />
+                            <input type="hidden" name="endOfPeriod" value="false" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Cancel Now ]</button>
+                        </form>
+                        <form method="post" asp-page-handler="Lifecycle" style="display:inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <input type="hidden" name="action" value="reactivate" />
+                            <button type="submit" class="btn esh-basket-checkout">[ Reactivate ]</button>
+                        </form>
+                    </section>
+                </div>
+            </article>
+        }
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">You have no subscriptions yet.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse Plans ]</a>
+    </section>
+</div>
