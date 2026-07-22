@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
+using MediatR;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.IntegrationEvents;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -15,16 +18,22 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly IPublisher _publisher;
+    private readonly IAppLogger<OrderService> _logger;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
         IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+        IUriComposer uriComposer,
+        IPublisher publisher,
+        IAppLogger<OrderService> logger)
     {
         _orderRepository = orderRepository;
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -48,6 +57,20 @@ public class OrderService : IOrderService
 
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
-        await _orderRepository.AddAsync(order);
+        order = await _orderRepository.AddAsync(order);
+
+        // Announce the placed order in-process. Anything downstream (for example the subscription
+        // module's pay-as-you-go meter) reacts here; a downstream failure must never undo an order
+        // that has already been persisted, so publication is deliberately best-effort.
+        try
+        {
+            await _publisher.Publish(new OrderPlaced(order.Id, order.BuyerId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                "Order {OrderId} was placed successfully but in-process publication of OrderPlaced failed: {Message}",
+                order.Id, ex.Message);
+        }
     }
 }

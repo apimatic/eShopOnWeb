@@ -81,6 +81,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizePage("/Basket/Checkout");
+    // Plans stay browsable anonymously; managing a subscription requires a signed-in customer.
+    options.Conventions.AuthorizePage("/Subscriptions/Mine");
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services
