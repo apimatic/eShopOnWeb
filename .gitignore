@@ -260,3 +260,6 @@ pub/
 .devcontainer
 
 .azure
+
+# benchmark readiness-harness working dir (keep oracle/_wired + logs off the public branch)
+/benchmark/
