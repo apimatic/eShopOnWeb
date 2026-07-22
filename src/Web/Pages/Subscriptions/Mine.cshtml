@@ -1,0 +1,198 @@
+﻿@page "{handler?}"
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model MineModel
+@{
+    ViewData["Title"] = "My subscription";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1 class="esh-catalog-title">My subscription</h1>
+
+    @if (!string.IsNullOrEmpty(Model.SubscriptionMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.SubscriptionMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Current is null)
+    {
+        <h3 class="esh-catalog-items row">You do not have a subscription yet.</h3>
+        <section class="esh-basket-item">
+            <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+        </section>
+    }
+    else
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-3">Plan</section>
+            <section class="esh-basket-title col-xs-2">Price</section>
+            <section class="esh-basket-title col-xs-2">State</section>
+            <section class="esh-basket-title col-xs-3">Next billing</section>
+            <section class="esh-basket-title col-xs-2">Scheduled</section>
+        </article>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">@Model.Current.Plan.Name</section>
+            <section class="esh-basket-item esh-basket-item--middle esh-basket-item--mark col-xs-2">
+                @Model.Current.Plan.BillingDescription
+            </section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">@Model.Current.State</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                @MineModel.Describe(Model.Current.NextBillingAt)
+            </section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">
+                @if (Model.Current.CancelAtEndOfPeriod)
+                {
+                    <text>Ends @MineModel.Describe(Model.Current.CurrentPeriodEndsAt)</text>
+                }
+                else if (!string.IsNullOrEmpty(Model.Current.ScheduledPlanHandle))
+                {
+                    <text>&rarr; @Model.Current.ScheduledPlanHandle</text>
+                }
+                else
+                {
+                    <text>&mdash;</text>
+                }
+            </section>
+        </article>
+
+        <h3 class="esh-catalog-title">Pay-as-you-go usage</h3>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item col-xs-8">
+                @if (Model.Usage is not null && Model.Usage.PeriodToDateUnitsAvailable)
+                {
+                    <text>
+                        @Model.Usage.PeriodToDateUnits unit(s) this period at @Model.Usage.UnitPrice?.ToString("C") each
+                        &mdash; @Model.Usage.PeriodToDateCharge?.ToString("C") will be added to your next renewal invoice.
+                    </text>
+                }
+                else
+                {
+                    <text>No usage has been recorded for the current period yet.</text>
+                }
+            </section>
+            <section class="esh-basket-item col-xs-4">
+                <form method="post" asp-page-handler="RecordUsage">
+                    <input type="number" class="esh-basket-input" min="1" step="1" name="quantity" value="1" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Record usage ]</button>
+                </form>
+            </section>
+        </article>
+
+        @if (Model.AlternatePlan is not null && Model.Current.CanChangePlan)
+        {
+            <h3 class="esh-catalog-title">Change plan</h3>
+
+            @if (Model.PendingPreview is not null)
+            {
+                <div class="alert alert-info" role="alert">
+                    Moving to <strong>@Model.PendingPreview.TargetPlanHandle</strong>
+                    (@Model.PendingPreview.Timing):
+                    prorated adjustment @Model.PendingPreview.ProratedAdjustment.ToString("C"),
+                    due now @Model.PendingPreview.PaymentDue.ToString("C"),
+                    credit applied @Model.PendingPreview.CreditApplied.ToString("C").
+                </div>
+                <form method="post" asp-page-handler="ChangePlan">
+                    <input type="hidden" name="targetPlanHandle" value="@Model.PendingPreview.TargetPlanHandle" />
+                    <input type="hidden" name="timing" value="@Model.PendingPreview.Timing" />
+                    <input type="hidden" name="previewFingerprint" value="@Model.PendingPreview.Fingerprint" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Confirm change ]</button>
+                </form>
+            }
+            else
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item col-xs-6">
+                        Move to <strong>@Model.AlternatePlan.Name</strong> (@Model.AlternatePlan.BillingDescription)
+                    </section>
+                    <section class="esh-basket-item col-xs-6">
+                        <form method="post" asp-page-handler="PreviewPlanChange">
+                            <input type="hidden" name="targetPlanHandle" value="@Model.AlternatePlan.Handle" />
+                            <button class="btn esh-basket-checkout" type="submit"
+                                    name="timing" value="@PlanChangeTiming.Immediately">
+                                [ Preview now ]
+                            </button>
+                            <button class="btn esh-basket-checkout" type="submit"
+                                    name="timing" value="@PlanChangeTiming.AtNextRenewal">
+                                [ Preview at renewal ]
+                            </button>
+                        </form>
+                    </section>
+                </article>
+            }
+        }
+
+        <h3 class="esh-catalog-title">Manage</h3>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item col-xs-12">
+                <form method="post" asp-page-handler="Lifecycle">
+                    <input type="hidden" name="cancellationTiming" value="@CancellationTiming.Immediate" />
+                    @if (Model.Current.CanPause)
+                    {
+                        <button class="btn esh-basket-checkout" type="submit"
+                                name="action" value="@SubscriptionLifecycleAction.Pause">[ Pause ]</button>
+                    }
+                    @if (Model.Current.CanResume)
+                    {
+                        <button class="btn esh-basket-checkout" type="submit"
+                                name="action" value="@SubscriptionLifecycleAction.Resume">[ Resume ]</button>
+                    }
+                    @if (Model.Current.CanReactivate)
+                    {
+                        <button class="btn esh-basket-checkout" type="submit"
+                                name="action" value="@SubscriptionLifecycleAction.Reactivate">[ Reactivate ]</button>
+                    }
+                    @if (Model.Current.CanCancel)
+                    {
+                        <button class="btn esh-basket-checkout" type="submit"
+                                name="action" value="@SubscriptionLifecycleAction.Cancel">[ Cancel now ]</button>
+                    }
+                </form>
+            </section>
+        </article>
+
+        @if (Model.Current.CanCancel)
+        {
+            <article class="esh-basket-items row">
+                <section class="esh-basket-item col-xs-12">
+                    <form method="post" asp-page-handler="Lifecycle">
+                        <input type="hidden" name="action" value="@SubscriptionLifecycleAction.Cancel" />
+                        <input type="hidden" name="cancellationTiming" value="@CancellationTiming.EndOfPeriod" />
+                        <button class="btn esh-basket-checkout" type="submit">[ Cancel at end of period ]</button>
+                    </form>
+                </section>
+            </article>
+        }
+
+        @if (Model.Subscriptions.Count > 1)
+        {
+            <h3 class="esh-catalog-title">All subscriptions</h3>
+            <article class="esh-basket-titles row">
+                <section class="esh-basket-title col-xs-4">Plan</section>
+                <section class="esh-basket-title col-xs-4">State</section>
+                <section class="esh-basket-title col-xs-4">Period ends</section>
+            </article>
+            @foreach (var subscription in Model.Subscriptions)
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item col-xs-4">@subscription.Plan.Name</section>
+                    <section class="esh-basket-item col-xs-4">@subscription.State</section>
+                    <section class="esh-basket-item col-xs-4">
+                        @MineModel.Describe(subscription.CurrentPeriodEndsAt)
+                    </section>
+                </article>
+            }
+        }
+
+        <section class="esh-basket-item">
+            <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+        </section>
+    }
+</div>
