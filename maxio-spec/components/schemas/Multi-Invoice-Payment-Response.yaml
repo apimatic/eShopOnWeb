@@ -1,0 +1,7 @@
+title: Multi Invoice Payment Response
+type: object
+properties:
+  payment:
+    $ref: "./Multi-Invoice-Payment.yaml"
+required:
+  - payment
