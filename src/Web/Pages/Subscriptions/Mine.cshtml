@@ -1,0 +1,79 @@
+@page "{handler?}"
+@using Microsoft.eShopWeb.ApplicationCore.Models.Billing
+@model MineModel
+@{
+    ViewData["Title"] = "My subscriptions";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h3 class="esh-catalog-items row">My subscriptions</h3>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="esh-catalog-items row text-danger">@Model.ErrorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="esh-catalog-items row">@Model.StatusMessage</div>
+    }
+    @if (Model.Preview is not null)
+    {
+        <div class="esh-catalog-items row">
+            Moving to @Model.Preview.TargetProductHandle costs $ @Model.Preview.PaymentDue.ToString("N2")
+            (charge $ @Model.Preview.Charge.ToString("N2"), proration $ @Model.Preview.ProratedAdjustment.ToString("N2")).
+        </div>
+    }
+
+    @if (Model.Subscriptions.Any())
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-4">Plan</section>
+            <section class="esh-basket-title col-xs-2">Price</section>
+            <section class="esh-basket-title col-xs-2">State</section>
+            <section class="esh-basket-title col-xs-4">Next billing</section>
+        </article>
+
+        @foreach (var subscription in Model.Subscriptions)
+        {
+            <article class="esh-basket-items row">
+                <section class="esh-basket-item esh-basket-item--middle col-xs-4">@subscription.PlanName</section>
+                <section class="esh-basket-item esh-basket-item--middle esh-basket-item--mark col-xs-2">$ @subscription.PlanPrice.ToString("N2")</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-2">@subscription.State</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-4">@(subscription.NextBillingDate?.ToString("d") ?? "-")</section>
+            </article>
+
+            <article class="esh-basket-items row">
+                <form method="post" asp-page-handler="Lifecycle">
+                    <input type="hidden" name="subscriptionId" value="@subscription.BillingSubscriptionId" />
+                    <input type="hidden" name="timing" value="@CancellationTiming.EndOfPeriod" />
+                    <button class="btn esh-basket-checkout" type="submit" name="action" value="@SubscriptionLifecycleAction.Pause">[ Pause ]</button>
+                    <button class="btn esh-basket-checkout" type="submit" name="action" value="@SubscriptionLifecycleAction.Resume">[ Resume ]</button>
+                    <button class="btn esh-basket-checkout" type="submit" name="action" value="@SubscriptionLifecycleAction.Cancel">[ Cancel at period end ]</button>
+                    <button class="btn esh-basket-checkout" type="submit" name="action" value="@SubscriptionLifecycleAction.Reactivate">[ Reactivate ]</button>
+                </form>
+            </article>
+
+            <article class="esh-basket-items row">
+                <form method="post" asp-page-handler="RecordUsage">
+                    <input type="hidden" name="subscriptionId" value="@subscription.BillingSubscriptionId" />
+                    <input type="number" class="esh-basket-input" min="1" name="quantity" value="1" />
+                    <input type="text" class="esh-basket-input" name="memo" placeholder="memo" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Report usage ]</button>
+                </form>
+            </article>
+        }
+    }
+    else
+    {
+        <h3 class="esh-catalog-items row">You have no subscriptions yet.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+    </section>
+</div>

@@ -1,0 +1,50 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h3 class="esh-catalog-items row">Subscription plans</h3>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="esh-catalog-items row text-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <form method="post">
+            <article class="esh-basket-titles row">
+                <section class="esh-basket-title col-xs-5">Plan</section>
+                <section class="esh-basket-title col-xs-3">Price</section>
+                <section class="esh-basket-title col-xs-2">Billed</section>
+                <section class="esh-basket-title col-xs-2"></section>
+            </article>
+            @foreach (var plan in Model.Plans)
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-5">@plan.Name</section>
+                    <section class="esh-basket-item esh-basket-item--middle esh-basket-item--mark col-xs-3">$ @plan.Price.ToString("N2")</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">every @plan.Interval @plan.IntervalUnit</section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-2">
+                        <button class="btn esh-basket-checkout" type="submit" name="planHandle" value="@plan.Handle">[ Subscribe ]</button>
+                    </section>
+                </article>
+            }
+        </form>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No plans are available.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ My subscriptions ]</a>
+    </section>
+</div>
