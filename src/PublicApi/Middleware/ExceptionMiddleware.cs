@@ -31,24 +31,39 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)StatusCodeFor(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    /// <summary>
+    /// Maps a domain failure to the status code that describes it, so a client can tell a bad
+    /// request from a state conflict from an upstream billing outage.
+    /// </summary>
+    private static HttpStatusCode StatusCodeFor(Exception exception) => exception switch
+    {
+        DuplicateException => HttpStatusCode.Conflict,
+
+        // Absent, or not the caller's — deliberately indistinguishable so that subscription ids
+        // belonging to other users cannot be probed.
+        SubscriptionNotFoundException => HttpStatusCode.NotFound,
+
+        // Well-formed, but it conflicts with the subscription's current state.
+        InvalidSubscriptionTransitionException => HttpStatusCode.Conflict,
+        StalePlanChangePreviewException => HttpStatusCode.Conflict,
+
+        // This integration's configuration or the provider seed is wrong; retrying will not help.
+        BillingConfigurationException => HttpStatusCode.InternalServerError,
+
+        // The billing provider rejected the request or could not be reached.
+        BillingProviderException => HttpStatusCode.BadGateway,
+
+        ArgumentException => HttpStatusCode.BadRequest,
+
+        _ => HttpStatusCode.InternalServerError
+    };
 }

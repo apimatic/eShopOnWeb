@@ -1,0 +1,46 @@
+﻿using System.Linq;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+/// <summary>
+/// Lists the caller's own subscriptions (UC1).
+/// </summary>
+public class MySubscriptionsEndpoint : IEndpoint<IResult, MySubscriptionsRequest, ISubscriptionService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/subscriptions",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (ClaimsPrincipal user, ISubscriptionService subscriptionService, CancellationToken cancellationToken) =>
+            {
+                // The identity comes from the bearer token, so a caller can only ever list their own.
+                return await HandleAsync(
+                    new MySubscriptionsRequest(user.RequireUserReference(), cancellationToken),
+                    subscriptionService);
+            })
+            .Produces<MySubscriptionsResponse>()
+            .WithTags("SubscriptionEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(MySubscriptionsRequest request, ISubscriptionService subscriptionService)
+    {
+        var response = new MySubscriptionsResponse(request.CorrelationId());
+
+        var subscriptions = await subscriptionService.ListSubscriptionsForUserAsync(
+            request.UserReference, request.CancellationToken);
+
+        response.Subscriptions.AddRange(subscriptions.Select(SubscriptionDtoMapper.ToDto));
+
+        return Results.Ok(response);
+    }
+}
