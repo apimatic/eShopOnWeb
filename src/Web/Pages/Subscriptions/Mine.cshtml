@@ -1,0 +1,136 @@
+@page
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@{
+    ViewData["Title"] = "My Subscriptions";
+}
+
+<div class="container">
+    <h1>My Subscriptions</h1>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Subscriptions.Count == 0)
+    {
+        <p>You have no subscriptions yet. <a asp-page="/Subscriptions/Plans">Browse plans</a>.</p>
+    }
+    else
+    {
+        foreach (CustomerSubscription sub in Model.Subscriptions)
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>@sub.ProductName</strong> (@sub.ProductHandle) —
+                    <span class="badge badge-info">@sub.State</span>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Price: $@sub.ProductPrice.ToString("0.00") / @sub.Interval<br />
+                        Next billing: @(sub.CurrentPeriodEndsAt?.ToString("d") ?? "—")<br />
+                        @if (sub.CancelAtEndOfPeriod)
+                        {
+                            <span class="text-warning">Scheduled to cancel at period end.</span>
+                        }
+                    </p>
+
+                    <div class="mb-3">
+                        @* UC4 lifecycle actions, gated by current state *@
+                        @if (sub.IsActive)
+                        {
+                            <form method="post" asp-page-handler="Pause" class="d-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <button type="submit" class="btn btn-secondary btn-sm">Pause</button>
+                            </form>
+                            <form method="post" asp-page-handler="Cancel" class="d-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <input type="hidden" name="immediate" value="false" />
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Cancel at period end</button>
+                            </form>
+                            <form method="post" asp-page-handler="Cancel" class="d-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <input type="hidden" name="immediate" value="true" />
+                                <button type="submit" class="btn btn-danger btn-sm">Cancel now</button>
+                            </form>
+                        }
+                        @if (string.Equals(sub.State, "on_hold", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form method="post" asp-page-handler="Resume" class="d-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <button type="submit" class="btn btn-success btn-sm">Resume</button>
+                            </form>
+                        }
+                        @if (string.Equals(sub.State, "canceled", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form method="post" asp-page-handler="Reactivate" class="d-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <button type="submit" class="btn btn-success btn-sm">Reactivate</button>
+                            </form>
+                        }
+                    </div>
+
+                    @if (sub.IsActive)
+                    {
+                        <div class="mb-3">
+                            <h6>Report usage (pay-as-you-go)</h6>
+                            <form method="post" asp-page-handler="RecordUsage" class="form-inline">
+                                <input type="hidden" name="id" value="@sub.Id" />
+                                <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm mr-2" style="width:100px" />
+                                <input type="text" name="memo" placeholder="memo (optional)" class="form-control form-control-sm mr-2" />
+                                <button type="submit" class="btn btn-primary btn-sm">Record usage</button>
+                            </form>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6>Change plan</h6>
+                            @foreach (SubscriptionPlan plan in Model.Plans.Where(p => !string.Equals(p.Handle, sub.ProductHandle, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                <form method="post" asp-page-handler="Preview" class="d-inline">
+                                    <input type="hidden" name="id" value="@sub.Id" />
+                                    <input type="hidden" name="target" value="@plan.Handle" />
+                                    <input type="hidden" name="applyImmediately" value="true" />
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">Preview → @plan.Name (now)</button>
+                                </form>
+                                <form method="post" asp-page-handler="Preview" class="d-inline">
+                                    <input type="hidden" name="id" value="@sub.Id" />
+                                    <input type="hidden" name="target" value="@plan.Handle" />
+                                    <input type="hidden" name="applyImmediately" value="false" />
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">Preview → @plan.Name (at renewal)</button>
+                                </form>
+                            }
+                        </div>
+
+                        @if (Model.Preview is not null && Model.PreviewSubscriptionId == sub.Id)
+                        {
+                            var preview = Model.Preview;
+                            <div class="alert alert-info">
+                                <strong>Plan change preview → @preview.TargetProductHandle</strong>
+                                (@(preview.ApplyImmediately ? "immediate, prorated" : "at next renewal"))<br />
+                                Prorated adjustment: $@preview.ProratedAdjustment.ToString("0.00")<br />
+                                Charge: $@preview.ChargeAmount.ToString("0.00")<br />
+                                Payment due: $@preview.PaymentDue.ToString("0.00")<br />
+                                Credit applied: $@preview.CreditApplied.ToString("0.00")
+                                <form method="post" asp-page-handler="ChangePlan" class="mt-2">
+                                    <input type="hidden" name="id" value="@sub.Id" />
+                                    <input type="hidden" name="target" value="@preview.TargetProductHandle" />
+                                    <input type="hidden" name="applyImmediately" value="@preview.ApplyImmediately.ToString().ToLowerInvariant()" />
+                                    <input type="hidden" name="proratedAdjustment" value="@preview.ProratedAdjustment" />
+                                    <input type="hidden" name="chargeAmount" value="@preview.ChargeAmount" />
+                                    <input type="hidden" name="paymentDue" value="@preview.PaymentDue" />
+                                    <input type="hidden" name="creditApplied" value="@preview.CreditApplied" />
+                                    <button type="submit" class="btn btn-primary btn-sm">Confirm change</button>
+                                </form>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

@@ -1,0 +1,55 @@
+@page
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+
+<div class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</div>
+
+<section class="esh-catalog-filters">
+    <div class="container">
+        <h1 style="color:#fff;">Subscription Plans</h1>
+    </div>
+</section>
+
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Count == 0)
+    {
+        <p>No plans are available at the moment.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (SubscriptionPlan plan in Model.Plans)
+            {
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h4 class="card-title">@plan.Name</h4>
+                            <h5 class="card-subtitle mb-2 text-muted">$@plan.Price.ToString("0.00") / @plan.Interval</h5>
+                            <p class="card-text">@plan.Description</p>
+                            <form method="post" asp-page-handler="Subscribe">
+                                <input type="hidden" name="handle" value="@plan.Handle" />
+                                <button type="submit" class="btn btn-brand">Subscribe</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
