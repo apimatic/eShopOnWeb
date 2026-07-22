@@ -1,0 +1,21 @@
+title: Metafield
+type: object
+properties:
+  id:
+    type: integer
+  name:
+    type: string
+  scope:
+    $ref: "./Metafield-Scope.yaml"
+  data_count:
+    type: integer
+    description: The amount of subscriptions this metafield has been applied to in Advanced Billing.
+  input_type:
+    $ref: "./Metafield-Input.yaml"
+  enum:
+    oneOf:
+      - type: "null"
+      - type: string
+      - type: array
+        items:
+          type: string
