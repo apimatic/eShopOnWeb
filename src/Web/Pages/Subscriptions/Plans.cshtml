@@ -1,0 +1,45 @@
+@page "{handler?}"
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+
+<div class="esh-catalog-hero">
+    <div class="container">
+        <h1 class="esh-catalog-title">Subscription plans</h1>
+    </div>
+</div>
+
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (!Model.Plans.Any())
+    {
+        <p>There are no plans available at the moment.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans.Where(p => !p.IsArchived))
+            {
+                <div class="col-md-4">
+                    <div class="esh-catalog-item">
+                        <h3>@plan.Name</h3>
+                        <p>@plan.Description</p>
+                        <p class="esh-catalog-price">
+                            <span>@plan.Price.ToString("C")</span>
+                            <small> / @plan.Interval @plan.IntervalUnit</small>
+                        </p>
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="planHandle" value="@plan.Handle" />
+                            <button class="btn esh-catalog-send" type="submit">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

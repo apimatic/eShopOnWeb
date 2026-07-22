@@ -1,0 +1,103 @@
+@page "{handler?}"
+@using Microsoft.eShopWeb.ApplicationCore.Billing
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@{
+    ViewData["Title"] = "My subscription";
+}
+
+<div class="esh-catalog-hero">
+    <div class="container">
+        <h1 class="esh-catalog-title">My subscription</h1>
+    </div>
+</div>
+
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Preview is not null)
+    {
+        <div class="alert alert-info" role="alert">
+            <p>
+                Changing to <strong>@Model.Preview.TargetPlanHandle</strong> costs
+                <strong>@Model.Preview.ProratedAdjustment.ToString("C")</strong> now
+                (payment due @Model.Preview.PaymentDue.ToString("C"),
+                credit applied @Model.Preview.CreditApplied.ToString("C")).
+            </p>
+            <form method="post" asp-page-handler="ChangePlan">
+                <input type="hidden" name="subscriptionId" value="@Model.Preview.SubscriptionId" />
+                <input type="hidden" name="targetPlanHandle" value="@Model.Preview.TargetPlanHandle" />
+                <input type="hidden" name="timing" value="@PlanChangeTiming.Immediate" />
+                <input type="hidden" name="acknowledgedProratedAdjustment" value="@Model.Preview.ProratedAdjustment" />
+                <button class="btn esh-catalog-send" type="submit">Confirm this change</button>
+            </form>
+        </div>
+    }
+
+    @if (!Model.Subscriptions.Any())
+    {
+        <p>
+            You do not have a subscription yet.
+            <a asp-page="./Plans">Browse the available plans</a>.
+        </p>
+    }
+    else
+    {
+        foreach (var subscription in Model.Subscriptions)
+        {
+            var alternatePlan = Model.GetAlternatePlanHandle(subscription);
+
+            <div class="esh-catalog-item">
+                <h3>@subscription.PlanName (@subscription.PlanHandle)</h3>
+                <p>
+                    State: <strong>@subscription.State</strong> &middot;
+                    @subscription.PlanPrice.ToString("C") per period &middot;
+                    Balance @subscription.Balance.ToString("C")
+                </p>
+                @if (subscription.NextBillingAt.HasValue)
+                {
+                    <p>Next billing date: @subscription.NextBillingAt.Value.ToString("d")</p>
+                }
+                @if (subscription.CancelAtEndOfPeriod)
+                {
+                    <p><em>Cancels at the end of the current period.</em></p>
+                }
+                @if (!string.IsNullOrEmpty(subscription.PendingPlanHandle))
+                {
+                    <p><em>Moving to @subscription.PendingPlanHandle at the next renewal.</em></p>
+                }
+
+                <form method="post" asp-page-handler="Lifecycle" class="form-inline">
+                    <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                    <button class="btn" type="submit" name="action" value="@SubscriptionLifecycleAction.Pause">Pause</button>
+                    <button class="btn" type="submit" name="action" value="@SubscriptionLifecycleAction.Resume">Resume</button>
+                    <button class="btn" type="submit" name="action" value="@SubscriptionLifecycleAction.CancelAtEndOfPeriod">Cancel at period end</button>
+                    <button class="btn" type="submit" name="action" value="@SubscriptionLifecycleAction.Cancel">Cancel now</button>
+                    <button class="btn" type="submit" name="action" value="@SubscriptionLifecycleAction.Reactivate">Reactivate</button>
+                </form>
+
+                @if (!string.IsNullOrEmpty(alternatePlan))
+                {
+                    <form method="post" asp-page-handler="PreviewPlanChange" class="form-inline">
+                        <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                        <input type="hidden" name="targetPlanHandle" value="@alternatePlan" />
+                        <button class="btn" type="submit">Preview change to @alternatePlan</button>
+                    </form>
+                }
+
+                <form method="post" asp-page-handler="RecordUsage" class="form-inline">
+                    <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                    <label for="quantity-@subscription.Id">Report usage</label>
+                    <input id="quantity-@subscription.Id" type="number" name="quantity" min="1" step="1" value="1" />
+                    <button class="btn" type="submit">Record</button>
+                </form>
+            </div>
+        }
+    }
+</div>

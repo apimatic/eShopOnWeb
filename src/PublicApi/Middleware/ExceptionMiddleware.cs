@@ -32,23 +32,65 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Describe(exception);
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    /// <summary>
+    /// Chooses the status and the caller-facing message. Only exceptions this application raises
+    /// deliberately have their message echoed; anything unexpected is reported generically so internal
+    /// detail never reaches a caller.
+    /// </summary>
+    private static (int StatusCode, string Message) Describe(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case SubscriptionNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            case InvalidSubscriptionOperationException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            // Guard-clause failures are caller input problems, not server faults.
+            case ArgumentException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            // A wrong or missing billing configuration is an operator problem, not a caller problem.
+            case BillingConfigurationException:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
+
+            case BillingProviderException billingProviderException:
+                return (MapProviderStatus(billingProviderException.StatusCode), exception.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.");
         }
     }
+
+    /// <summary>
+    /// Translates the billing provider's status into one that means the same thing to our caller.
+    /// </summary>
+    private static int MapProviderStatus(int providerStatusCode) => providerStatusCode switch
+    {
+        (int)HttpStatusCode.NotFound => (int)HttpStatusCode.NotFound,
+        (int)HttpStatusCode.TooManyRequests => (int)HttpStatusCode.TooManyRequests,
+        (int)HttpStatusCode.ServiceUnavailable => (int)HttpStatusCode.ServiceUnavailable,
+        (int)HttpStatusCode.RequestTimeout => (int)HttpStatusCode.GatewayTimeout,
+
+        // The caller sent something the provider would not accept.
+        (int)HttpStatusCode.BadRequest or (int)HttpStatusCode.UnprocessableEntity
+            => (int)HttpStatusCode.BadRequest,
+
+        // Anything else — including our own credentials being rejected — is an upstream failure.
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }
