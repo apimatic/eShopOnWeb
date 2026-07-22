@@ -1,5 +1,6 @@
 ﻿using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Data.Queries;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -24,6 +25,10 @@ public static class ConfigureCoreServices
 
         services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
         services.AddTransient<IEmailSender, EmailSender>();
+
+        // Subscription module: typed Maxio options plus the billing client whose base address is
+        // resolved from configuration, so the target server is switchable without a code change.
+        services.AddMaxioBilling(configuration);
 
         return services;
     }

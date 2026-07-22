@@ -1,0 +1,47 @@
+@page
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1 class="esh-catalog-title">Subscription plans</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <div class="esh-catalog-items row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="esh-catalog-item col-md-4">
+                    <div class="esh-catalog-name">@plan.Name</div>
+                    <div class="esh-catalog-price">
+                        <span>$ @plan.Price.ToString("N2")</span>
+                        <small> / @plan.Interval @plan.IntervalUnit</small>
+                    </div>
+                    <form method="post">
+                        <input type="hidden" name="planHandle" value="@plan.Handle" />
+                        <button class="btn esh-catalog-button" type="submit">[ Subscribe ]</button>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No subscription plans are available.</h3>
+    }
+
+    <section class="esh-basket-item">
+        <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ My subscriptions ]</a>
+    </section>
+</div>
