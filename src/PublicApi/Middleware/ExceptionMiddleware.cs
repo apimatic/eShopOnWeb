@@ -31,24 +31,25 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)StatusCodeFor(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    private static HttpStatusCode StatusCodeFor(Exception exception) => exception switch
+    {
+        DuplicateException => HttpStatusCode.Conflict,
+        SubscriptionNotFoundException => HttpStatusCode.NotFound,
+        // The caller asked for something the current state or configuration does not allow.
+        InvalidSubscriptionTransitionException => HttpStatusCode.Conflict,
+        StalePlanChangePreviewException => HttpStatusCode.Conflict,
+        BillingConfigurationException => HttpStatusCode.BadRequest,
+        BillingProviderException => HttpStatusCode.BadGateway,
+        ArgumentException => HttpStatusCode.BadRequest,
+        _ => HttpStatusCode.InternalServerError
+    };
 }

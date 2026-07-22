@@ -1,0 +1,58 @@
+﻿@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2 class="esh-basket-title">Subscription plans</h2>
+
+    @if (Model.ErrorMessage != null)
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    <div asp-validation-summary="All" class="text-danger"></div>
+
+    @if (Model.CurrentSubscription != null)
+    {
+        <div class="alert alert-info">
+            You are currently subscribed to <strong>@Model.CurrentSubscription.Plan.Name</strong>.
+            <a asp-page="./Mine">Manage your subscription</a>.
+        </div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-4">Plan</section>
+            <section class="esh-basket-title col-xs-3">Price</section>
+            <section class="esh-basket-title col-xs-2">Billed</section>
+            <section class="esh-basket-title col-xs-3"></section>
+        </article>
+
+        @foreach (var plan in Model.Plans)
+        {
+            <article class="esh-basket-items row">
+                <section class="esh-basket-item esh-basket-item--middle col-xs-4">@plan.Name</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-3">$ @plan.Price.ToString("N2")</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-2">every @plan.Interval @plan.IntervalUnit</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                    <form method="post" asp-page-handler="Subscribe">
+                        <input type="hidden" name="planHandle" value="@plan.Handle" />
+                        <button class="btn esh-basket-checkout" type="submit">[ Subscribe ]</button>
+                    </form>
+                </section>
+            </article>
+        }
+    }
+    else if (Model.ErrorMessage == null)
+    {
+        <h3 class="esh-catalog-items row">No plans are available.</h3>
+    }
+</div>
