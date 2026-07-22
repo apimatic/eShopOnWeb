@@ -1,0 +1,104 @@
+@page "{handler?}"
+@model ChangePlanModel
+@{
+    ViewData["Title"] = "Change plan";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1 class="esh-catalog-title">Change plan</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Preview is not null)
+    {
+        var preview = Model.Preview;
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">
+                    @(preview.CurrentPlanName ?? preview.CurrentPlanHandle)
+                    &rarr;
+                    @(preview.TargetPlanName ?? preview.TargetPlanHandle)
+                </h4>
+
+                <p class="card-text">
+                    New recurring price: <strong>@preview.TargetPlanPrice.ToString("C")</strong>
+                </p>
+
+                @if (preview.Timing == PlanChangeTiming.AtNextRenewal)
+                {
+                    <p class="card-text">
+                        The new price takes effect at your next renewal
+                        @if (preview.EffectiveAt.HasValue)
+                        {
+                            <text>on @preview.EffectiveAt.Value.ToString("d")</text>
+                        }.
+                        Nothing is charged now.
+                    </p>
+                }
+                else
+                {
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td>Prorated adjustment</td>
+                                <td>@preview.ProratedAdjustment.ToString("C")</td>
+                            </tr>
+                            <tr>
+                                <td>Charge</td>
+                                <td>@preview.Charge.ToString("C")</td>
+                            </tr>
+                            <tr>
+                                <td>Credit applied</td>
+                                <td>@preview.CreditApplied.ToString("C")</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Due now</strong></td>
+                                <td><strong>@preview.PaymentDue.ToString("C")</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                }
+
+                <form method="post" asp-page-handler="Confirm">
+                    <input type="hidden" asp-for="SubscriptionId" />
+                    <input type="hidden" asp-for="TargetPlanHandle" />
+                    <input type="hidden" asp-for="Timing" />
+                    <input type="hidden" name="previewSignature" value="@preview.Signature" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Confirm change ]</button>
+                    <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ Cancel ]</a>
+                </form>
+            </div>
+        </div>
+
+        <p style="margin-top:1rem">
+            @if (preview.Timing == PlanChangeTiming.Immediate)
+            {
+                <a asp-page="./ChangePlan"
+                   asp-route-subscriptionId="@Model.SubscriptionId"
+                   asp-route-targetPlanHandle="@Model.TargetPlanHandle"
+                   asp-route-timing="@PlanChangeTiming.AtNextRenewal"
+                   class="btn esh-basket-checkout">[ Apply at next renewal instead ]</a>
+            }
+            else
+            {
+                <a asp-page="./ChangePlan"
+                   asp-route-subscriptionId="@Model.SubscriptionId"
+                   asp-route-targetPlanHandle="@Model.TargetPlanHandle"
+                   asp-route-timing="@PlanChangeTiming.Immediate"
+                   class="btn esh-basket-checkout">[ Apply now with proration instead ]</a>
+            }
+        </p>
+    }
+    else
+    {
+        <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ Back to my subscriptions ]</a>
+    }
+</div>
