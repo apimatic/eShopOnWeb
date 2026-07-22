@@ -1,0 +1,63 @@
+@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1>Subscription plans</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.PlansModelView.HasActiveSubscription)
+    {
+        <div class="alert alert-info" role="alert">
+            You are currently subscribed to <strong>@Model.PlansModelView.CurrentPlanHandle</strong>.
+            Use <a asp-page="./Mine">My subscriptions</a> to change plan or manage it.
+        </div>
+    }
+
+    @if (!Model.PlansModelView.Plans.Any())
+    {
+        <p>No subscription plans are available at the moment.</p>
+    }
+    else
+    {
+        <div class="esh-catalog-items row">
+            @foreach (var plan in Model.PlansModelView.Plans)
+            {
+                <div class="esh-catalog-item col-md-4">
+                    <div class="card" style="padding: 1rem; margin-bottom: 1rem;">
+                        <h3>@plan.Name</h3>
+                        <p class="esh-catalog-price"><span>$@plan.Price.ToString("N2")</span> / @plan.BillingPeriodDescription</p>
+                        @if (!string.IsNullOrEmpty(plan.Description))
+                        {
+                            <p>@plan.Description</p>
+                        }
+                        <p><small>Plan handle: @plan.Handle</small></p>
+
+                        @if (string.Equals(plan.Handle, Model.PlansModelView.CurrentPlanHandle, StringComparison.Ordinal))
+                        {
+                            <button class="btn btn-secondary" disabled>Current plan</button>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Subscribe">
+                                <input type="hidden" name="planHandle" value="@plan.Handle" />
+                                <button type="submit" class="btn btn-primary">Subscribe</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
