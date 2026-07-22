@@ -1,0 +1,26 @@
+title: Subscription MRR Response
+type: object
+properties:
+  subscriptions_mrr:
+    type: array
+    uniqueItems: true
+    minItems: 1
+    items:
+      $ref: "./Subscription-Mrr.yaml"
+required:
+  - subscriptions_mrr
+x-examples:
+  example-1:
+    subscriptions_mrr:
+      - subscription_id: 17
+        mrr_amount_in_cents: 3558750
+        breakouts:
+          plan_amount_in_cents: 2342084
+          usage_amount_in_cents: 1216667
+examples:
+  - subscriptions_mrr:
+      - subscription_id: 0
+        mrr_amount_in_cents: 0
+        breakouts:
+          plan_amount_in_cents: 0
+          usage_amount_in_cents: 0
