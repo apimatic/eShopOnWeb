@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
+using MediatR;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.IntegrationEvents;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -15,16 +18,22 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly IPublisher _publisher;
+    private readonly IAppLogger<OrderService> _logger;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
         IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+        IUriComposer uriComposer,
+        IPublisher publisher,
+        IAppLogger<OrderService> logger)
     {
         _orderRepository = orderRepository;
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -48,6 +57,26 @@ public class OrderService : IOrderService
 
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
-        await _orderRepository.AddAsync(order);
+        var created = await _orderRepository.AddAsync(order);
+
+        await AnnounceOrderPlacedAsync(created);
+    }
+
+    /// <summary>
+    /// Announces the completed order in-process so subscription billing can meter it. The order is already
+    /// persisted at this point: a failure here is logged and swallowed so that nothing downstream of
+    /// checkout — billing included — can fail or roll back a customer's order.
+    /// </summary>
+    private async Task AnnounceOrderPlacedAsync(Order order)
+    {
+        try
+        {
+            await _publisher.Publish(new OrderPlaced(order.Id, order.BuyerId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Order {OrderId} was placed successfully, but the in-process OrderPlaced notification failed: {Reason}",
+                order.Id, ex.Message);
+        }
     }
 }
