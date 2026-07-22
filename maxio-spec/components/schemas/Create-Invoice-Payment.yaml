@@ -1,0 +1,26 @@
+title: Create Invoice Payment
+type: object
+properties:
+  amount:
+    type:
+      - string
+      - number
+    description: A string of the dollar amount to be refunded (eg. "10.50" => $10.50)
+  memo:
+    type: string
+    description: A description to be attached to the payment. Applicable only to `external` payments.
+  method:
+    $ref: "./Invoice-Payment-Method-Type.yaml"
+  details:
+    type: string
+    description: |
+      Additional information related to the payment method (eg. Check #). Applicable only to `external` payments.
+  payment_profile_id:
+    type: integer
+    description: The ID of the payment profile to be used for the payment.
+  received_on:
+    type: string
+    format: date
+    description: |-
+      Date reflecting when the payment was received from a customer. Must be in the past. Applicable only to 
+      `external` payments.
