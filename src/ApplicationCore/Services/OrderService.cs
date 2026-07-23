@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
+using MediatR;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.IntegrationEvents;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -15,16 +18,22 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly IPublisher _publisher;
+    private readonly IAppLogger<OrderService> _logger;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
         IRepository<Order> orderRepository,
-        IUriComposer uriComposer)
+        IUriComposer uriComposer,
+        IPublisher publisher,
+        IAppLogger<OrderService> logger)
     {
         _orderRepository = orderRepository;
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -49,5 +58,17 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+
+        // Announce the order in-process so the subscription module can bill one pay-as-you-go unit
+        // (UC2, §8). This runs after the order is safely persisted and swallows every failure: the
+        // order lifecycle must never be rolled back or blocked by a billing problem.
+        try
+        {
+            await _publisher.Publish(new OrderPlaced(order.BuyerId, order.Id));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Publishing OrderPlaced for order {0} failed: {1}. The order stands.", order.Id, ex.Message);
+        }
     }
 }

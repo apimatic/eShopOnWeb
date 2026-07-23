@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        // A rejected subscription operation is the caller's mistake, not a server fault.
+        else if (exception is InvalidSubscriptionOperationException invalidSubscriptionOperation)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = invalidSubscriptionOperation.Message
+            }.ToString());
+        }
+        // The upstream billing provider failed or refused the call.
+        else if (exception is BillingProviderException billingProviderException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingProviderException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

@@ -1,0 +1,149 @@
+@page
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@{
+    ViewData["Title"] = "My Subscriptions";
+}
+
+<div class="esh-orders">
+    <div class="container">
+        <h1>@ViewData["Title"]</h1>
+
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+        }
+
+        @if (Model.PendingPreview is not null)
+        {
+            var preview = Model.PendingPreview;
+            <div class="alert alert-info" role="alert">
+                <h4>Confirm your plan change</h4>
+                <p>
+                    <strong>@preview.CurrentPlanHandle</strong> &rarr; <strong>@preview.TargetPlanHandle</strong>
+                    (@(preview.Timing == PlanChangeTiming.Immediate ? "effective now, prorated" : "effective at your next renewal"))
+                </p>
+                <p>
+                    Prorated adjustment: $ @preview.ProratedAdjustment.ToString("N2") &middot;
+                    New plan charge: $ @preview.Charge.ToString("N2") &middot;
+                    Credit applied: $ @preview.CreditApplied.ToString("N2")
+                </p>
+                <p><strong>Due now: $ @preview.PaymentDue.ToString("N2")</strong></p>
+                <form method="post" asp-page-handler="ChangePlan">
+                    <input type="hidden" name="subscriptionId" value="@preview.SubscriptionId" />
+                    <input type="hidden" name="targetPlanHandle" value="@preview.TargetPlanHandle" />
+                    <input type="hidden" name="timing" value="@preview.Timing" />
+                    <input type="hidden" name="fingerprint" value="@preview.Fingerprint" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Confirm plan change ]</button>
+                </form>
+            </div>
+        }
+
+        @if (Model.Subscriptions.Any())
+        {
+            @foreach (var subscription in Model.Subscriptions)
+            {
+                <article class="esh-orders-items row">
+                    <section class="esh-orders-item col-xs-12">
+                        <h3>@subscription.PlanName <small>(@subscription.PlanHandle)</small></h3>
+                        <p>
+                            $ @subscription.Price.ToString("N2") per month &middot;
+                            State: <strong>@subscription.State</strong> &middot;
+                            Next billing date:
+                            @(subscription.NextBillingDate.HasValue ? subscription.NextBillingDate.Value.ToString("D") : "not scheduled")
+                        </p>
+
+                        @if (subscription.CancelAtEndOfPeriod)
+                        {
+                            <p class="text-danger">
+                                Scheduled to end on
+                                @(subscription.DelayedCancelAt?.ToString("D") ?? subscription.CurrentPeriodEndsAt?.ToString("D") ?? "the end of this period").
+                            </p>
+                        }
+
+                        @if (!string.IsNullOrEmpty(subscription.NextPlanHandle))
+                        {
+                            <p>Scheduled to move to <strong>@subscription.NextPlanHandle</strong> at the next renewal.</p>
+                        }
+
+                        @if (subscription.IsActive)
+                        {
+                            <h4>Pay-as-you-go usage</h4>
+                            <p>
+                                @if (subscription.PeriodToDateUnits.HasValue)
+                                {
+                                    <text>
+                                        @subscription.PeriodToDateUnits unit(s) this period
+                                        @if (subscription.EstimatedUsageCharge.HasValue)
+                                        {
+                                            <text>&middot; approximately $ @subscription.EstimatedUsageCharge.Value.ToString("N2") on your next renewal invoice</text>
+                                        }
+                                    </text>
+                                }
+                                else
+                                {
+                                    <text>No usage recorded this period.</text>
+                                }
+                            </p>
+
+                            <form method="post" asp-page-handler="Usage" class="form-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <input type="number" class="esh-basket-input" name="quantity" value="1" min="1" />
+                                <input type="text" class="esh-basket-input" name="memo" placeholder="memo (optional)" />
+                                <button class="btn esh-basket-checkout" type="submit">[ Record usage ]</button>
+                            </form>
+
+                            @if (!string.IsNullOrEmpty(subscription.AlternatePlanHandle))
+                            {
+                                <h4>Change plan</h4>
+                                <form method="post" asp-page-handler="Preview" class="form-inline">
+                                    <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                    <input type="hidden" name="targetPlanHandle" value="@subscription.AlternatePlanHandle" />
+                                    <select name="timing" class="esh-basket-input">
+                                        <option value="@PlanChangeTiming.Immediate">Now (prorated)</option>
+                                        <option value="@PlanChangeTiming.AtNextRenewal">At next renewal</option>
+                                    </select>
+                                    <button class="btn esh-basket-checkout" type="submit">
+                                        [ Preview change to @subscription.AlternatePlanName ]
+                                    </button>
+                                </form>
+                            }
+                        }
+
+                        <h4>Manage</h4>
+                        <form method="post" asp-page-handler="Lifecycle" class="form-inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <select name="action" class="esh-basket-input">
+                                <option value="@SubscriptionLifecycleAction.Pause">Pause</option>
+                                <option value="@SubscriptionLifecycleAction.Resume">Resume</option>
+                                <option value="@SubscriptionLifecycleAction.Cancel">Cancel</option>
+                                <option value="@SubscriptionLifecycleAction.Reactivate">Reactivate</option>
+                            </select>
+                            <select name="cancellationTiming" class="esh-basket-input">
+                                <option value="@CancellationTiming.Immediate">Immediately (cancel only)</option>
+                                <option value="@CancellationTiming.EndOfPeriod">End of period (cancel only)</option>
+                            </select>
+                            <input type="text" class="esh-basket-input" name="reason" placeholder="reason (optional)" />
+                            <button class="btn esh-basket-checkout" type="submit">[ Apply ]</button>
+                        </form>
+                    </section>
+                </article>
+            }
+        }
+        else if (string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <h3 class="esh-catalog-items row">You have no subscriptions yet.</h3>
+        }
+
+        <div class="row">
+            <section class="esh-basket-item col-xs-4">
+                <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+            </section>
+        </div>
+    </div>
+</div>
