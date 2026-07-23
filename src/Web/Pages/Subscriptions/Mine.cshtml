@@ -1,0 +1,197 @@
+@page "{handler?}"
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model MineModel
+@{
+    ViewData["Title"] = "My subscriptions";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1 class="esh-catalog-title">My subscriptions</h1>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Preview is not null)
+    {
+        var preview = Model.Preview;
+        <article class="esh-basket-items" style="border: 2px solid #00a69c; padding: 1rem; margin-bottom: 1rem;">
+            <h3>Confirm your plan change</h3>
+            <p>
+                <strong>@preview.CurrentPlanHandle</strong> &rarr; <strong>@preview.TargetPlanHandle</strong>,
+                @(preview.Timing == PlanChangeTiming.Immediately ? "applied now with proration" : "at the next renewal")
+            </p>
+            @if (preview.Timing == PlanChangeTiming.Immediately)
+            {
+                <p>
+                    Prorated charge: @BillingMoney.ToDisplay(preview.ProrationCharge) &nbsp;|&nbsp;
+                    Prorated credit: @BillingMoney.ToDisplay(preview.ProrationCredit) &nbsp;|&nbsp;
+                    <strong>Net now: @BillingMoney.ToSignedDisplay(preview.NetAmount)</strong>
+                </p>
+            }
+            else
+            {
+                <p>
+                    Nothing is charged now. From
+                    @(preview.EffectiveAt.HasValue ? preview.EffectiveAt.Value.ToString("d MMM yyyy") : "the next renewal")
+                    you will pay <strong>@BillingMoney.ToDisplay(preview.NewPlanPrice)</strong> per period.
+                </p>
+            }
+            <form method="post" asp-page-handler="ChangePlan">
+                <input type="hidden" name="subscriptionId" value="@preview.SubscriptionId" />
+                <input type="hidden" name="targetPlanHandle" value="@preview.TargetPlanHandle" />
+                <input type="hidden" name="timing" value="@preview.Timing" />
+                <input type="hidden" name="previewedNetAmount" value="@preview.NetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                <button type="submit" class="btn btn-primary">Confirm plan change</button>
+                <a class="btn btn-secondary" asp-page="./Mine">Cancel</a>
+            </form>
+        </article>
+    }
+
+    @if (!Model.Subscriptions.Any())
+    {
+        <p>You have no subscriptions yet. <a asp-page="./Plans">Browse the plans</a> to get started.</p>
+    }
+    else
+    {
+        @foreach (var subscription in Model.Subscriptions)
+        {
+            var highlighted = Model.HighlightSubscriptionId == subscription.Id;
+            <article class="esh-basket-items" style="border:1px solid #ddd; padding:1rem; margin-bottom:1rem; @(highlighted ? "border-color:#00a69c;" : "")">
+                <div class="row">
+                    <section class="col-md-6">
+                        <h3>@subscription.PlanName <small>(@subscription.PlanHandle)</small></h3>
+                        <p>
+                            @BillingMoney.ToDisplay(subscription.PlanPrice) per period &nbsp;|&nbsp;
+                            State: <strong>@subscription.ProviderState</strong>
+                        </p>
+                        <p>
+                            @if (subscription.CurrentPeriodEnd.HasValue)
+                            {
+                                <text>Current period ends @subscription.CurrentPeriodEnd.Value.ToString("d MMM yyyy").<br /></text>
+                            }
+                            @if (subscription.NextAssessmentAt.HasValue)
+                            {
+                                <text>Next billing date: @subscription.NextAssessmentAt.Value.ToString("d MMM yyyy").<br /></text>
+                            }
+                            @if (subscription.CancellationPending)
+                            {
+                                <text><strong>Cancellation scheduled for @(subscription.CancellationScheduledAt?.ToString("d MMM yyyy") ?? "the end of the period").</strong></text>
+                            }
+                        </p>
+                        <p><small>Subscription reference: @subscription.Id</small></p>
+                    </section>
+
+                    <section class="col-md-6">
+                        <h4>Pay-as-you-go usage</h4>
+                        @if (Model.Usage.TryGetValue(subscription.Id, out var usage))
+                        {
+                            <p>
+                                Component <code>@usage.ComponentHandle</code>:
+                                @if (usage.PeriodToDateQuantity.HasValue)
+                                {
+                                    <strong>@usage.PeriodToDateQuantity.Value unit(s)</strong>
+                                    @if (usage.PeriodToDateCharge.HasValue)
+                                    {
+                                        <text> — @BillingMoney.ToDisplay(usage.PeriodToDateCharge.Value) so far this period</text>
+                                    }
+                                }
+                                else
+                                {
+                                    <text>no usage recorded this period</text>
+                                }
+                            </p>
+                        }
+                        else
+                        {
+                            <p>Component <code>@Model.MeteredComponentHandle</code>: no usage recorded this period.</p>
+                        }
+
+                        @if (subscription.CanRecordUsage)
+                        {
+                            <form method="post" asp-page-handler="RecordUsage" class="form-inline">
+                                <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                                <input type="number" name="quantity" min="1" value="1" class="form-control" style="width:6rem" />
+                                <input type="text" name="memo" placeholder="memo (optional)" class="form-control" />
+                                <button type="submit" class="btn btn-outline-primary">Report usage</button>
+                            </form>
+                            <p><small>Charges accrue to your next renewal invoice.</small></p>
+                        }
+                    </section>
+                </div>
+
+                @if (subscription.CanChangePlan)
+                {
+                    var targets = Model.Plans
+                        .Where(p => !string.Equals(p.Handle, subscription.PlanHandle, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (targets.Count > 0)
+                    {
+                        <hr />
+                        <h4>Change plan</h4>
+                        <form method="post" asp-page-handler="Preview" class="form-inline">
+                            <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                            <select name="targetPlanHandle" class="form-control">
+                                @foreach (var target in targets)
+                                {
+                                    <option value="@target.Handle">@target.Name — @target.PriceDisplay</option>
+                                }
+                            </select>
+                            <select name="timing" class="form-control">
+                                <option value="@PlanChangeTiming.Immediately">Now (prorated)</option>
+                                <option value="@PlanChangeTiming.AtNextRenewal">At next renewal</option>
+                            </select>
+                            <button type="submit" class="btn btn-outline-primary">Preview cost</button>
+                        </form>
+                    }
+                }
+
+                <hr />
+                <h4>Manage</h4>
+                @if (subscription.AllowedActions.Any())
+                {
+                    <form method="post" asp-page-handler="Lifecycle" class="form-inline">
+                        <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                        <select name="action" class="form-control">
+                            @foreach (var action in subscription.AllowedActions)
+                            {
+                                <option value="@action">@LifecycleLabel(action)</option>
+                            }
+                        </select>
+                        <input type="text" name="reason" placeholder="reason (optional)" class="form-control" />
+                        <button type="submit" class="btn btn-outline-secondary">Apply</button>
+                    </form>
+                }
+                else
+                {
+                    <p>No lifecycle actions are available while this subscription is '@subscription.ProviderState'.</p>
+                }
+            </article>
+        }
+    }
+
+    <p><a asp-page="./Plans">Browse plans</a></p>
+</div>
+
+@functions {
+    static string LifecycleLabel(SubscriptionLifecycleAction action) => action switch
+    {
+        SubscriptionLifecycleAction.Pause => "Pause",
+        SubscriptionLifecycleAction.Resume => "Resume",
+        SubscriptionLifecycleAction.CancelImmediately => "Cancel immediately",
+        SubscriptionLifecycleAction.CancelAtEndOfPeriod => "Cancel at end of period",
+        SubscriptionLifecycleAction.Reactivate => "Reactivate",
+        _ => action.ToString()
+    };
+}

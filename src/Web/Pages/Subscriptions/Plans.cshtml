@@ -1,0 +1,72 @@
+@page "{handler?}"
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1 class="esh-catalog-title">Subscription plans</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.CurrentSubscription is not null)
+    {
+        <div class="alert alert-info" role="alert">
+            You are already subscribed to <strong>@Model.CurrentSubscription.PlanName</strong>
+            (@BillingMoney.ToDisplay(Model.CurrentSubscription.PlanPrice)).
+            <a asp-page="./Mine">Manage your subscription</a> to change plan or update its state.
+        </div>
+    }
+
+    @if (!Model.Plans.Any())
+    {
+        <div class="esh-catalog-items row">
+            <p>No subscription plans are available at the moment.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var plan in Model.Plans)
+            {
+                var isCurrent = Model.CurrentSubscription is not null
+                    && string.Equals(Model.CurrentSubscription.PlanHandle, plan.Handle, StringComparison.OrdinalIgnoreCase);
+
+                <div class="col-md-6">
+                    <article class="esh-catalog-item" style="padding: 1rem;">
+                        <h2>@plan.Name</h2>
+                        <p class="esh-catalog-price"><span>@plan.PriceDisplay</span></p>
+                        @if (!string.IsNullOrWhiteSpace(plan.Description))
+                        {
+                            <p>@plan.Description</p>
+                        }
+                        <p><small>Plan handle: <code>@plan.Handle</code></small></p>
+
+                        @if (isCurrent)
+                        {
+                            <button class="btn btn-secondary" disabled>Current plan</button>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Subscribe">
+                                <input type="hidden" name="planHandle" value="@plan.Handle" />
+                                <button type="submit" class="btn btn-primary">Subscribe</button>
+                            </form>
+                        }
+                    </article>
+                </div>
+            }
+        </div>
+    }
+
+    <p><a asp-page="./Mine">View my subscriptions</a></p>
+</div>
