@@ -1,0 +1,7 @@
+title: Create Metered Component
+type: object
+properties:
+  metered_component:
+    $ref: "./Metered-Component.yaml"
+required:
+  - metered_component

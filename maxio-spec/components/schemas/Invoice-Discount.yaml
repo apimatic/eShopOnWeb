@@ -1,0 +1,31 @@
+title: Invoice Discount
+type: object
+properties:
+  uid:
+    type: string
+  title:
+    type: string
+  description:
+    type:
+      - string
+      - "null"
+  code:
+    type: string
+  source_type:
+    $ref: "./Invoice-Discount-Source-Type.yaml"
+  source_id:
+    type: integer
+  discount_type:
+    $ref: "./Invoice-Discount-Type.yaml"
+  percentage:
+    type: string
+  eligible_amount:
+    type: string
+  discount_amount:
+    type: string
+  transaction_id:
+    type: integer
+  line_item_breakouts:
+    type: array
+    items:
+      $ref: "./Invoice-Discount-Breakout.yaml"
