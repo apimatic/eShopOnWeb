@@ -1,0 +1,6 @@
+name: subscription_id
+in: path
+description: The Chargify id of the subscription
+schema:
+  type: integer
+required: true
