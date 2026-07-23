@@ -1,0 +1,169 @@
+﻿@page "{handler?}"
+@model MineModel
+@{
+    ViewData["Title"] = "My subscription";
+    var current = Model.Current;
+    var targetPlans = Model.Plans
+        .Where(plan => current is null || !string.Equals(plan.Handle, current.PlanHandle, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2 class="esh-basket-title">My subscription</h2>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (current is null)
+    {
+        <h3 class="esh-catalog-items row">You do not have a subscription yet.</h3>
+        <section class="esh-basket-item">
+            <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+        </section>
+    }
+    else
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-3">Plan</section>
+            <section class="esh-basket-title col-xs-2">Price</section>
+            <section class="esh-basket-title col-xs-2">State</section>
+            <section class="esh-basket-title col-xs-3">Next billing date</section>
+            <section class="esh-basket-title col-xs-2">Balance</section>
+        </article>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">@(current.PlanName ?? current.PlanHandle)</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @current.PlanPrice.ToString("N2")</section>
+            <section class="esh-basket-item esh-basket-item--middle esh-basket-item--mark col-xs-2">@current.Status</section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                @(current.CurrentPeriodEndsAt?.ToString("d") ?? "—")
+            </section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-2">$ @current.Balance.ToString("N2")</section>
+        </article>
+
+        @if (current.CancelAtEndOfPeriod)
+        {
+            <div class="alert alert-warning" role="alert">
+                This subscription is scheduled to cancel on @(current.DelayedCancelAt?.ToString("d") ?? "the period end").
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(current.NextPlanHandle))
+        {
+            <div class="alert alert-info" role="alert">
+                Scheduled to move to plan <strong>@current.NextPlanHandle</strong> at the next renewal.
+            </div>
+        }
+
+        <h3 class="esh-basket-title">Pay-as-you-go usage</h3>
+        <article class="esh-basket-items row">
+            <section class="esh-basket-item esh-basket-item--middle col-xs-6">
+                Period-to-date: <strong>@(Model.PeriodToDateUsage?.ToString("N0") ?? "unavailable")</strong> units
+            </section>
+            <section class="esh-basket-item esh-basket-item--middle col-xs-6">
+                <form method="post" asp-page-handler="RecordUsage">
+                    <input type="number" class="esh-basket-input" name="quantity" min="1" step="1" value="1" />
+                    <button class="btn esh-basket-checkout" type="submit">[ Record usage ]</button>
+                </form>
+            </section>
+        </article>
+
+        @if (targetPlans.Any() && current.IsLive)
+        {
+            <h3 class="esh-basket-title">Change plan</h3>
+
+            @if (Model.Preview is not null)
+            {
+                <div class="alert alert-info" role="alert">
+                    Moving to <strong>@Model.Preview.TargetPlanHandle</strong> now:
+                    charge $@Model.Preview.Charge.ToString("N2"),
+                    credit $@Model.Preview.CreditApplied.ToString("N2"),
+                    <strong>due today $@Model.Preview.PaymentDue.ToString("N2")</strong>.
+                    <form method="post" asp-page-handler="ChangePlan">
+                        <input type="hidden" name="targetPlanHandle" value="@Model.Preview.TargetPlanHandle" />
+                        <input type="hidden" name="timing" value="@nameof(PlanChangeTiming.Immediate)" />
+                        <input type="hidden" name="expectedPaymentDue" value="@Model.Preview.PaymentDue" />
+                        <button class="btn esh-basket-checkout" type="submit">[ Confirm change ]</button>
+                    </form>
+                </div>
+            }
+
+            @foreach (var plan in targetPlans)
+            {
+                <article class="esh-basket-items row">
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-4">
+                        @plan.Name — $ @plan.Price.ToString("N2")
+                    </section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                        <form method="post" asp-page-handler="PreviewPlanChange">
+                            <input type="hidden" name="targetPlanHandle" value="@plan.Handle" />
+                            <button class="btn esh-basket-checkout" type="submit">[ Preview change ]</button>
+                        </form>
+                    </section>
+                    <section class="esh-basket-item esh-basket-item--middle col-xs-5">
+                        <form method="post" asp-page-handler="ChangePlan">
+                            <input type="hidden" name="targetPlanHandle" value="@plan.Handle" />
+                            <input type="hidden" name="timing" value="@nameof(PlanChangeTiming.AtNextRenewal)" />
+                            <button class="btn esh-basket-checkout" type="submit">[ Change at renewal ]</button>
+                        </form>
+                    </section>
+                </article>
+            }
+        }
+
+        <h3 class="esh-basket-title">Manage</h3>
+        <article class="esh-basket-items row">
+            @if (current.IsLive)
+            {
+                <section class="esh-basket-item col-xs-3">
+                    <form method="post" asp-page-handler="Pause">
+                        <button class="btn esh-basket-checkout" type="submit">[ Pause ]</button>
+                    </form>
+                </section>
+                <section class="esh-basket-item col-xs-3">
+                    <form method="post" asp-page-handler="Cancel">
+                        <input type="hidden" name="cancelAtEndOfPeriod" value="true" />
+                        <button class="btn esh-basket-checkout" type="submit">[ Cancel at period end ]</button>
+                    </form>
+                </section>
+                <section class="esh-basket-item col-xs-3">
+                    <form method="post" asp-page-handler="Cancel">
+                        <input type="hidden" name="cancelAtEndOfPeriod" value="false" />
+                        <button class="btn esh-basket-checkout" type="submit">[ Cancel now ]</button>
+                    </form>
+                </section>
+            }
+            @if (current.Status == SubscriptionStatus.OnHold)
+            {
+                <section class="esh-basket-item col-xs-3">
+                    <form method="post" asp-page-handler="Resume">
+                        <button class="btn esh-basket-checkout" type="submit">[ Resume ]</button>
+                    </form>
+                </section>
+            }
+            @if (current.Status is SubscriptionStatus.Canceled or SubscriptionStatus.TrialEnded or SubscriptionStatus.Unpaid)
+            {
+                <section class="esh-basket-item col-xs-3">
+                    <form method="post" asp-page-handler="Reactivate">
+                        <button class="btn esh-basket-checkout" type="submit">[ Reactivate ]</button>
+                    </form>
+                </section>
+            }
+        </article>
+
+        <div class="row">
+            <section class="esh-basket-item col-xs-4">
+                <a asp-page="./Plans" class="btn esh-basket-checkout text-white">[ Browse plans ]</a>
+            </section>
+        </div>
+    }
+</div>

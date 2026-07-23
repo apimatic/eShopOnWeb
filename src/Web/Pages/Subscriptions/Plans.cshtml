@@ -1,0 +1,63 @@
+﻿@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h2 class="esh-basket-title">Subscription plans</h2>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-basket-titles row">
+            <section class="esh-basket-title col-xs-4">Plan</section>
+            <section class="esh-basket-title col-xs-3">Price</section>
+            <section class="esh-basket-title col-xs-3">Billing</section>
+            <section class="esh-basket-title col-xs-2"></section>
+        </article>
+
+        @foreach (var plan in Model.Plans)
+        {
+            <article class="esh-basket-items row">
+                <section class="esh-basket-item esh-basket-item--middle col-xs-4">@plan.Name</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-3">$ @plan.Price.ToString("N2")</section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-3">
+                    every @plan.Interval @plan.IntervalUnit@(plan.Interval == 1 ? "" : "s")
+                </section>
+                <section class="esh-basket-item esh-basket-item--middle col-xs-2">
+                    @if (string.Equals(plan.Handle, Model.CurrentPlanHandle, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <span class="esh-basket-item--mark">Current plan</span>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="planHandle" value="@plan.Handle" />
+                            <button class="btn esh-basket-checkout" type="submit">[ Subscribe ]</button>
+                        </form>
+                    }
+                </section>
+            </article>
+        }
+
+        <div class="row">
+            <section class="esh-basket-item col-xs-4">
+                <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ My subscription ]</a>
+            </section>
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No subscription plans are available.</h3>
+    }
+</div>
