@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -9,15 +10,18 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +48,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.ConfigurationSection));
+
+// Typed client via IHttpClientFactory. The BaseAddress is resolved from configuration so the same
+// build can target production, a dev/sandbox tenant, or a local mock — an explicit Maxio:BaseUrl
+// wins, otherwise the host is derived from the subdomain and region. Do NOT hardcode the host.
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>((sp, http) =>
+{
+    var settings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    http.BaseAddress = new Uri(settings.ResolveBaseUrl());
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -82,6 +99,12 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+
+// Accept and emit enum members by name (e.g. "Immediate"), which the subscription endpoints use for
+// plan-change timing and lifecycle actions.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 

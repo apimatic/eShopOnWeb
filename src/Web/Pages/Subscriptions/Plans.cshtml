@@ -1,0 +1,70 @@
+@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+
+<div class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</div>
+
+<div class="container">
+    <h1>@ViewData["Title"]</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.CurrentSubscription is not null)
+    {
+        <div class="alert alert-info" role="alert">
+            You are subscribed to <strong>@Model.CurrentSubscription.Plan.Name</strong>.
+            <a asp-page="./Mine">Manage your subscription</a>.
+        </div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-catalog-items row">
+            @foreach (var plan in Model.Plans)
+            {
+                <div class="esh-catalog-item col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">@plan.Name</h4>
+                            <h5 class="card-subtitle mb-2">$ @plan.Price.ToString("N2") / @plan.BillingPeriod</h5>
+                            @if (!string.IsNullOrEmpty(plan.Description))
+                            {
+                                <p class="card-text">@plan.Description</p>
+                            }
+                            <p class="card-text"><small>Plus pay-as-you-go API calls, billed on your next invoice.</small></p>
+
+                            @if (Model.CurrentSubscription?.Plan.Handle == plan.Handle)
+                            {
+                                <span class="btn btn-secondary disabled">[ Current plan ]</span>
+                            }
+                            else if (User.Identity!.IsAuthenticated)
+                            {
+                                <form method="post" asp-page-handler="Subscribe">
+                                    <input type="hidden" name="planHandle" value="@plan.Handle" />
+                                    <button class="btn esh-basket-checkout" type="submit">[ Subscribe ]</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <a asp-area="Identity" asp-page="/Account/Login" class="btn esh-basket-checkout">[ Log in to subscribe ]</a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </article>
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No subscription plans are available.</h3>
+    }
+</div>
