@@ -31,24 +31,41 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)ResolveStatusCode(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
+    }
+
+    /// <summary>
+    /// Maps a domain failure onto the status code that describes it. Anything unrecognised stays a
+    /// 500, exactly as before.
+    /// </summary>
+    private static HttpStatusCode ResolveStatusCode(Exception exception)
+    {
+        return exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            DuplicateException => HttpStatusCode.Conflict,
+
+            // The subscription does not exist, or exists but is not the caller's.
+            SubscriptionNotFoundException => HttpStatusCode.NotFound,
+
+            // Rejected locally before any provider call: illegal transition, no-op change, bad quantity.
+            InvalidSubscriptionOperationException => HttpStatusCode.BadRequest,
+
+            // The previewed cost moved before the customer confirmed it.
+            StalePlanChangePreviewException => HttpStatusCode.Conflict,
+
+            // A handle or component that no longer matches the seed — an operator problem, not a client one.
+            BillingConfigurationException => HttpStatusCode.InternalServerError,
+
+            // The upstream billing provider rejected or could not serve the request.
+            BillingProviderException => HttpStatusCode.BadGateway,
+
+            _ => HttpStatusCode.InternalServerError
+        };
     }
 }
