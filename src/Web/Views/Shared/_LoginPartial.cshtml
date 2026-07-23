@@ -21,6 +21,10 @@
                         <div class="esh-identity-name esh-identity-name--upper">My orders</div>
                     </a>
                     <a class="esh-identity-item"
+                       asp-page="/Subscriptions/Mine">
+                        <div class="esh-identity-name esh-identity-name--upper">My subscriptions</div>
+                    </a>
+                    <a class="esh-identity-item"
                        asp-controller="Manage"
                        asp-action="MyAccount">
                         <div class="esh-identity-name esh-identity-name--upper">My account</div>
@@ -44,6 +48,11 @@ else
     <section class="col-lg-4 col-md-5 col-xs-12">
         <div class="esh-identity">
             <section class="esh-identity-section">
+                <div class="esh-identity-item">
+                    <a asp-page="/Subscriptions/Plans" class="esh-identity-name esh-identity-name--upper">
+                        Plans
+                    </a>
+                </div>
                 <div class="esh-identity-item">
 
                     <a asp-area="Identity" asp-page="/Account/Login" class="esh-identity-name esh-identity-name--upper">

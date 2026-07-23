@@ -1,0 +1,76 @@
+@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1>@ViewData["Title"]</h1>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-orders-titles row">
+            <section class="esh-orders-title col-xs-4">Plan</section>
+            <section class="esh-orders-title col-xs-4">Price</section>
+            <section class="esh-orders-title col-xs-2">Billed</section>
+            <section class="esh-orders-title col-xs-2"></section>
+        </article>
+
+        @foreach (var plan in Model.Plans)
+        {
+            var alreadySubscribed = Model.SubscribedPlanHandles.Contains(plan.Handle);
+
+            <article class="esh-orders-items row">
+                <section class="esh-orders-item col-xs-4">
+                    <strong>@plan.Name</strong>
+                    @if (!string.IsNullOrEmpty(plan.Description))
+                    {
+                        <div>@plan.Description</div>
+                    }
+                </section>
+                <section class="esh-orders-item col-xs-4">$ @plan.Price.ToString("N2")</section>
+                <section class="esh-orders-item col-xs-2">per @plan.BillingPeriod</section>
+                <section class="esh-orders-item col-xs-2">
+                    @if (alreadySubscribed)
+                    {
+                        <span>Subscribed</span>
+                    }
+                    else if (User.Identity is not null && User.Identity.IsAuthenticated)
+                    {
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="planHandle" value="@plan.Handle" />
+                            <button class="btn esh-basket-checkout" type="submit">[ Subscribe ]</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a class="esh-orders-link" asp-area="Identity" asp-page="/Account/Login">Sign in to subscribe</a>
+                    }
+                </section>
+            </article>
+        }
+
+        @if (User.Identity is not null && User.Identity.IsAuthenticated)
+        {
+            <div class="row">
+                <section class="esh-basket-item col-xs-4">
+                    <a asp-page="./Mine" class="btn esh-basket-checkout text-white">[ My subscriptions ]</a>
+                </section>
+            </div>
+        }
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <h3 class="esh-catalog-items row">No subscription plans are available.</h3>
+    }
+</div>
