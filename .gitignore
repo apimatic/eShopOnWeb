@@ -260,3 +260,6 @@ pub/
 .devcontainer
 
 .azure
+
+# Test run + coverage output
+[Tt]est[Rr]esults/

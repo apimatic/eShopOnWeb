@@ -31,24 +31,34 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)ResolveStatusCode(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
+    }
+
+    /// <summary>
+    /// Faults the caller can act on answer with a 4xx carrying the reason; everything else is a 500.
+    /// </summary>
+    private static HttpStatusCode ResolveStatusCode(Exception exception)
+    {
+        return exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            DuplicateException => HttpStatusCode.Conflict,
+            SubscriptionNotFoundException => HttpStatusCode.NotFound,
+            InvalidSubscriptionTransitionException => HttpStatusCode.Conflict,
+            InvalidPlanChangeException => HttpStatusCode.Conflict,
+            StalePlanChangePreviewException => HttpStatusCode.Conflict,
+            NoActiveSubscriptionException => HttpStatusCode.Conflict,
+            ArgumentException => HttpStatusCode.BadRequest,
+
+            // A misconfigured or unreachable provider is this application's fault, not the caller's.
+            BillingConfigurationException => HttpStatusCode.InternalServerError,
+            BillingProviderException => HttpStatusCode.BadGateway,
+            _ => HttpStatusCode.InternalServerError
+        };
     }
 }

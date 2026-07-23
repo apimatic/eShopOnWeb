@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -10,14 +11,17 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +48,24 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Subscriptions. The billing provider is reached through one typed HttpClient whose BaseAddress
+// comes from configuration, so the same build can target production, a dev/sandbox tenant, or a
+// local mock server without a code change.
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.SECTION_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+builder.Services.AddSingleton(maxioSection.Get<MaxioSettings>() ?? new MaxioSettings());
+builder.Services.AddSingleton(maxioSection.Get<SubscriptionSettings>() ?? new SubscriptionSettings());
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(MappingProfile).Assembly));
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>((serviceProvider, httpClient) =>
+{
+    var maxioSettings = serviceProvider.GetRequiredService<IOptions<MaxioSettings>>().Value;
+
+    // Explicit Maxio:BaseUrl wins; otherwise the host is derived from the subdomain.
+    httpClient.BaseAddress = MaxioBillingClient.CreateBaseAddress(maxioSettings);
+    MaxioBillingClient.ConfigureAuthentication(httpClient, maxioSettings);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -80,6 +102,10 @@ builder.Services.AddCors(options =>
             corsPolicyBuilder.AllowAnyHeader();
         });
 });
+
+// Accept enum values by name (e.g. "Immediately") as well as by number in endpoint payloads.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
