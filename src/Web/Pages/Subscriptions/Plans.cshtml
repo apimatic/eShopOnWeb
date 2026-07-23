@@ -1,0 +1,73 @@
+@page "{handler?}"
+@model PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <article class="esh-catalog-titles row">
+        <section class="esh-catalog-title col-xs-12"><h1>Subscription plans</h1></section>
+    </article>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-info" role="alert">
+            @Model.StatusMessage
+            <a asp-page="./Mine">Manage your subscription</a>
+        </div>
+    }
+
+    @if (!Model.Plans.Any())
+    {
+        <div class="esh-catalog-items row">
+            <p>No subscription plans are available right now.</p>
+        </div>
+    }
+    else
+    {
+        <div class="esh-catalog-items row">
+            @foreach (var plan in Model.Plans)
+            {
+                var isCurrent = string.Equals(plan.Handle, Model.CurrentPlanHandle, StringComparison.OrdinalIgnoreCase);
+                <div class="esh-catalog-item col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">@plan.Name</h4>
+                            <p class="card-text">@plan.Description</p>
+                            <p class="esh-catalog-price">
+                                <span>@plan.Price.ToString("C2")</span>
+                                <small> / @plan.Interval @plan.IntervalUnit</small>
+                            </p>
+
+                            @if (isCurrent)
+                            {
+                                <span class="badge badge-success">Your current plan</span>
+                            }
+                            else if (User.Identity?.IsAuthenticated == true)
+                            {
+                                <form method="post" asp-page-handler="Subscribe">
+                                    <input type="hidden" name="planHandle" value="@plan.Handle" />
+                                    <button class="btn btn-primary" type="submit">Subscribe</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <a class="btn btn-secondary" asp-area="Identity" asp-page="/Account/Login">Sign in to subscribe</a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
