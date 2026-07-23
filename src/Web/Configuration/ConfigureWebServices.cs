@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Web.Interfaces;
 using Microsoft.eShopWeb.Web.Services;
 
@@ -8,8 +9,12 @@ public static class ConfigureWebServices
 {
     public static IServiceCollection AddWebServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddMediatR(cfg => 
-            cfg.RegisterServicesFromAssembly(typeof(BasketViewModelService).Assembly));
+        // ApplicationCore is scanned alongside Web so the subscription notification handlers
+        // (§2.5) are discovered in both hosts.
+        services.AddMediatR(cfg =>
+            cfg.RegisterServicesFromAssemblies(
+                typeof(BasketViewModelService).Assembly,
+                typeof(ISubscriptionService).Assembly));
         services.AddScoped<IBasketViewModelService, BasketViewModelService>();
         services.AddScoped<CatalogViewModelService>();
         services.AddScoped<ICatalogItemViewModelService, CatalogItemViewModelService>();

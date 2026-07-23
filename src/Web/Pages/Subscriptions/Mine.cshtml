@@ -1,0 +1,172 @@
+@page
+@using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.MineModel
+@{
+    ViewData["Title"] = "My subscriptions";
+    var active = Model.ActiveSubscription;
+}
+
+<div class="esh-orders">
+    <div class="container">
+        <h1>@ViewData["Title"]</h1>
+
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+        }
+
+        <article class="esh-orders-titles row">
+            <section class="esh-orders-title col-xs-2">Subscription</section>
+            <section class="esh-orders-title col-xs-3">Plan</section>
+            <section class="esh-orders-title col-xs-2">Price</section>
+            <section class="esh-orders-title col-xs-2">State</section>
+            <section class="esh-orders-title col-xs-3">Next billing</section>
+        </article>
+
+        @if (Model.Subscriptions.Any())
+        {
+            @foreach (var subscription in Model.Subscriptions)
+            {
+                <article class="esh-orders-items row">
+                    <section class="esh-orders-item col-xs-2">@subscription.Id</section>
+                    <section class="esh-orders-item col-xs-3">@subscription.PlanName (@subscription.PlanHandle)</section>
+                    <section class="esh-orders-item col-xs-2">$ @subscription.PlanPrice.ToString("N2")</section>
+                    <section class="esh-orders-item col-xs-2">
+                        @subscription.State
+                        @if (subscription.CancelAtEndOfPeriod)
+                        {
+                            <text> (ends @(subscription.DelayedCancelAt?.ToString("d") ?? "at period end"))</text>
+                        }
+                    </section>
+                    <section class="esh-orders-item col-xs-3">@(subscription.NextAssessmentAt?.ToString("d") ?? "—")</section>
+                </article>
+            }
+        }
+        else
+        {
+            <p>You have no subscriptions yet. <a asp-page="./Plans">Browse plans</a>.</p>
+        }
+
+        @if (active is not null)
+        {
+            <hr />
+            <h2>Pay-as-you-go usage</h2>
+            <p>
+                @if (Model.Usage is not null && Model.Usage.PeriodToDateAvailable)
+                {
+                    <text>
+                        Period to date: <strong>@Model.Usage.PeriodToDateUnits.GetValueOrDefault().ToString("N0")</strong> unit(s)
+                        @if (Model.Usage.PeriodToDateAmount.HasValue)
+                        {
+                            <text>(<strong>$ @Model.Usage.PeriodToDateAmount.Value.ToString("N2")</strong>)</text>
+                        }
+                        &mdash; billed on your next renewal invoice.
+                    </text>
+                }
+                else
+                {
+                    <text>The running period-to-date total is currently unavailable.</text>
+                }
+            </p>
+
+            <form method="post" asp-page-handler="RecordUsage" class="form-inline">
+                <input type="hidden" name="subscriptionId" value="@active.Id" />
+                <label for="usage-quantity">Units</label>
+                <input id="usage-quantity" class="esh-basket-input" type="number" name="quantity" min="1" step="1" value="1" required />
+                <label for="usage-memo">Memo</label>
+                <input id="usage-memo" class="esh-basket-input" type="text" name="memo" maxlength="200" placeholder="optional" />
+                <button class="btn esh-basket-checkout" type="submit">Record usage</button>
+            </form>
+
+            <hr />
+            <h2>Change plan</h2>
+            var alternatives = Model.Plans
+                .Where(p => !string.Equals(p.Handle, active.PlanHandle, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            @if (alternatives.Any())
+            {
+                <form method="post" asp-page-handler="PreviewPlanChange" class="form-inline">
+                    <input type="hidden" name="subscriptionId" value="@active.Id" />
+                    <label for="target-plan">Move to</label>
+                    <select id="target-plan" name="targetPlanHandle" class="esh-basket-input">
+                        @foreach (var plan in alternatives)
+                        {
+                            <option value="@plan.Handle">@plan.Name ($@plan.Price.ToString("N2")/@plan.IntervalUnit)</option>
+                        }
+                    </select>
+                    <label for="timing">When</label>
+                    <select id="timing" name="timing" class="esh-basket-input">
+                        <option value="@PlanChangeTiming.Immediate">Now (prorated)</option>
+                        <option value="@PlanChangeTiming.AtNextRenewal">At next renewal</option>
+                    </select>
+                    <button class="btn esh-basket-checkout" type="submit">Preview</button>
+                </form>
+            }
+            else
+            {
+                <p>There is no alternative plan to move to.</p>
+            }
+
+            @if (Model.PendingPreview is not null)
+            {
+                var preview = Model.PendingPreview;
+                <article class="esh-orders-items row">
+                    <section class="esh-orders-item col-xs-12">
+                        <strong>@preview.CurrentPlanHandle &rarr; @preview.TargetPlanHandle</strong>
+                        (@preview.Timing)&nbsp;&mdash;
+                        new price $ @preview.NewPlanPrice.ToString("N2");
+                        prorated charge $ @preview.Charge.ToString("N2");
+                        credit applied $ @preview.CreditApplied.ToString("N2");
+                        <strong>due now $ @preview.PaymentDue.ToString("N2")</strong>
+                        @if (preview.EffectiveAt.HasValue)
+                        {
+                            <text>; effective @preview.EffectiveAt.Value.ToString("d")</text>
+                        }
+                    </section>
+                </article>
+                <form method="post" asp-page-handler="ChangePlan">
+                    <input type="hidden" name="subscriptionId" value="@preview.SubscriptionId" />
+                    <input type="hidden" name="targetPlanHandle" value="@preview.TargetPlanHandle" />
+                    <input type="hidden" name="timing" value="@preview.Timing" />
+                    <input type="hidden" name="previewToken" value="@preview.Token" />
+                    <button class="btn esh-basket-checkout" type="submit">Confirm plan change</button>
+                </form>
+            }
+        }
+
+        @if (Model.Subscriptions.Any())
+        {
+            <hr />
+            <h2>Lifecycle</h2>
+            @foreach (var subscription in Model.Subscriptions)
+            {
+                <form method="post" asp-page-handler="Lifecycle" class="form-inline">
+                    <input type="hidden" name="subscriptionId" value="@subscription.Id" />
+                    <span>Subscription @subscription.Id (@subscription.State)</span>
+                    <label for="action-@subscription.Id">Action</label>
+                    <select id="action-@subscription.Id" name="action" class="esh-basket-input">
+                        <option value="@SubscriptionLifecycleAction.Pause">Pause</option>
+                        <option value="@SubscriptionLifecycleAction.Resume">Resume</option>
+                        <option value="@SubscriptionLifecycleAction.Cancel">Cancel</option>
+                        <option value="@SubscriptionLifecycleAction.Reactivate">Reactivate</option>
+                    </select>
+                    <label for="cancellation-@subscription.Id">Cancel timing</label>
+                    <select id="cancellation-@subscription.Id" name="cancellationTiming" class="esh-basket-input">
+                        <option value="@CancellationTiming.Immediate">Immediately</option>
+                        <option value="@CancellationTiming.EndOfPeriod">At end of period</option>
+                    </select>
+                    <input type="text" name="reason" class="esh-basket-input" maxlength="200" placeholder="reason (optional)" />
+                    <button class="btn esh-basket-checkout" type="submit">Apply</button>
+                </form>
+            }
+        }
+
+        <p><a asp-page="./Plans">Browse plans</a></p>
+    </div>
+</div>

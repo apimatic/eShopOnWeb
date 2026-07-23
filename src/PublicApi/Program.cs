@@ -9,15 +9,18 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Configuration;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,31 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Subscriptions (UC1-UC4). MediatR carries the in-process lifecycle notifications (§2.5); the
+// handlers live in ApplicationCore so both hosts discover them from the same assembly scan.
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(ISubscriptionService).Assembly));
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
+// Required by the SubscriptionActivated handler, which confirms an enrollment to the customer.
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.ConfigurationSectionName));
+builder.Services.AddSingleton<MaxioCatalogCache>();
+
+// Typed client via IHttpClientFactory. The outbound target is resolved from configuration so the
+// same build can be pointed at production, a dev/sandbox tenant, or a local mock server: an
+// explicit Maxio:BaseUrl wins, otherwise the host is derived from Maxio:Subdomain (§2.3).
+builder.Services.AddHttpClient<IBillingClient, MaxioBillingClient>((sp, http) =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    if (maxioSettings.TryResolveBaseUrl(out var maxioBaseUrl))
+    {
+        http.BaseAddress = new Uri(maxioBaseUrl!);
+    }
+
+    http.Timeout = TimeSpan.FromSeconds(15);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

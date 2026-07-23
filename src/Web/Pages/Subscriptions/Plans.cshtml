@@ -1,0 +1,73 @@
+@page
+@model Microsoft.eShopWeb.Web.Pages.Subscriptions.PlansModel
+@{
+    ViewData["Title"] = "Subscription plans";
+}
+
+<section class="esh-catalog-hero">
+    <div class="container">
+        <img class="esh-catalog-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+<div class="container">
+    <h1>@ViewData["Title"]</h1>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.StatusMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Plans.Any())
+    {
+        <article class="esh-orders-titles row">
+            <section class="esh-orders-title col-xs-3">Plan</section>
+            <section class="esh-orders-title col-xs-4">Description</section>
+            <section class="esh-orders-title col-xs-2">Price</section>
+            <section class="esh-orders-title col-xs-3"></section>
+        </article>
+
+        @foreach (var plan in Model.Plans)
+        {
+            var subscribed = Model.ActivePlanHandles.Contains(plan.Handle, StringComparer.OrdinalIgnoreCase);
+
+            <article class="esh-orders-items row">
+                <section class="esh-orders-item col-xs-3">@plan.Name</section>
+                <section class="esh-orders-item col-xs-4">@plan.Description</section>
+                <section class="esh-orders-item col-xs-2">
+                    $ @plan.Price.ToString("N2") / @plan.Interval @plan.IntervalUnit
+                </section>
+                <section class="esh-orders-item col-xs-3">
+                    @if (subscribed)
+                    {
+                        <span>Current plan</span>
+                    }
+                    else if (Model.ActivePlanHandles.Any())
+                    {
+                        @* An active subscription moves between plans through the preview-and-confirm
+                           plan change, not by enrolling a second time. *@
+                        <a asp-page="./Mine">Change to this plan</a>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Subscribe">
+                            <input type="hidden" name="planHandle" value="@plan.Handle" />
+                            <button class="btn esh-basket-checkout" type="submit">Subscribe</button>
+                        </form>
+                    }
+                </section>
+            </article>
+        }
+    }
+    else if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <p>No subscription plans are available at the moment.</p>
+    }
+
+    <p><a asp-page="./Mine">My subscriptions</a></p>
+</div>
