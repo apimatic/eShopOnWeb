@@ -1,0 +1,37 @@
+title: Refund Invoice Event Data
+type: object
+description: Example schema for an `refund_invoice` event
+properties:
+  apply_credit:
+    type: boolean
+    description: If true, credit was created and applied it to the invoice.
+  consolidation_level:
+    $ref: "../Consolidation-Level.yaml"
+  credit_note_attributes:
+    $ref: "../Credit-Note.yaml"
+  memo:
+    type: string
+    description: The refund memo.
+  original_amount:
+    type: string
+    description: The full, original amount of the refund.
+  payment_id:
+    type: integer
+    description: The ID of the payment transaction to be refunded.
+  refund_amount:
+    type: string
+    description: The amount of the refund.
+  refund_id:
+    type: integer
+    description: The ID of the refund transaction.
+  transaction_time:
+    type: string
+    format: date-time
+    description: The time the refund was applied, in ISO 8601 format, i.e. "2019-06-07T17:20:06Z"
+required:
+  - apply_credit
+  - credit_note_attributes
+  - payment_id
+  - refund_amount
+  - refund_id
+  - transaction_time
