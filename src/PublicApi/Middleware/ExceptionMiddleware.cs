@@ -41,6 +41,21 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Surface the upstream billing status when it is a meaningful HTTP code
+            // (e.g. 404 plan-not-found, 422 validation); otherwise treat it as a bad
+            // gateway since the failure originates from the Maxio integration, not us.
+            var status = billingException.StatusCode;
+            context.Response.StatusCode = status is >= 400 and <= 599
+                ? status.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
