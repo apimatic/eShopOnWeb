@@ -1,0 +1,25 @@
+title: Movement Line Item
+type: object
+properties:
+  product_id:
+    type: integer
+  component_id:
+    type: integer
+    description: 'For Product (or "baseline") line items, this field will have a value of `0`.'
+  price_point_id:
+    type: integer
+  name:
+    type: string
+  mrr:
+    type: integer
+  mrr_movements:
+    type: array
+    items:
+      $ref: "./MRR-Movement.yaml"
+  quantity:
+    type: integer
+  prev_quantity:
+    type: integer
+  recurring:
+    type: boolean
+    description: "When `true`, the line item's MRR value will contribute to the `plan` breakout. When `false`, the line item contributes to the `usage` breakout."
