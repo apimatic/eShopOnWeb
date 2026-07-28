@@ -1,0 +1,9 @@
+title: Group Settings
+type: object
+properties:
+  target:
+    $ref: "./Group-Target.yaml"
+  billing:
+    $ref: "./Group-Billing.yaml"
+required:
+  - target
