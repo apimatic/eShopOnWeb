@@ -1,0 +1,30 @@
+title: Refund Consolidated Invoice
+type: object
+description: Refund consolidated invoice
+properties:
+  memo:
+    type: string
+    description: A description for the refund
+  payment_id:
+    type: integer
+    description: The ID of the payment to be refunded
+  segment_uids:
+    type:
+      - array
+      - string
+    description: An array of segment uids to refund or the string 'all' to indicate that all segments should be refunded
+    items:
+      type: string
+  external:
+    type: boolean
+    description: Flag that marks refund as external (no money is returned to the customer). Defaults to `false`.
+  apply_credit:
+    type: boolean
+    description: "If set to true, creates credit and applies it to an invoice. Defaults to `false`."
+  amount:
+    type: string
+    description: 'The amount of payment to be refunded in decimal format. Example: "10.50". This will default to the full amount of the payment if not provided.'
+required:
+  - memo
+  - payment_id
+  - segment_uids
