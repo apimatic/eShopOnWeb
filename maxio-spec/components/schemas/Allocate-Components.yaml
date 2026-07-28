@@ -1,0 +1,30 @@
+title: Allocate Components
+type: object
+properties:
+  proration_upgrade_scheme:
+    type: string
+    description: ""
+    deprecated: true
+  proration_downgrade_scheme:
+    type: string
+    description: ""
+    deprecated: true
+  allocations:
+    type: array
+    items:
+      $ref: "./Create-Allocation.yaml"
+  accrue_charge:
+    type: boolean
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  payment_collection_method:
+    allOf:
+      - $ref: "./Collection-Method.yaml"
+    description: "(Optional) If not passed, the allocation(s) will use the payment collection method on the subscription"
+  initiate_dunning:
+    type: boolean
+    description: |-
+      If true, if the immediate component payment fails, initiate dunning for the subscription. 
+      Otherwise, leave the charges on the subscription to pay for at renewal.
