@@ -1,0 +1,7 @@
+name: date_field
+in: query
+description: |-
+  The type of filter you would like to apply to your search.
+  Use in query: `date_field=created_at`.
+schema:
+  $ref: "../schemas/Basic-Date-Field.yaml"
