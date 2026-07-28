@@ -1,0 +1,33 @@
+﻿{
+    "hooks":  {
+                  "PreToolUse":  [
+                                     {
+                                         "hooks":  [
+                                                       {
+                                                           "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\lean-maxio-sdk-lean-opus48high-001\\repo\\.claude\\hooks\\maxio-web-guard.ps1\"",
+                                                           "type":  "command"
+                                                       }
+                                                   ],
+                                         "matcher":  "WebSearch|WebFetch"
+                                     },
+                                     {
+                                         "hooks":  [
+                                                       {
+                                                           "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\lean-maxio-sdk-lean-opus48high-001\\repo\\.claude\\hooks\\maxio-clone-guard.ps1\"",
+                                                           "type":  "command"
+                                                       }
+                                                   ],
+                                         "matcher":  "Bash|Read|Grep|Glob"
+                                     },
+                                     {
+                                         "hooks":  [
+                                                       {
+                                                           "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\lean-maxio-sdk-lean-opus48high-001\\repo\\.claude\\hooks\\maxio-reuse-guard.ps1\"",
+                                                           "type":  "command"
+                                                       }
+                                                   ],
+                                         "matcher":  "Task|Agent"
+                                     }
+                                 ]
+              }
+}
