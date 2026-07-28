@@ -1,0 +1,14 @@
+title: Customer Custom Fields Change
+type: object
+properties:
+  before:
+    type: array
+    items:
+      $ref: "./Invoice-Custom-Field.yaml"
+  after:
+    type: array
+    items:
+      $ref: "./Invoice-Custom-Field.yaml"
+required:
+  - before
+  - after
