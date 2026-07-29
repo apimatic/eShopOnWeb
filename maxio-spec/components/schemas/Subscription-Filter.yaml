@@ -1,0 +1,62 @@
+title: Subscription Filter
+description: Nested filter used for List Subscription Components For Site Filter
+type: object
+properties:
+  states:
+    type: array
+    items:
+      $ref: "./Subscription-State-Filter.yaml"
+    example:
+      - active
+      - canceled
+    minItems: 1
+    description:
+      "Allows fetching components allocations that belong to the subscription with matching states based on provided values. To use this filter you also have to include the following param in the request `include=subscription`.
+      Use in query `filter[subscription][states]=active,canceled&include=subscription`."
+    style: form
+    explode: false
+  date_field:
+    allOf:
+      - $ref: "./Subscription-List-Date-Field.yaml"
+    description: "The type of filter you'd like to apply to your search. To use this filter you also have to include the following param in the request `include=subscription`."
+  start_date:
+    type: string
+    format: date
+    example: 2024-01-17
+    description:
+      "The start date (format YYYY-MM-DD) with which to filter the date_field. Returns components that belong to the subscription with a timestamp at or after midnight (12:00:00 AM) in your site’s time zone on the date specified.
+      To use this filter you also have to include the following param in the request `include=subscription`."
+  end_date:
+    type: string
+    format: date
+    example: 2024-01-31
+    description:
+      "The end date (format YYYY-MM-DD) with which to filter the date_field. Returns components that belong to the subscription with a timestamp up to and including 11:59:59PM in your site’s time zone on the date specified.
+      To use this filter you also have to include the following param in the request `include=subscription`."
+  start_datetime:
+    type: string
+    format: date-time
+    example: "2024-01-17T10:15:30+01:00"
+    description:
+      "The start date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns components that belong to the subscription with a timestamp at or after exact time provided in query.
+      You can specify timezone in query - otherwise your site''s time zone will be used. If provided, this parameter will be used instead of start_date.
+      To use this filter you also have to include the following param in the request `include=subscription`."
+  end_datetime:
+    type: string
+    format: date-time
+    example: "2024-01-17T17:20:06Z"
+    description:
+      "The end date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns components that belong to the subscription with a timestamp at or before exact time provided in query.
+      You can specify timezone in query - otherwise your site''s time zone will be used. If provided, this parameter will be used instead of end_date.
+      To use this filter you also have to include the following param in the request `include=subscription`."
+examples:
+  Updated-Between:
+    date_field: updated_at
+    start_date: 2024-01-01
+    end_date: 2024-01-31
+  Problematic-States:
+    states:
+      - canceled
+      - expired
+      - past_due
+      - unpaid
