@@ -30,30 +30,47 @@ if ($evt.tool_name -ne 'Bash' -and $evt.tool_name -ne 'PowerShell') { exit 0 }
 $cmd = [string]$evt.tool_input.command
 if (-not $cmd) { exit 0 }
 
+# WHAT MATTERS IS HOW THE PROCESS SET IS SELECTED, NOT HOW THE KILL IS ISSUED.
+#
+# The first version of this guard exempted anything that resolved a PID, on the theory that a
+# PID is inherently scoped. Transcript analysis of run -001 disproved that. It ran:
+#
+#     Get-CimInstance Win32_Process -Filter "Name='PublicApi.exe'" |
+#       ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+#
+# which enumerates EVERY PublicApi.exe on the machine and then kills each by PID. Identical
+# blast radius to `Stop-Process -Name PublicApi`; the PID is just the delivery mechanism. The
+# same run also did `Win32_Process | Where CommandLine -match 'PublicApi' | Stop-Process`,
+# which matches sibling runs too because every run launches
+# `dotnet run --project src/PublicApi/PublicApi.csproj`.
+#
+# So the test is: was the SET chosen by image name / command-line pattern (machine-wide), or by
+# something that belongs to THIS run (a literal PID it already holds, or a PID resolved from a
+# port in its own block)? Allowlist the second, deny the first.
 $reason = $null
 
-# 1) taskkill by IMAGE NAME (/IM, -IM). /PID is fine.
-if ($cmd -match '(?i)\btaskkill\b' -and $cmd -match '(?i)[/-]IM\b') {
-    $reason = 'taskkill by image name (/IM) kills that image in EVERY concurrent run, not just yours.'
+$killIntent = $cmd -match '(?i)(\bStop-Process\b|\btaskkill\b|\bpkill\b|\bkillall\b)'
+if (-not $killIntent) { exit 0 }
+
+# Selection by IMAGE NAME or COMMAND-LINE PATTERN -- machine-wide however the kill is delivered.
+$nameSelected =
+    ($cmd -match '(?i)\btaskkill\b[^;|\r\n]*[/-]IM\b') -or
+    ($cmd -match '(?i)\b(Get-Process|Stop-Process)\b[^;|\r\n]*-(Name|ProcessName)\b') -or
+    ($cmd -match '(?i)Name\s*(=|-eq|-match|-like)\s*[''"]') -or
+    ($cmd -match '(?i)\b(pkill|killall)\b')
+
+# Any process ENUMERATION feeding a kill (Get-Process / Win32_Process sweeps), which is
+# machine-wide unless anchored to this run's own ports.
+$enumerates = $cmd -match '(?i)(\bGet-Process\b|Win32_Process|\bGet-WmiObject\b|\bGet-CimInstance\b)'
+
+# The sanctioned anchor: a PID resolved from a port. The run owns APP_PORT_BLOCK_BASE..+SIZE-1.
+$portAnchored = ($cmd -match '(?i)Get-NetTCPConnection') -and ($cmd -match '(?i)(LocalPort|OwningProcess)')
+
+if ($nameSelected) {
+    $reason = 'the processes to kill are selected by IMAGE NAME or COMMAND-LINE PATTERN, which matches every concurrent run on this machine -- resolving a PID from that set does not narrow it.'
 }
-# 2) Stop-Process by NAME (-Name / -ProcessName) in the SAME statement. -Id is fine.
-#    Scoped to one statement so a block that merely INSPECTS with `Get-Process -Name x`
-#    and then kills a resolved PID is not caught.
-elseif ($cmd -match '(?i)\bStop-Process\b[^;|\r\n]*-(Name|ProcessName)\b') {
-    $reason = 'Stop-Process -Name kills that image in EVERY concurrent run, not just yours.'
-}
-# 3) Get-Process ... | Stop-Process  (the piped form needs no -Name to be machine-wide).
-#    Deny unless the pipeline is narrowed by a PID (-Id / ProcessId / OwningProcess).
-elseif ($cmd -match '(?i)Get-Process[^|]*\|[^|]*Stop-Process' -and $cmd -notmatch '(?i)(-Id\b|ProcessId|OwningProcess)') {
-    $reason = 'Get-Process | Stop-Process without a PID filter kills matching processes in EVERY concurrent run.'
-}
-# 4) Get-CimInstance Win32_Process ... | ... Stop-Process with no PID narrowing.
-elseif ($cmd -match '(?i)Win32_Process' -and $cmd -match '(?i)Stop-Process' -and $cmd -notmatch '(?i)(ProcessId|-Id\b)') {
-    $reason = 'A Win32_Process sweep into Stop-Process is not scoped to your run.'
-}
-# 5) POSIX name-based killers.
-elseif ($cmd -match '(?i)\b(pkill|killall)\b') {
-    $reason = 'pkill/killall match by NAME and will hit sibling runs.'
+elseif ($enumerates -and -not $portAnchored) {
+    $reason = 'this enumerates processes machine-wide and pipes them into a kill; nothing ties the set to your run.'
 }
 
 if ($reason) {
