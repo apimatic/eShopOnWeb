@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\smoke-maxio-docs-mcp-haiku45-001\\repo\\.claude\\hooks\\maxio-web-guard.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
