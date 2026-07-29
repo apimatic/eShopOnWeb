@@ -33,6 +33,13 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Configure Maxio services
+var maxioConfig = new MaxioConfiguration();
+builder.Configuration.GetSection("Maxio").Bind(maxioConfig);
+builder.Services.AddSingleton(maxioConfig);
+builder.Services.AddHttpClient<MaxioApiClient>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
