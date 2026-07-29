@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\taskcfg-maxio-docs-mcp-opus48high-008\\repo\\.claude\\hooks\\maxio-web-guard.ps1\"",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
