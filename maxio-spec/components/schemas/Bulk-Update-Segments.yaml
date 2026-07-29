@@ -1,0 +1,8 @@
+title: Bulk Update Segments
+type: object
+properties:
+  segments:
+    type: array
+    maxItems: 1000
+    items:
+      $ref: "./Bulk-Update-Segments-Item.yaml"
