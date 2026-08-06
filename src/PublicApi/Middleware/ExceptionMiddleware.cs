@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentStateConflictException paymentConflict)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentConflict.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException paymentGateway)
+        {
+            // The gateway already carries a caller-safe message and the status the caller should see
+            // (a provider 4xx as that same 4xx; an outage/unreadable response as 5xx).
+            context.Response.StatusCode = (int)paymentGateway.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentGateway.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
