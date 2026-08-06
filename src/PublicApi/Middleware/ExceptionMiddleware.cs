@@ -32,23 +32,40 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            // A shopper's order/card was not found (or isn't theirs).
+            case OrderNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            // Payment could not be completed (declined card, invalid saved card, business rule).
+            case PaymentException:
+            case CatalogItemNotFoundException:
+            case EmptyBasketOnCheckoutException:
+            case ArgumentException: // includes Ardalis Guard clause failures on bad input
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            // PayPal was unreachable or returned an upstream failure.
+            case PayPalApiException:
+                return ((int)HttpStatusCode.BadGateway, exception.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
