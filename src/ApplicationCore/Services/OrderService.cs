@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -49,5 +50,35 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderAsync(string buyerId, IEnumerable<OrderItemQuantity> items, Address shipToAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+
+        var requestedLines = items
+            .Where(line => line.Quantity > 0)
+            .GroupBy(line => line.CatalogItemId)
+            .Select(group => new OrderItemQuantity(group.Key, group.Sum(line => line.Quantity)))
+            .ToList();
+
+        Guard.Against.NullOrEmpty(requestedLines, nameof(items));
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(requestedLines.Select(line => line.CatalogItemId).ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var orderItems = requestedLines.Select(line =>
+        {
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == line.CatalogItemId);
+            Guard.Against.Null(catalogItem, nameof(catalogItem), $"Catalog item {line.CatalogItemId} was not found.");
+
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, line.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shipToAddress, orderItems);
+
+        return await _orderRepository.AddAsync(order);
     }
 }
