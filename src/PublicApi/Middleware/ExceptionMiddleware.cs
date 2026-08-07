@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            OrderNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            PaymentMethodNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            InvalidPaymentRequestException => (HttpStatusCode.BadRequest, exception.Message),
+            PaymentConflictException => (HttpStatusCode.Conflict, exception.Message),
+            // The payment processor rejected the operation (e.g. card declined). The message is
+            // already sanitised by the gateway and safe to surface.
+            PaymentGatewayException => (HttpStatusCode.UnprocessableEntity, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message),
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
