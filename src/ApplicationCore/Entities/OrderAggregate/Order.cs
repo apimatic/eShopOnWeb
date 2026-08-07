@@ -23,6 +23,66 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Payment state. An order is placed awaiting payment and only carries PayPal references once
+    // it has actually been paid. The raw card is never part of the aggregate — only PayPal's
+    // opaque identifiers are retained, so no cardholder data is ever persisted here.
+    public PaymentStatus PaymentStatus { get; private set; } = PaymentStatus.AwaitingPayment;
+    public string? PayPalOrderId { get; private set; }
+    public string? PayPalCaptureId { get; private set; }
+    public string? PayPalRefundId { get; private set; }
+
+    // A stable, globally-unique token minted when the order is placed. It backs the PayPal-Request-Id for
+    // this order's payment so a double-click de-duplicates at PayPal, while never colliding across app
+    // restarts or other orders (unlike the auto-increment Id, which the in-memory store resets to 1 per run).
+    public Guid PaymentIdempotencyToken { get; private set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Records a successful PayPal capture against this order. Idempotent: re-applying the same
+    /// capture leaves the order untouched, so a retried payment can never overwrite the record.
+    /// </summary>
+    public void MarkPaid(string payPalOrderId, string payPalCaptureId)
+    {
+        Guard.Against.NullOrEmpty(payPalOrderId, nameof(payPalOrderId));
+        Guard.Against.NullOrEmpty(payPalCaptureId, nameof(payPalCaptureId));
+
+        if (PaymentStatus == PaymentStatus.Paid && PayPalCaptureId == payPalCaptureId)
+        {
+            return;
+        }
+
+        if (PaymentStatus != PaymentStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException(
+                $"Order {Id} cannot be paid because it is {PaymentStatus}.");
+        }
+
+        PayPalOrderId = payPalOrderId;
+        PayPalCaptureId = payPalCaptureId;
+        PaymentStatus = PaymentStatus.Paid;
+    }
+
+    /// <summary>
+    /// Records a full refund against this order. Idempotent for an already-refunded order.
+    /// </summary>
+    public void MarkRefunded(string payPalRefundId)
+    {
+        Guard.Against.NullOrEmpty(payPalRefundId, nameof(payPalRefundId));
+
+        if (PaymentStatus == PaymentStatus.Refunded)
+        {
+            return;
+        }
+
+        if (PaymentStatus != PaymentStatus.Paid)
+        {
+            throw new InvalidOperationException(
+                $"Order {Id} cannot be refunded because it is {PaymentStatus}.");
+        }
+
+        PayPalRefundId = payPalRefundId;
+        PaymentStatus = PaymentStatus.Refunded;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
