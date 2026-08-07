@@ -16,6 +16,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        // Payment state (additive). Stored as text for readability of persisted/queried state.
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PayPalRefundId).HasMaxLength(64);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
