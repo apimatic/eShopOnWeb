@@ -16,6 +16,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        // Payment state: store the status as a readable string and cap the PayPal reference ids
+        // (vault_id/order/capture/refund) to their spec maximum of 255 characters.
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(255);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(255);
+        builder.Property(o => o.PayPalRefundId).HasMaxLength(255);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
