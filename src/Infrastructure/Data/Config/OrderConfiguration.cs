@@ -16,6 +16,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        // Persist the payment lifecycle as a readable string and keep only the PayPal identifiers
+        // needed to reconcile / refund. No card data is stored on the order.
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PayPalRefundId).HasMaxLength(64);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
