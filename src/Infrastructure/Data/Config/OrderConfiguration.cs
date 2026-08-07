@@ -41,5 +41,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // Payment state added for the PayPal integration. Stored as a readable string; only
+        // PayPal-generated identifiers are persisted (never card data).
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PaymentCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PaymentRefundId).HasMaxLength(64);
     }
 }

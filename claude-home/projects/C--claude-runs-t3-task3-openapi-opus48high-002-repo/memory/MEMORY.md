@@ -1,0 +1,1 @@
+- [PayPal eShop integration](paypal-eshop-integration.md) — verified sandbox flow + build/run gotchas for the payments task
