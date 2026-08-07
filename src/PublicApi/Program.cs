@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +33,32 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Map the well-known PAYPAL_* environment variables onto the PayPal:* configuration keys, so the same
+// build runs against whatever PayPal app the environment supplies (user-secrets or env vars) without
+// any hard-coded values. Env vars take precedence over other sources when present.
+var payPalEnvMap = new Dictionary<string, string?>();
+foreach (var (envVar, configKey) in new[]
+         {
+             ("PAYPAL_CLIENT_ID", "PayPal:ClientId"),
+             ("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret"),
+             ("PAYPAL_ENVIRONMENT", "PayPal:Environment"),
+             ("PAYPAL_BASE_URL", "PayPal:BaseUrl")
+         })
+{
+    var value = builder.Configuration[envVar];
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        payPalEnvMap[configKey] = value;
+    }
+}
+if (payPalEnvMap.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalEnvMap);
+}
+
+// PayPal payments + saved cards (Checkout Orders v2, Payments v2, Vault Payment Tokens v3).
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

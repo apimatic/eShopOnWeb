@@ -16,6 +16,27 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        // Payment state (PayPal). Stored on the order itself; no card data is ever persisted.
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(o => o.PayPalOrderId)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PayPalCaptureId)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PayPalRefundId)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PaymentIdempotencyKey)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.RefundIdempotencyKey)
+            .HasMaxLength(64);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
