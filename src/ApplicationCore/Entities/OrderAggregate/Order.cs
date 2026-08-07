@@ -17,11 +17,85 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        PaymentReference = Guid.NewGuid().ToString("N");
     }
 
     public string BuyerId { get; private set; }
+
+    /// <summary>
+    /// A stable, globally-unique reference for this order instance, generated at creation. Payment
+    /// idempotency keys derive from it, so a retried pay/refund reuses the same PayPal-Request-Id
+    /// (never double-charging) while remaining unique across orders — even if the store's integer ids
+    /// are reset (as the in-memory provider does on restart).
+    /// </summary>
+    public string PaymentReference { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    // --- PayPal payment state (additive; does not alter the existing cart/checkout flow) ---
+
+    public OrderPaymentStatus PaymentStatus { get; private set; } = OrderPaymentStatus.AwaitingPayment;
+
+    /// <summary>The PayPal order id that funded this order (reference only; no card data).</summary>
+    public string? PayPalOrderId { get; private set; }
+
+    /// <summary>The PayPal capture id — the handle used to refund this order.</summary>
+    public string? PayPalCaptureId { get; private set; }
+
+    /// <summary>The PayPal refund id, once the order has been refunded in full.</summary>
+    public string? PayPalRefundId { get; private set; }
+
+    public DateTimeOffset? PaidDate { get; private set; }
+    public DateTimeOffset? RefundedDate { get; private set; }
+
+    /// <summary>
+    /// Records a completed PayPal capture against this order. Idempotent: a repeat call with the
+    /// same capture id (a retried/double-clicked payment) is a no-op rather than an error.
+    /// </summary>
+    public void MarkPaid(string payPalOrderId, string payPalCaptureId, DateTimeOffset paidAt)
+    {
+        Guard.Against.NullOrEmpty(payPalOrderId, nameof(payPalOrderId));
+        Guard.Against.NullOrEmpty(payPalCaptureId, nameof(payPalCaptureId));
+
+        if (PaymentStatus == OrderPaymentStatus.Paid && PayPalCaptureId == payPalCaptureId)
+        {
+            return; // already recorded this exact capture
+        }
+
+        if (PaymentStatus != OrderPaymentStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException(
+                $"Order {Id} cannot be marked paid from state {PaymentStatus}.");
+        }
+
+        PayPalOrderId = payPalOrderId;
+        PayPalCaptureId = payPalCaptureId;
+        PaidDate = paidAt;
+        PaymentStatus = OrderPaymentStatus.Paid;
+    }
+
+    /// <summary>
+    /// Records a completed full refund. Idempotent: repeating it with the same refund id is a no-op.
+    /// </summary>
+    public void MarkRefunded(string payPalRefundId, DateTimeOffset refundedAt)
+    {
+        Guard.Against.NullOrEmpty(payPalRefundId, nameof(payPalRefundId));
+
+        if (PaymentStatus == OrderPaymentStatus.Refunded && PayPalRefundId == payPalRefundId)
+        {
+            return; // already recorded this exact refund
+        }
+
+        if (PaymentStatus != OrderPaymentStatus.Paid)
+        {
+            throw new InvalidOperationException(
+                $"Order {Id} cannot be refunded from state {PaymentStatus}; only a paid order can be refunded.");
+        }
+
+        PayPalRefundId = payPalRefundId;
+        RefundedDate = refundedAt;
+        PaymentStatus = OrderPaymentStatus.Refunded;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
