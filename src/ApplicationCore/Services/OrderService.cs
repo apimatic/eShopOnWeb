@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,38 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderAsync(
+        string buyerId, IEnumerable<OrderItemRequest> items, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+
+        var requested = items?
+            .Where(i => i.Quantity > 0)
+            .GroupBy(i => i.CatalogItemId)
+            .Select(g => new OrderItemRequest(g.Key, g.Sum(x => x.Quantity)))
+            .ToList() ?? new List<OrderItemRequest>();
+
+        if (requested.Count == 0)
+            throw new OrderPaymentException("An order must contain at least one item with a positive quantity.");
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(requested.Select(i => i.CatalogItemId).ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var orderItems = requested.Select(requestedItem =>
+        {
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == requestedItem.CatalogItemId);
+            if (catalogItem is null)
+                throw new EntityNotFoundException($"Catalog item {requestedItem.CatalogItemId} was not found.");
+
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            // Price comes from the catalog, in USD.
+            return new OrderItem(itemOrdered, catalogItem.Price, requestedItem.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+
+        return await _orderRepository.AddAsync(order);
     }
 }
