@@ -41,6 +41,35 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is OrderNotFoundException orderNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = orderNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException paymentGatewayException)
+        {
+            // The payment provider rejected/failed the operation (e.g. a declined card). The message is safe.
+            context.Response.StatusCode = (int)HttpStatusCode.PaymentRequired;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentGatewayException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentException paymentException)
+        {
+            // A payment-related request/state error (bad request), e.g. paying an already-refunded order.
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
