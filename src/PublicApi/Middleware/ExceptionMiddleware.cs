@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException dup => ((int)HttpStatusCode.Conflict, dup.Message),
+            OrderNotFoundException nf => ((int)HttpStatusCode.NotFound, nf.Message),
+            PaymentMethodNotFoundException nf => ((int)HttpStatusCode.NotFound, nf.Message),
+            PaymentValidationException val => ((int)HttpStatusCode.BadRequest, val.Message),
+            InvalidPaymentOperationException inv => ((int)HttpStatusCode.Conflict, inv.Message),
+            // A payment provider rejection (e.g. a declined card) is a failed payment, not a server error.
+            PaymentGatewayException pay => ((int)HttpStatusCode.PaymentRequired, pay.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
