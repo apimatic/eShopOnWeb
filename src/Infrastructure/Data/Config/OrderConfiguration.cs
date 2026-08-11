@@ -16,6 +16,21 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        // Payment is part of the Order aggregate: one order has at most one payment,
+        // owned and cascaded with the order.
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.Payment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(o => o.Payment)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
