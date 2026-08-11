@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,24 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- PayPal payments (additive) ---
+// The PayPal credentials come from the environment / user-secrets and are bound from the
+// `PayPal:` configuration section. Their values never live in the repository. Configuration
+// (e.g. user-secrets under PayPal:ClientId) wins; the PAYPAL_* environment variables are a
+// fallback so the same build runs against any account.
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = builder.Configuration["PayPal:ClientId"] ?? Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = builder.Configuration["PayPal:ClientSecret"] ?? Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = builder.Configuration["PayPal:Environment"] ?? Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = builder.Configuration["PayPal:Currency"] ?? Environment.GetEnvironmentVariable("PAYPAL_CURRENCY") ?? "USD",
+    ["PayPal:BaseUrl"] = builder.Configuration["PayPal:BaseUrl"] ?? Environment.GetEnvironmentVariable("PAYPAL_BASE_URL"),
+});
+
+builder.Services.AddPayPalPaymentGateway(builder.Configuration);
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +179,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
