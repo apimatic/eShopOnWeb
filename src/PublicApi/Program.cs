@@ -6,18 +6,21 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,24 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// ---- PayPal payments integration ----
+// Bind the PayPal:* settings (values come from user-secrets / environment, never the repo).
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<PayPalSettings>>().Value);
+
+// A typed HttpClient whose base address honors the PayPal:BaseUrl override (else derives from environment).
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>((sp, http) =>
+{
+    var settings = sp.GetRequiredService<IOptions<PayPalSettings>>().Value;
+    http.BaseAddress = new Uri(settings.ResolveBaseUrl().TrimEnd('/') + "/");
+});
+
+builder.Services.AddScoped<IOrderPlacementService, OrderPlacementService>();
+builder.Services.AddScoped<IOrderQueryService, OrderQueryService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
