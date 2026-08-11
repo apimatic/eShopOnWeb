@@ -32,23 +32,31 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => HttpStatusCode.Conflict,
+            PaymentNotFoundException => HttpStatusCode.NotFound,
+            UnauthorizedAccessException => HttpStatusCode.Unauthorized,
+            // A refund that exceeds what was captured, or a payment in the wrong state, is a client error.
+            RefundNotAllowedException => HttpStatusCode.UnprocessableEntity,
+            PaymentStateException => HttpStatusCode.Conflict,
+            // Fulfilment could not renew a stale hold — the operator must have the shopper pay again.
+            AuthorizationExpiredException => HttpStatusCode.Conflict,
+            // A card challenge (3-D Secure) is surfaced rather than handled with a browser round-trip.
+            PaymentChallengeRequiredException => HttpStatusCode.BadRequest,
+            // A declined card / invalid card input (4xx from PayPal) is surfaced to the caller as unprocessable,
+            // carrying PayPal's own message; a PayPal outage (5xx) is a bad gateway.
+            PayPalApiException papi when papi.StatusCode is >= 500 => HttpStatusCode.BadGateway,
+            PayPalApiException => HttpStatusCode.UnprocessableEntity,
+            PaymentException => HttpStatusCode.BadRequest,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
