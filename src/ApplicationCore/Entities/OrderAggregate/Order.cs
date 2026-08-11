@@ -23,6 +23,26 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Where the order sits in its lifecycle. Starts awaiting payment.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The money side of the order. Null until the shopper pays.</summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Attaches the payment that holds the shopper's funds, moving the order to Authorized.</summary>
+    public void SetPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Marks the order fulfilled — the point at which the held funds are actually taken.</summary>
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+
+    /// <summary>Marks the order cancelled after its held funds have been released.</summary>
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
