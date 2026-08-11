@@ -33,6 +33,11 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// PayPal payments + saved cards (Flow 1 & 2). Binds the PayPal: configuration section, builds the
+// PayPal SDK client, and registers the payment gateway and application services.
+Microsoft.eShopWeb.Infrastructure.Payments.PayPalServiceCollectionExtensions.AddPayPalIntegration(
+    builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();

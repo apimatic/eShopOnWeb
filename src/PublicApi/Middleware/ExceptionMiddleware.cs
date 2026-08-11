@@ -32,23 +32,39 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // Caller referenced something that doesn't exist for them (or belongs to another shopper).
+        PaymentEntityNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+
+        // Malformed request.
+        InvalidPaymentRequestException => ((int)HttpStatusCode.BadRequest, exception.Message),
+
+        // Invalid state transition or refund exceeding capture; a stale hold that can't be renewed.
+        AuthorizationNotRenewableException => ((int)HttpStatusCode.Conflict, exception.Message),
+        PaymentConflictException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // PayPal asked for a browser approval this integration doesn't support.
+        PaymentApprovalRequiredException => ((int)HttpStatusCode.PaymentRequired, exception.Message),
+
+        // Any other PayPal failure: surface a client 4xx as-is, otherwise a 502 (upstream) — never
+        // leak SDK/framework detail (PaymentGatewayException.Message is already caller-safe).
+        PaymentGatewayException gateway => (
+            gateway.ProviderStatusCode is >= 400 and < 500 ? gateway.ProviderStatusCode.Value : (int)HttpStatusCode.BadGateway,
+            gateway.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
