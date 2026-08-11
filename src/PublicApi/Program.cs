@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,33 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal: bind settings from the PayPal: configuration section. Map the PAYPAL_* environment
+// variables onto those keys so the same build runs against whatever sandbox/live account the
+// environment (or user-secrets) supplies. Secret *values* live only in the environment / user-secrets.
+var payPalEnv = new Dictionary<string, string?>();
+void MapPayPalEnv(string key, string envVar)
+{
+    var value = builder.Configuration[envVar] ?? Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        payPalEnv[key] = value;
+    }
+}
+MapPayPalEnv("PayPal:ClientId", "PAYPAL_CLIENT_ID");
+MapPayPalEnv("PayPal:ClientSecret", "PAYPAL_CLIENT_SECRET");
+MapPayPalEnv("PayPal:Environment", "PAYPAL_ENVIRONMENT");
+MapPayPalEnv("PayPal:Currency", "PAYPAL_CURRENCY");
+MapPayPalEnv("PayPal:BaseUrl", "PAYPAL_BASEURL");
+if (payPalEnv.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalEnv);
+}
+
+builder.Services.AddPayPalIntegration(builder.Configuration);
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
