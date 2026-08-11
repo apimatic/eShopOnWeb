@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -24,31 +24,50 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            // The resource does not exist, or is not the caller's (kept indistinguishable).
+            OrderNotFoundException => HttpStatusCode.NotFound,
+            SavedCardNotFoundException => HttpStatusCode.NotFound,
+
+            // Bad input.
+            OrderMustHaveItemsException => HttpStatusCode.BadRequest,
+            CatalogItemNotFoundException => HttpStatusCode.BadRequest,
+            PaymentValidationException => HttpStatusCode.BadRequest,
+
+            // Shopper must approve in a browser — this app deliberately does not build that round-trip.
+            PayPalChallengeException => HttpStatusCode.PaymentRequired,
+
+            // Payment state conflicts / a non-renewable authorization (operator-actionable).
+            AuthorizationUnusableException => HttpStatusCode.Conflict,
+            DuplicateException => HttpStatusCode.Conflict,
+            InvalidOperationException => HttpStatusCode.Conflict,
+
+            // Upstream PayPal failure.
+            PayPalException => HttpStatusCode.BadGateway,
+
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+
+        // Never leak internal detail on an unexpected error.
+        var message = statusCode == HttpStatusCode.InternalServerError
+            ? "An unexpected error occurred."
+            : exception.Message;
+
+        await context.Response.WriteAsync(new ErrorDetails
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
