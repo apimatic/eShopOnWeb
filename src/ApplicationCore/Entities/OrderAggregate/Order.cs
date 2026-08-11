@@ -23,6 +23,22 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // The PayPal-backed payment for this order. Null until the order is paid for
+    // (i.e. the order is awaiting payment). Part of the aggregate, so it loads
+    // with the order and is attached exactly once via AttachPayment.
+    public OrderPayment? Payment { get; private set; }
+
+    /// <summary>Attach the payment created when the shopper authorizes the order total.</summary>
+    public void AttachPayment(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Payment is not null)
+        {
+            throw new Exceptions.PaymentStateException("A payment has already been attached to this order.");
+        }
+        Payment = payment;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,

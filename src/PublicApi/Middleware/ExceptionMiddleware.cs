@@ -32,23 +32,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            OrderNotFoundException => HttpStatusCode.NotFound,
+            PaymentMethodNotFoundException => HttpStatusCode.NotFound,
+            DuplicateException => HttpStatusCode.Conflict,
+            PaymentStateException => HttpStatusCode.Conflict,
+            PaymentDeclinedException => HttpStatusCode.PaymentRequired,
+            // A browser-approval requirement is a payment we intentionally cannot complete.
+            PaymentChallengeRequiredException => HttpStatusCode.UnprocessableEntity,
+            ArgumentException => HttpStatusCode.BadRequest,
+            // The upstream PayPal call failed after our validation passed.
+            PayPalApiException => HttpStatusCode.BadGateway,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
