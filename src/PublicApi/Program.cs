@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces.PayPal;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -44,6 +47,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- PayPal payments (additive capability) ---
+// Bind settings from the PayPal: section (values come from user-secrets / environment, never the repo).
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+
+// The PayPal REST client. BaseUrl override, when set, is honored verbatim for every call.
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
