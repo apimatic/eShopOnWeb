@@ -41,6 +41,17 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is ApiException apiException)
+        {
+            // Domain/integration failures carry the status the caller should see (404, 409, 400,
+            // 502 for upstream PayPal errors, etc.) along with an operator-actionable message.
+            context.Response.StatusCode = apiException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = apiException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
