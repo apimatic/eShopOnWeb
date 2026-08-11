@@ -23,6 +23,55 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // ----- Payment / fulfilment state (additive) -----
+
+    /// <summary>The fulfilment lifecycle of this order. Defaults to <see cref="OrderStatus.AwaitingPayment"/>.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The payment for this order, once the shopper has paid (authorized). Null while awaiting payment.</summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>
+    /// Records that the order total has been authorized (a hold placed) with PayPal. Idempotent
+    /// callers should short-circuit before calling this; it guards against double authorization.
+    /// </summary>
+    public void SetAuthorized(string payPalOrderId, string authorizationId, string authorizationStatus,
+        DateTimeOffset? authorizationExpiresAt, decimal amount, string currency, string reconciliationReference)
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOperationException("Cannot pay for a cancelled order.");
+        if (Payment is not null)
+            throw new InvalidOperationException("This order has already been paid (authorized).");
+
+        Payment = new Payment(payPalOrderId, authorizationId, authorizationStatus,
+            authorizationExpiresAt, amount, currency, reconciliationReference);
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Marks the order fulfilled after its held funds have been captured.</summary>
+    public void MarkFulfilled(string captureId, string captureStatus, decimal capturedAmount,
+        decimal? payPalFee, decimal? netAmount)
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOperationException("Cannot fulfil a cancelled order.");
+        Guard.Against.Null(Payment, nameof(Payment), "Cannot fulfil an order that has not been paid.");
+
+        Payment!.MarkCaptured(captureId, captureStatus, capturedAmount, payPalFee, netAmount);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Cancels the order before fulfilment, releasing any held funds.</summary>
+    public void Cancel()
+    {
+        if (Status == OrderStatus.Fulfilled)
+            throw new InvalidOperationException("Cannot cancel an order that has already been fulfilled; issue a refund instead.");
+        if (Status == OrderStatus.Cancelled)
+            return; // idempotent
+
+        Payment?.MarkAuthorizationVoided();
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
