@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            NotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            ValidationException => (HttpStatusCode.BadRequest, exception.Message),
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            ConflictException => (HttpStatusCode.Conflict, exception.Message),
+            // A card challenge / 3-D Secure requirement cannot be completed head-lessly — surface it clearly.
+            PayPalCardChallengeRequiredException => (HttpStatusCode.Conflict, exception.Message),
+            // Operator-actionable: an authorization that can no longer be renewed.
+            PayPalAuthorizationUnrenewableException => (HttpStatusCode.Conflict, exception.Message),
+            // Any other upstream PayPal failure is a bad-gateway condition, not our fault.
+            PayPalGatewayException => (HttpStatusCode.BadGateway, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
