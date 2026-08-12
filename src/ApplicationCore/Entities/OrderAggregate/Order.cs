@@ -23,6 +23,25 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Fulfilment lifecycle. Additive: existing checkout leaves orders as Placed.
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>An operator marks the order dispatched. Only a placed order can be dispatched.</summary>
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} was cancelled and cannot be dispatched.");
+        }
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>An operator cancels the order. A dispatched or placed order can be cancelled.</summary>
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
