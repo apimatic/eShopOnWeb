@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // A bad request the caller can fix.
+            InvalidOrderRequestException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            // The provider does not consider the number a usable destination.
+            InvalidPhoneNumberException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            // An order cannot move to the requested state from its current one.
+            InvalidOrderStatusTransitionException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // A provider client-error (4xx) is the caller's to fix; anything else is an upstream failure.
+            SmsProviderException sms => (sms.IsClientError ? (int)HttpStatusCode.BadRequest : (int)HttpStatusCode.BadGateway, sms.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
