@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,37 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>
+    /// The current lifecycle state of the order. Orders start as <see cref="OrderStatus.Placed"/>.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Marks the order as dispatched. Only a placed order can be dispatched; dispatching a
+    /// cancelled or already-dispatched order is a conflict.
+    /// </summary>
+    public void Dispatch()
+    {
+        if (Status == OrderStatus.Dispatched)
+            throw new OrderStatusException($"Order {Id} has already been dispatched.");
+        if (Status == OrderStatus.Cancelled)
+            throw new OrderStatusException($"Order {Id} was cancelled and cannot be dispatched.");
+
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>
+    /// Marks the order as cancelled. A placed or dispatched order can be cancelled; cancelling an
+    /// already-cancelled order is a conflict.
+    /// </summary>
+    public void Cancel()
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new OrderStatusException($"Order {Id} has already been cancelled.");
+
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
