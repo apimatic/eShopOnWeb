@@ -33,6 +33,9 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Twilio-backed SMS order notifications (contact numbers, order messages, operator actions).
+Microsoft.eShopWeb.Infrastructure.Notifications.NotificationDependencies.ConfigureServices(builder.Configuration, builder.Services);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();

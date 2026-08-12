@@ -1,0 +1,57 @@
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Entities.ContactNumberAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Specifications;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.ContactNumberEndpoints;
+
+/// <summary>
+/// Removes one of the caller's registered numbers. A number belongs to the shopper who registered it,
+/// so another shopper's number is never found here. Afterwards it no longer appears among the caller's
+/// numbers and nothing is ever sent to it again.
+/// </summary>
+public class DeleteContactNumberEndpoint : IEndpoint<IResult, DeleteContactNumberEndpoint.Request, IRepository<ContactNumber>>
+{
+    public record Request(int ContactNumberId, string BuyerId);
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapDelete("api/contact-numbers/{contactNumberId:int}",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (int contactNumberId, ClaimsPrincipal user, IRepository<ContactNumber> repository) =>
+            {
+                var buyerId = user.GetBuyerId();
+                if (string.IsNullOrEmpty(buyerId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                return await HandleAsync(new Request(contactNumberId, buyerId), repository);
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithTags("ContactNumberEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(Request request, IRepository<ContactNumber> repository)
+    {
+        // Scope strictly to the caller's own numbers so one shopper can never delete another's.
+        var owned = await repository.ListAsync(new ContactNumbersByBuyerSpecification(request.BuyerId));
+        var target = owned.FirstOrDefault(cn => cn.Id == request.ContactNumberId);
+        if (target is null)
+        {
+            return Results.NotFound();
+        }
+
+        await repository.DeleteAsync(target);
+        return Results.NoContent();
+    }
+}
