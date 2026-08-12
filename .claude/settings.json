@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "command": "pwsh -NoProfile -File \"/Users/apimatic/claude-runs/smokemac-task3-plugin-haiku45-001/repo/.claude/hooks/maxio-process-guard.ps1\"",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "command": "pwsh -NoProfile -File \"/Users/apimatic/claude-runs/smokemac-task3-plugin-haiku45-001/repo/.claude/hooks/task3-web-guard.ps1\"",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
