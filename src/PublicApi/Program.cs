@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -44,6 +46,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- SMS order-notification integration (Twilio) ---
+// Settings bound from the "Twilio:" section (values come from user-secrets / environment, never hard-coded).
+var twilioSettings = builder.Configuration.GetSection(TwilioSettings.ConfigSection).Get<TwilioSettings>() ?? new TwilioSettings();
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.ConfigSection));
+builder.Services.AddSingleton(twilioSettings);
+builder.Services.AddHttpClient<ITwilioMessagingClient, TwilioMessagingClient>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

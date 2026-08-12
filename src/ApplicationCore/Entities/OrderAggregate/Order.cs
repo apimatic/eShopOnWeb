@@ -23,6 +23,29 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Lifecycle state. Additive to the original model so notifications can be raised
+    // as the order is dispatched or cancelled.
+    public OrderStatus Status { get; private set; } = OrderStatus.Submitted;
+
+    /// <summary>Marks the order dispatched. A cancelled order cannot be dispatched.</summary>
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} was cancelled and cannot be dispatched.");
+        }
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>
+    /// Marks the order cancelled. Cancelling a dispatched order is expected — it is the
+    /// point at which a queued "how did delivery go?" follow-up must be called off.
+    /// </summary>
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
