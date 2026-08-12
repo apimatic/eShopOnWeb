@@ -1,0 +1,19 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class ContactNumberConfiguration : IEntityTypeConfiguration<ContactNumber>
+{
+    public void Configure(EntityTypeBuilder<ContactNumber> builder)
+    {
+        builder.ToTable("ContactNumbers");
+
+        builder.Property(c => c.BuyerId).IsRequired().HasMaxLength(256);
+        builder.Property(c => c.PhoneNumber).IsRequired().HasMaxLength(20);
+        builder.Property(c => c.RegisteredAt).IsRequired();
+
+        builder.HasIndex(c => c.BuyerId);
+    }
+}
