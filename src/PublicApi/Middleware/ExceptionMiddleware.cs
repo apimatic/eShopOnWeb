@@ -32,23 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map domain failures to caller-appropriate status codes. Messages here are already caller-safe:
+        // they never carry provider secrets or a shopper's phone number.
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            NotFoundException => HttpStatusCode.NotFound,
+            InvalidPhoneNumberException => HttpStatusCode.BadRequest,
+            ConflictException => HttpStatusCode.Conflict,
+            DuplicateException => HttpStatusCode.Conflict,
+            SmsGatewayException => HttpStatusCode.BadGateway,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+
+        var message = statusCode == HttpStatusCode.InternalServerError
+            ? "An unexpected error occurred."
+            : exception.Message;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

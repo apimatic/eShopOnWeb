@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,35 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    // Additive lifecycle state so an order can be dispatched or cancelled after it is placed.
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Marks the order dispatched. Only a placed order can be dispatched; a cancelled or
+    /// already-dispatched order is rejected so the shopper is never messaged twice or wrongly.
+    /// </summary>
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Dispatched)
+            throw new ConflictException($"Order {Id} has already been dispatched.");
+        if (Status == OrderStatus.Cancelled)
+            throw new ConflictException($"Order {Id} was cancelled and cannot be dispatched.");
+
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>
+    /// Cancels the order. Allowed from either placed or dispatched (cancelling after dispatch is
+    /// exactly the case where a queued "how did delivery go" follow-up must be called off).
+    /// </summary>
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new ConflictException($"Order {Id} has already been cancelled.");
+
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
