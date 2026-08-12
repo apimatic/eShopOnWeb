@@ -23,6 +23,29 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Post-checkout lifecycle state. Defaults to <see cref="OrderStatus.Pending"/> when placed.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Pending;
+
+    /// <summary>Marks the order dispatched. A cancelled order can never be dispatched.</summary>
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} is cancelled and cannot be dispatched.");
+        }
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>Marks the order cancelled.</summary>
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} is already cancelled.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
