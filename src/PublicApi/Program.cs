@@ -8,8 +8,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces.Messaging;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -31,6 +33,11 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// The default HttpClient logger writes the request URI at Information level. A phone-number lookup
+// carries the shopper's number in that URI, so keep this category quiet to ensure numbers are
+// never written to logs.
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -44,6 +51,13 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Order notifications by SMS (Twilio) ---
+// Settings are bound from the Twilio: configuration section (values come from user-secrets /
+// environment, never hard-coded), so the same build can run against a different Twilio account.
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ISmsNotificationGateway, TwilioMessagingGateway>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
