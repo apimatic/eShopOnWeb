@@ -22,6 +22,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using System.Net.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.eShopWeb.ApplicationCore.Messaging;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
+using TwilioSdk;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +49,39 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Twilio SMS order-notifications ---
+// Credentials bind from the Twilio: configuration section (user-secrets / environment); no values are
+// hard-coded. Validation runs at startup so a missing credential refuses to boot rather than failing
+// the first message that goes out.
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.CONFIG_NAME))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+const string TwilioHttpClientName = "twilio-messaging";
+builder.Services.AddHttpClient(TwilioHttpClientName, c =>
+{
+    // Bounds a single attempt (the SDK's per-attempt retry timeout is set alongside in the factory).
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // The Twilio client is a long-lived singleton; keep DNS fresh behind it.
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton<TwilioSdkClient>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<TwilioSettings>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(TwilioHttpClientName);
+    return TwilioSdkClientFactory.Create(settings, httpClient);
+});
+
+builder.Services.AddScoped<ISmsProvider, TwilioSmsProvider>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<INotificationOperationsService, NotificationOperationsService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

@@ -26,6 +26,12 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        /// <summary>Mints a signed token for an arbitrary shopper (no roles) — used to test isolation.</summary>
+        public static string GetUserToken(string userName, params string[] roles)
+        {
+            return CreateToken(userName, roles);
+        }
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
