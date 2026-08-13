@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// SMS order notifications (Twilio). Settings come from the "Twilio:" configuration section
+// (user-secrets / environment); nothing is hard-coded and the auth token only lives on the
+// outgoing Authorization header, never in a log.
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.ConfigSection));
+var twilioSettings = builder.Configuration.GetSection(TwilioSettings.ConfigSection).Get<TwilioSettings>() ?? new TwilioSettings();
+builder.Services.AddHttpClient<ISmsSender, TwilioSmsSender>(client =>
+{
+    var authBytes = Encoding.ASCII.GetBytes($"{twilioSettings.AccountSid}:{twilioSettings.AuthToken}");
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
