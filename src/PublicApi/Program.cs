@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Load Maxio configuration from environment variables
+LoadMaxioConfiguration(builder.Configuration);
+
+// Register Maxio Service with HttpClient
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -175,7 +183,37 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+// Register subscription endpoints
+app.MapSubscriptionEndpoints();
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void LoadMaxioConfiguration(IConfigurationBuilder configBuilder)
+{
+    var apiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+    var subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+    var environment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+    var productFamilyHandle = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+    var baseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL");
+
+    if (!string.IsNullOrEmpty(apiKey) || !string.IsNullOrEmpty(subdomain))
+    {
+        var maxioConfig = new Dictionary<string, string>
+        {
+            {"Maxio:ApiKey", apiKey ?? ""},
+            {"Maxio:Subdomain", subdomain ?? ""},
+            {"Maxio:Environment", environment ?? "US"},
+            {"Maxio:ProductFamilyHandle", productFamilyHandle ?? ""},
+        };
+
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            maxioConfig["Maxio:BaseUrl"] = baseUrl;
+        }
+
+        configBuilder.AddInMemoryCollection(maxioConfig);
+    }
+}
 
 public partial class Program { }
