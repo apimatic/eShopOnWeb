@@ -1,0 +1,25 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class ContactNumberConfiguration : IEntityTypeConfiguration<ContactNumber>
+{
+    public void Configure(EntityTypeBuilder<ContactNumber> builder)
+    {
+        builder.Property(c => c.OwnerId)
+            .IsRequired()
+            .HasMaxLength(256);
+
+        builder.Property(c => c.PhoneNumber)
+            .IsRequired()
+            .HasMaxLength(30);
+
+        builder.Property(c => c.CreatedDate)
+            .IsRequired();
+
+        // Numbers are looked up and scoped by owner.
+        builder.HasIndex(c => c.OwnerId);
+    }
+}

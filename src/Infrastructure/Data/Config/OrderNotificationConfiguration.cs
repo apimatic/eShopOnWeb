@@ -1,0 +1,41 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class OrderNotificationConfiguration : IEntityTypeConfiguration<OrderNotification>
+{
+    public void Configure(EntityTypeBuilder<OrderNotification> builder)
+    {
+        builder.Property(n => n.OrderId).IsRequired();
+
+        builder.Property(n => n.OwnerId)
+            .IsRequired()
+            .HasMaxLength(256);
+
+        builder.Property(n => n.Kind)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.Property(n => n.State)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(n => n.ToPhoneNumber).HasMaxLength(30);
+        builder.Property(n => n.Body).HasMaxLength(1600);
+        builder.Property(n => n.ProviderMessageSid).HasMaxLength(64);
+        builder.Property(n => n.ProviderStatus).HasMaxLength(40);
+        builder.Property(n => n.ProviderErrorMessage).HasMaxLength(500);
+        builder.Property(n => n.IdempotencyKey).HasMaxLength(200);
+
+        builder.HasIndex(n => n.OrderId);
+
+        // A given idempotency key must produce at most one notification.
+        builder.HasIndex(n => n.IdempotencyKey)
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
+    }
+}
