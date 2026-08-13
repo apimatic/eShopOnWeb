@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,17 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SmsGatewayException gatewayException)
+        {
+            // The messaging provider could not fulfil a request the caller is entitled to have answered.
+            // The message is caller-safe (no secret, no shopper number).
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = gatewayException.Message
             }.ToString());
         }
         else
