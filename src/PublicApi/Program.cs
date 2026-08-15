@@ -39,6 +39,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+
+// PayPal payments + saved cards (Flow 1 & Flow 2).
+Microsoft.eShopWeb.Infrastructure.Payments.PayPalServiceCollectionExtensions.AddPayPalPaymentGateway(builder.Services, builder.Configuration);
+builder.Services.AddScoped<IOrderPaymentService, Microsoft.eShopWeb.ApplicationCore.Services.OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, Microsoft.eShopWeb.ApplicationCore.Services.SavedCardService>();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));

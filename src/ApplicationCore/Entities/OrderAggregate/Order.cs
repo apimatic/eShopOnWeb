@@ -23,6 +23,42 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The fulfilment lifecycle of the order. Additive to the original model: an order now starts
+    /// awaiting payment rather than being implicitly complete on creation.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>Records that the order total has been authorized (funds held) with the processor.</summary>
+    public void MarkAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be authorized from status {Status}.");
+        }
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Records that the operator fulfilled the order and the held funds were captured.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException($"Order {Id} must be authorized before it can be fulfilled (current status {Status}).");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Records that the order was cancelled before fulfilment and any held funds released.</summary>
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been fulfilled and can no longer be cancelled; issue a refund instead.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
