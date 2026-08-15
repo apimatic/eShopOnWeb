@@ -23,6 +23,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
+    <ProjectReference Include="..\..\src\PublicApi\PublicApi.csproj" />
+  </ItemGroup>
+
+  <!-- Needed so tests can reference Microsoft.AspNetCore.Http.HttpResults result types. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
