@@ -27,11 +27,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
 
+// Serialize enums (e.g. the reconciliation match kind) as their names, not integers.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
+
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// PayPal payment gateway + order-payment / saved-card services (binds the PayPal: configuration section).
+Microsoft.eShopWeb.Infrastructure.Services.PayPal.PayPalServiceCollectionExtensions
+    .AddPayPalPaymentGateway(builder.Services, builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,37 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int statusCode, string message) Map(Exception exception) => exception switch
+    {
+        DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // Not found (also used for "belongs to another shopper", to avoid revealing another's data).
+        OrderNotFoundException or PaymentMethodNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+
+        // A request the caller can act on: wrong order state, or nothing left to refund.
+        InvalidOrderStateException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // A card challenge that would need a browser approval — surfaced, not worked around.
+        PaymentRequiresCustomerActionException => (
+            (int)HttpStatusCode.Conflict,
+            exception.Message),
+
+        // An authorization that can no longer be renewed — an operator-actionable message.
+        PaymentGatewayException { IsOperatorActionable: true } => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // Other gateway failures (declines, provider errors): the caller's request was passed on, but the
+        // provider rejected or could not complete it.
+        PaymentGatewayException => ((int)HttpStatusCode.BadGateway, exception.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
