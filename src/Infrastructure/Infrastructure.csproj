@@ -5,6 +5,12 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
+	<!-- The PayPal integration uses IHttpClientFactory, Options, Configuration binding and Logging
+	     abstractions; the ASP.NET Core shared framework provides them without extra package versions. -->
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
