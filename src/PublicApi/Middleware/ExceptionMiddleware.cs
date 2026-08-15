@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // Carry a provider 4xx through as that same client 4xx (the caller can act on it);
+            // map transport failures / unknown provider errors to 502 Bad Gateway.
+            var upstream = billingException.UpstreamStatusCode;
+            context.Response.StatusCode = upstream is >= HttpStatusCode.BadRequest and < HttpStatusCode.InternalServerError
+                ? (int)upstream
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
