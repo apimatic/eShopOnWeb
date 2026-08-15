@@ -5,6 +5,8 @@ using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
+// PaymentException and friends live in Microsoft.eShopWeb.ApplicationCore.Exceptions (imported above).
+
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
@@ -32,23 +34,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map application exceptions to caller-actionable status codes. Payment-provider failures
+        // become 502 (a retry is meaningful); caller/card rejections become 400; ownership/not-found
+        // becomes 404; identity problems become 401.
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            PaymentNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            PaymentProviderUnavailableException => (HttpStatusCode.BadGateway, exception.Message),
+            PaymentChallengeRequiredException => (HttpStatusCode.BadRequest, exception.Message),
+            PaymentException => (HttpStatusCode.BadRequest, exception.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
+            ArgumentException => (HttpStatusCode.BadRequest, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

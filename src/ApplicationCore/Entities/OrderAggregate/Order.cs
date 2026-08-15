@@ -23,6 +23,45 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Where the order sits in the payment/fulfilment lifecycle. Defaults to
+    /// <see cref="OrderStatus.AwaitingPayment"/> for a freshly placed order.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        RequireStatus(OrderStatus.AwaitingPayment, OrderStatus.PaymentAuthorized);
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        RequireStatus(OrderStatus.PaymentAuthorized, OrderStatus.Fulfilled);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        RequireStatus(OrderStatus.AwaitingPayment, OrderStatus.PaymentAuthorized, OrderStatus.Cancelled);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fully)
+    {
+        RequireStatus(OrderStatus.Fulfilled, OrderStatus.PartiallyRefunded, OrderStatus.Refunded);
+        Status = fully ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
+
+    private void RequireStatus(params OrderStatus[] allowed)
+    {
+        if (Array.IndexOf(allowed, Status) < 0)
+        {
+            throw new InvalidOperationException(
+                $"Order {Id} is '{Status}'; this operation requires one of: {string.Join(", ", allowed)}.");
+        }
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
