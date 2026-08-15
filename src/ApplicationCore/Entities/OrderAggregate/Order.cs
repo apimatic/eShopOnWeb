@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
@@ -17,11 +17,18 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>Where the order sits in the payment/fulfilment lifecycle. New orders await payment.</summary>
+    public OrderStatus Status { get; private set; }
+
+    /// <summary>The PayPal-owned payment state for this order (null until the shopper pays).</summary>
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -29,10 +36,10 @@ public class Order : BaseEntity, IAggregateRoot
     // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
 
-    // Using List<>.AsReadOnly() 
+    // Using List<>.AsReadOnly()
     // This will create a read only wrapper around the private list so is protected against "external updates".
     // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
+    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public decimal Total()
@@ -44,4 +51,24 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    /// <summary>Attaches the payment aggregate that a <c>/pay</c> request begins. Idempotent: an order
+    /// that already has a payment keeps it.</summary>
+    public OrderPayment StartPayment(string currency, string invoiceId)
+    {
+        Payment ??= new OrderPayment(currency, Total(), invoiceId);
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Status == OrderStatus.AwaitingPayment)
+        {
+            Status = OrderStatus.Authorized;
+        }
+    }
+
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
 }

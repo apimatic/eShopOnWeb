@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException dup => ((int)HttpStatusCode.Conflict, dup.Message),
+            // "Not found" is also used for "not yours", so one shopper cannot probe another's data.
+            EntityNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            UnauthorizedAccessException unauth => ((int)HttpStatusCode.Unauthorized, unauth.Message),
+            // Business-rule violations in the payment flow are actionable client errors.
+            PaymentException payment => ((int)HttpStatusCode.UnprocessableEntity, payment.Message),
+            // A raw PayPal failure that was not translated into a PaymentException: surface it as a bad gateway.
+            PayPalApiException payPal => ((int)HttpStatusCode.BadGateway, payPal.DescribeIssues()),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
