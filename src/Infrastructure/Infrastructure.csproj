@@ -6,6 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
@@ -17,5 +18,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
+	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="UnitTests" />
 	</ItemGroup>
 </Project>

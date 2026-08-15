@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // A provider client error (4xx the caller can act on) is surfaced as that same
+            // client error; transport/parse/unknown failures surface as Bad Gateway. The
+            // message is already caller-safe (no provider/framework detail leaked).
+            context.Response.StatusCode = billingException.IsClientError
+                ? billingException.ProviderStatusCode!.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
