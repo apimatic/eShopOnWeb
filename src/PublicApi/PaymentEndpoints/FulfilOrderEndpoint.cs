@@ -1,0 +1,52 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
+
+public class FulfilOrderRequest : BaseRequest
+{
+    public int OrderId { get; init; }
+    public FulfilOrderRequest(int orderId) { OrderId = orderId; }
+}
+
+public class FulfilOrderResponse : BaseResponse
+{
+    public FulfilOrderResponse(Guid correlationId) : base(correlationId) { }
+    public FulfilOrderResponse() { }
+
+    public PaymentDto? Payment { get; set; }
+}
+
+/// <summary>
+/// Operator action (admin only): fulfils an order, capturing the held money. A stale authorization
+/// is renewed first; one that can no longer be renewed fails with an operator-actionable message.
+/// </summary>
+public class FulfilOrderEndpoint : IEndpoint<IResult, FulfilOrderRequest, IPaymentService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapPost("api/orders/{orderId}/fulfil",
+            [Authorize(Roles = BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (int orderId, IPaymentService paymentService) =>
+            {
+                return await HandleAsync(new FulfilOrderRequest(orderId), paymentService);
+            })
+            .Produces<FulfilOrderResponse>()
+            .WithTags("PaymentEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(FulfilOrderRequest request, IPaymentService paymentService)
+    {
+        var response = new FulfilOrderResponse(request.CorrelationId());
+        var payment = await paymentService.FulfilAsync(request.OrderId);
+        response.Payment = PaymentDto.From(payment);
+        return Results.Ok(response);
+    }
+}

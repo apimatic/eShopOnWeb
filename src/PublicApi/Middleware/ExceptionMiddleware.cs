@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +33,49 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException duplicate:
+                return ((int)HttpStatusCode.Conflict, duplicate.Message);
+
+            case PaymentValidationException validation:
+                return ((int)HttpStatusCode.BadRequest, validation.Message);
+
+            case PaymentNotFoundException notFound:
+                return ((int)HttpStatusCode.NotFound, notFound.Message);
+
+            case PaymentStateException state:
+                return ((int)HttpStatusCode.Conflict, state.Message);
+
+            case AuthorizationNotReauthorizableException reauth:
+                // Operator-actionable: the hold can no longer be renewed — surface PayPal's detail.
+                var detail = string.IsNullOrEmpty(reauth.PayPalDetail) ? reauth.Message : $"{reauth.Message} ({reauth.PayPalDetail})";
+                return ((int)HttpStatusCode.Conflict, detail);
+
+            case AuthorizationNotCapturableException notCapturable:
+                return ((int)HttpStatusCode.Conflict, notCapturable.Message);
+
+            case PayPalApiException payPal:
+                // A card decline / validation from PayPal is a 402; a PayPal-side outage is a 502.
+                var isUpstreamFault = payPal.PayPalStatusCode is >= 500;
+                var code = isUpstreamFault ? HttpStatusCode.BadGateway : HttpStatusCode.PaymentRequired;
+                var payPalMessage = string.IsNullOrEmpty(payPal.PayPalDetail) ? payPal.Message : $"{payPal.Message}: {payPal.PayPalDetail}";
+                return ((int)code, payPalMessage);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
