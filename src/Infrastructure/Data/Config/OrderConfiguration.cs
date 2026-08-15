@@ -41,5 +41,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<int>();
+
+        // The payment is part of the Order aggregate (1:1), owned via a shadow FK.
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.Payment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(o => o.Payment).IsRequired(false);
     }
 }

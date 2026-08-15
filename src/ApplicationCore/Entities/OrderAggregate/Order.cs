@@ -23,6 +23,12 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Lifecycle of the order with respect to payment. Starts awaiting payment.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The PayPal-owned payment state, once the order has been paid (authorized).</summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -44,4 +50,24 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    // --- Payment lifecycle (additive; the classic checkout flow never calls these) ---
+
+    /// <summary>Attach the hold placed at pay time and move the order to Authorized.</summary>
+    public void MarkAuthorized(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>The order has been captured at fulfilment.</summary>
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+
+    /// <summary>The hold was released before fulfilment.</summary>
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
+
+    /// <summary>Reflect a refund against the captured payment.</summary>
+    public void MarkRefunded(bool fullyRefunded) =>
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
 }
