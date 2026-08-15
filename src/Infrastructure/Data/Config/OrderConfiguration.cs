@@ -12,6 +12,23 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        // The additive payment/refund state. Refunds is a read-only collection backed by a field.
+        builder.Metadata.FindNavigation(nameof(Order.Refunds))?
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);

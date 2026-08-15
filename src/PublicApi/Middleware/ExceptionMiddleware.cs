@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map domain/payment exceptions to meaningful status codes. Order matters: more specific
+        // (derived) types are listed before their base type.
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            EntityNotFoundException => HttpStatusCode.NotFound,
+            PaymentValidationException => HttpStatusCode.BadRequest,
+            DuplicateException => HttpStatusCode.Conflict,
+            OrderPaymentException => HttpStatusCode.Conflict,
+            AuthorizationNotRenewableException => HttpStatusCode.Conflict,
+            PaymentChallengeRequiredException => HttpStatusCode.UnprocessableEntity,
+            PayPalGatewayException => HttpStatusCode.BadGateway,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
