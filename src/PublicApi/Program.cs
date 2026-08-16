@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// ---- PayPal payments integration ----
+// Settings come from the PayPal: configuration section (user-secrets / environment). Values are never
+// hard-coded, so the same build runs against any PayPal account. BaseUrl, when set, is used verbatim.
+var payPalSettings = new PayPalSettings();
+builder.Configuration.GetSection(PayPalSettings.SectionName).Bind(payPalSettings);
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddSingleton<PayPalTokenStore>();
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddHttpContextAccessor(); // lets endpoints read the caller identity from the JWT
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
