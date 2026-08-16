@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is IApiException apiException)
+        {
+            // Payment/PayPal flow errors carry a caller-actionable message and the right HTTP status.
+            context.Response.StatusCode = apiException.StatusCode;
+            var message = apiException.DebugId is { Length: > 0 } debugId
+                ? $"{exception.Message} (PayPal debug_id: {debugId})"
+                : exception.Message;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
