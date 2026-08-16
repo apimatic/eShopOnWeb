@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+// OrderPaymentException, PaymentApprovalRequiredException and PaymentGatewayException live in the
+// same ApplicationCore.Exceptions namespace imported above.
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +34,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => HttpStatusCode.Conflict,
+            // Payment/fulfilment state conflicts (e.g. fulfilling an unauthorized order, over-refunding).
+            OrderPaymentException => HttpStatusCode.Conflict,
+            // A card payment that would need a browser approval step this integration does not build.
+            PaymentApprovalRequiredException => HttpStatusCode.Conflict,
+            // The upstream processor rejected the request.
+            PaymentGatewayException => HttpStatusCode.BadGateway,
+            // Guard-clause / argument validation failures on request input.
+            ArgumentException => HttpStatusCode.BadRequest,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
