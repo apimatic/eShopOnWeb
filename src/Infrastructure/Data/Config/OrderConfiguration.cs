@@ -41,5 +41,38 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // ---- Payment state (additive) ----
+        builder.Property(o => o.PaymentReference)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PaymentMethodDescription).HasMaxLength(64);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(50);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CaptureStatus).HasMaxLength(50);
+
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
+
+        builder.OwnsMany(o => o.Refunds, r =>
+        {
+            r.WithOwner();
+            r.Property(x => x.RefundId).IsRequired().HasMaxLength(64);
+            r.Property(x => x.Status).IsRequired().HasMaxLength(50);
+            r.Property(x => x.IdempotencyKey).IsRequired().HasMaxLength(256);
+            r.Property(x => x.Amount).HasColumnType("decimal(18,2)").IsRequired();
+        });
+        builder.Metadata.FindNavigation(nameof(Order.Refunds))?
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }
