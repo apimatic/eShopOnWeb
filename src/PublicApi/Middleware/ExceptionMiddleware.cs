@@ -41,6 +41,33 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentException paymentException)
+        {
+            context.Response.StatusCode = paymentException.Reason switch
+            {
+                PaymentErrorReason.Validation => (int)HttpStatusCode.BadRequest,
+                PaymentErrorReason.NotFound => (int)HttpStatusCode.NotFound,
+                PaymentErrorReason.Conflict => (int)HttpStatusCode.Conflict,
+                PaymentErrorReason.RequiresBuyerAction => (int)HttpStatusCode.UnprocessableEntity,
+                PaymentErrorReason.ProviderError => (int)HttpStatusCode.BadGateway,
+                _ => (int)HttpStatusCode.BadRequest
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalApiException)
+        {
+            // A failure reported by PayPal itself — surface it as a bad-gateway with the issue.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payPalApiException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

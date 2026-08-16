@@ -17,11 +17,25 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        PaymentIntentId = Guid.NewGuid().ToString("N");
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>
+    /// A stable, globally-unique id assigned when the order is placed. Used to derive PayPal
+    /// invoice ids and idempotency keys so they never collide across app runs (the in-memory
+    /// store resets integer order ids each run) while staying stable for retries of one order.
+    /// </summary>
+    public string PaymentIntentId { get; private set; }
+
+    /// <summary>Payment lifecycle state. New orders start awaiting payment.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The PayPal payment for this order, created when the order is paid (authorized). Null until then.</summary>
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +57,25 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attaches the payment and moves the order to Authorized (funds held, not taken).</summary>
+    public void MarkAuthorized(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Marks the order fulfilled once the authorization has been captured.</summary>
+    public void MarkPaid()
+    {
+        Status = OrderStatus.Paid;
+    }
+
+    /// <summary>Marks the order cancelled after its held funds have been released.</summary>
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
     }
 }
