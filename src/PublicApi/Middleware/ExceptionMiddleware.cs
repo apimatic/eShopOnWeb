@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            // A resource that does not exist, or is not the caller's, is reported as not-found.
+            PaymentResourceNotFoundException => HttpStatusCode.NotFound,
+            // A challenge requiring browser approval — we stop and surface it rather than proceeding.
+            PaymentApprovalRequiredException => HttpStatusCode.Conflict,
+            // A stale hold that can no longer be renewed — operator-actionable.
+            ReauthorizationNotAllowedException => HttpStatusCode.Conflict,
+            // Invalid state transitions / business-rule violations (e.g. refund exceeding capture).
+            PaymentException => HttpStatusCode.Conflict,
+            DuplicateException => HttpStatusCode.Conflict,
+            _ => HttpStatusCode.InternalServerError,
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
