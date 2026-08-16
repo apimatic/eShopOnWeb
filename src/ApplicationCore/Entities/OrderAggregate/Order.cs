@@ -23,6 +23,24 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The money movement for this order (the hold, the capture, the refunds). Created when the
+    /// order is placed and starts awaiting payment. Part of the Order aggregate.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>
+    /// Attaches a fresh, unpaid <see cref="Payment"/> for the given currency, sized to the order
+    /// total to the cent. Called once, when the order is placed.
+    /// </summary>
+    public void StartPayment(string currency)
+    {
+        if (Payment is not null)
+            throw new InvalidOperationException("This order already has a payment.");
+
+        Payment = new Payment(Total(), currency);
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
