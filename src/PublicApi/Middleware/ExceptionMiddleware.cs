@@ -5,6 +5,8 @@ using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
+// Exception-to-status mapping for the PayPal payment endpoints lives here.
+
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
@@ -32,23 +34,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => HttpStatusCode.Conflict,
+            ResourceNotFoundException => HttpStatusCode.NotFound,
+            // A payment could not be completed for a reason the caller can act on (declined card,
+            // invalid transition, non-renewable hold, amount over the refundable balance, ...).
+            PaymentException => HttpStatusCode.BadRequest,
+            // The upstream processor (PayPal) failed the request for a reason the caller can't fix here.
+            PayPalApiException => HttpStatusCode.BadGateway,
+            ArgumentException => HttpStatusCode.BadRequest,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }

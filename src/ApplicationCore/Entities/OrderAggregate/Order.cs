@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
@@ -23,16 +23,22 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Fulfilment lifecycle. Additive to the classic flow; orders start awaiting payment.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The PayPal-backed payment, once the order has been paid (authorized). Null until then.</summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
     // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
 
-    // Using List<>.AsReadOnly() 
+    // Using List<>.AsReadOnly()
     // This will create a read only wrapper around the private list so is protected against "external updates".
     // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
+    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public decimal Total()
@@ -43,5 +49,32 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attach the authorization hold and move the order to <see cref="OrderStatus.PaymentAuthorized"/>.</summary>
+    public void SetAuthorizedPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    /// <summary>Operator fulfilment: the money is captured (recorded on <see cref="Payment"/>) and the order is fulfilled.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Cancel before fulfilment: the held funds are released, so no money ever moved.</summary>
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized && Status != OrderStatus.AwaitingPayment)
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        Status = OrderStatus.Cancelled;
     }
 }
