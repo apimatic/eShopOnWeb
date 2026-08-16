@@ -1,0 +1,72 @@
+title: Subscription Custom Price
+type: object
+description: (Optional) Used in place of `product_price_point_id` to define a custom price point unique to the subscription. A subscription can have up to 30 custom price points. Exceeding this limit will result in an API error.
+properties:
+  name:
+    type: string
+    description: (Optional)
+  handle:
+    type: string
+    description: (Optional)
+  price_in_cents:
+    type:
+      - string
+      - integer
+    format: int64
+    description: Required if using `custom_price` attribute.
+  interval:
+    type:
+      - string
+      - integer
+    description: Required if using `custom_price` attribute.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: Required if using `custom_price` attribute.
+  trial_price_in_cents:
+    type:
+      - string
+      - integer
+    format: int64
+    description: (Optional)
+  trial_interval:
+    type:
+      - string
+      - integer
+    description: (Optional)
+  trial_interval_unit:
+    allOf:
+      - $ref: "./Interval-Unit.yaml"
+    description: (Optional)
+  trial_type:
+    oneOf:
+      - $ref: "./Trial-Type.yaml"
+      - type: "null"
+    description: "Indicates how a trial is handled when the trail period ends and there is no credit card on file. For `no_obligation`, the subscription transitions to a Trial Ended state. Maxio will not send any emails or statements. For `payment_expected`, the subscription transitions to a Past Due state. Maxio will send normal dunning emails and statements according to your other settings."
+  initial_charge_in_cents:
+    type:
+      - string
+      - integer
+    format: int64
+    description: (Optional)
+  initial_charge_after_trial:
+    type: boolean
+    description: (Optional)
+  expiration_interval:
+    type:
+      - string
+      - integer
+    description: (Optional)
+  expiration_interval_unit:
+    oneOf:
+      - $ref: "./Expiration-Interval-Unit.yaml"
+      - type: "null"
+    description: (Optional)
+  tax_included:
+    type: boolean
+    description: (Optional)
+required:
+  - price_in_cents
+  - interval
+  - interval_unit
