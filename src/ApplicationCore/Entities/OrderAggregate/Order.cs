@@ -44,4 +44,50 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    // ---- Payment / fulfilment state (additive to the original order model) ----
+
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The money movement for this order (the hold, the capture, the refunds).</summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Creates the payment record (order total to authorize) if it does not exist yet.</summary>
+    public Payment InitializePayment(string currencyCode)
+    {
+        Payment ??= new Payment(Total(), currencyCode);
+        return Payment;
+    }
+
+    public bool IsAwaitingPayment => Status == OrderStatus.AwaitingPayment;
+    public bool IsAuthorized => Status == OrderStatus.PaymentAuthorized;
+    public bool IsFulfilled => Status == OrderStatus.Fulfilled;
+    public bool IsCancelled => Status == OrderStatus.Cancelled;
+
+    public void MarkAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Cannot authorize an order in status {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Cannot fulfil an order in status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Cannot cancel an order in status {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
 }
