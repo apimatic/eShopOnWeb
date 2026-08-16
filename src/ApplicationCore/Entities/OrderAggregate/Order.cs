@@ -23,6 +23,20 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Additive payment/fulfilment state. The original eShopOnWeb order carried none of this.
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// A stable, unguessable reference generated when the order is placed. It seeds the idempotency
+    /// keys and the PayPal invoice id, so retries and reconciliation both key off the same value.
+    /// </summary>
+    public Guid PaymentReference { get; private set; } = Guid.NewGuid();
+
+    public void MarkAuthorized() => Status = OrderStatus.Authorized;
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
+    public void MarkRefunded(bool full) => Status = full ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
