@@ -23,6 +23,15 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Fulfilment lifecycle. Starts awaiting payment; additive to the original flow.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// The money movement for this order (hold/capture/refund state PayPal owns). Null until the
+    /// order is paid. Part of this aggregate so later operator/shopper actions can act on it.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +52,40 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>
+    /// Attaches the authorized payment (the hold) and moves the order to <see cref="OrderStatus.Authorized"/>.
+    /// Only an order awaiting payment can be authorized.
+    /// </summary>
+    public void MarkAuthorized(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+        }
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Marks the order fulfilled once the held funds have been captured.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Marks the order cancelled after the hold has been released. Only allowed before fulfilment.</summary>
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.Authorized && Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
     }
 }

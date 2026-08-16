@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map domain/integration failures onto the status an API caller can act on.
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            NotFoundException notFound => (HttpStatusCode.NotFound, notFound.Message),
+            DuplicateException duplicate => (HttpStatusCode.Conflict, duplicate.Message),
+            AuthorizationNotRenewableException notRenewable => (HttpStatusCode.Conflict, notRenewable.Message),
+            InvalidOperationException invalid => (HttpStatusCode.Conflict, invalid.Message),
+            ArgumentException argument => (HttpStatusCode.BadRequest, argument.Message),
+            // PayPal rejected/failed the request — surface it as a bad gateway, not a server bug.
+            PayPalGatewayException gateway => (HttpStatusCode.BadGateway, gateway.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
