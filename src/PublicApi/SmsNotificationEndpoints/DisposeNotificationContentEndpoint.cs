@@ -1,0 +1,35 @@
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.SmsNotificationEndpoints;
+
+/// <summary>
+/// DELETE /api/notifications/{notificationId}/content — disposes of a message's content. Afterwards its text
+/// is no longer retrievable at the provider either, while the fact it was sent and its outcome survive.
+/// Administrator only.
+/// </summary>
+public class DisposeNotificationContentEndpoint : IEndpoint
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapDelete("api/notifications/{notificationId:int}/content",
+            [Authorize(Roles = BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async (
+                int notificationId,
+                IOrderNotificationService orderNotificationService,
+                CancellationToken cancellationToken) =>
+            {
+                var disposed = await orderNotificationService.DisposeContentAsync(notificationId, cancellationToken);
+                return disposed ? Results.NoContent() : Results.NotFound();
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithTags("NotificationEndpoints");
+    }
+}
