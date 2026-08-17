@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payment integration.
+// Credentials/currency come from configuration (user-secrets, from the PAYPAL_* env vars) —
+// never hard-coded. Ensure user-secrets are loaded regardless of hosting environment.
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+var payPalSettings = new PayPalSettings();
+builder.Configuration.GetSection(PayPalSettings.SectionName).Bind(payPalSettings);
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddSingleton<IPaymentSettings>(payPalSettings);
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
