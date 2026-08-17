@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,26 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// ---- PayPal payment integration ----
+// Settings come from the "PayPal" configuration section, populated by .NET user-secrets or the PAYPAL_*
+// environment variables. Their values are never written into any file in the repository.
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+AddPayPalEnvironmentVariables(builder.Configuration);
+
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME).Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME));
+builder.Services.AddSingleton<PayPalTokenProvider>();
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>(client =>
+{
+    // BaseUrl override is used verbatim when set; otherwise derived from the environment.
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl().TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddSingleton<KeyedLock>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -177,5 +199,32 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+// Maps the PAYPAL_* environment variables onto the "PayPal:" configuration keys so the integration can be
+// driven from environment variables alone. Reads from the environment at startup; writes nothing to disk.
+static void AddPayPalEnvironmentVariables(IConfigurationBuilder configuration)
+{
+    var map = new Dictionary<string, string?>();
+
+    void Map(string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            map[configurationKey] = value;
+        }
+    }
+
+    Map("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Map("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Map("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Map("PAYPAL_CURRENCY", "PayPal:Currency");
+    Map("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+    if (map.Count > 0)
+    {
+        configuration.AddInMemoryCollection(map);
+    }
+}
 
 public partial class Program { }
