@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -8,6 +9,10 @@ namespace Microsoft.eShopWeb.Infrastructure;
 
 public static class Dependencies
 {
+    // A single shared root so every scoped DbContext instance reads and writes the same in-memory store,
+    // making updates (not just inserts) visible across requests within a run.
+    private static readonly InMemoryDatabaseRoot InMemoryRoot = new();
+
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
         bool useOnlyInMemoryDatabase = false;
@@ -19,10 +24,10 @@ public static class Dependencies
         if (useOnlyInMemoryDatabase)
         {
             services.AddDbContext<CatalogContext>(c =>
-               c.UseInMemoryDatabase("Catalog"));
-         
+               c.UseInMemoryDatabase("Catalog", InMemoryRoot));
+
             services.AddDbContext<AppIdentityDbContext>(options =>
-                options.UseInMemoryDatabase("Identity"));
+                options.UseInMemoryDatabase("Identity", InMemoryRoot));
         }
         else
         {
