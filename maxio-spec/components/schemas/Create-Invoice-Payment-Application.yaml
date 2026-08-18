@@ -1,0 +1,13 @@
+title: Create Invoice Payment Application
+type: object
+properties:
+  invoice_uid:
+    type: string
+    description: |
+      Unique identifier for the invoice. It has the prefix "inv_" followed by alphanumeric characters.
+  amount:
+    type: string
+    description: Dollar amount of the invoice payment (eg. "10.50" => $10.50).
+required:
+  - invoice_uid
+  - amount
