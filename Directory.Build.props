@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    The Twilio SDK (AsadAli.TwilioSdk) transitively raises Microsoft.Extensions.* to 10.x inside the
+    Infrastructure assembly. Consumers of Infrastructure (PublicApi, Web, tests) otherwise resolve the net8
+    framework's 8.0 abstractions and fail the assembly-version reference check (CS1705). Referencing the same
+    abstractions at 10.x everywhere keeps them aligned; the app runs on the .NET 10 runtime (roll-forward), so
+    the 10.x abstractions are backed by their implementations at runtime. Versions come from Directory.Packages.props.
+  -->
+  <!-- Only real .NET (SDK-style csproj) projects — never the docker-compose .dcproj, which does not support PackageReference. -->
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+</Project>
