@@ -1,0 +1,66 @@
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+/// <summary>
+/// Operator action: cancels an order. The shopper is told, and any queued delivery-feedback follow-up that has
+/// not yet gone out is called off with the provider so it never reaches them.
+/// </summary>
+public class CancelOrderEndpoint : IEndpoint<IResult, CancelOrderRequest>
+{
+    private readonly IRepository<Order> _orderRepository;
+    private readonly IOrderNotificationService _service;
+
+    public CancelOrderEndpoint(IRepository<Order> orderRepository, IOrderNotificationService service)
+    {
+        _orderRepository = orderRepository;
+        _service = service;
+    }
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapPost("api/orders/{orderId}/cancel",
+            [Authorize(Roles = BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (int orderId) =>
+            {
+                return await HandleAsync(new CancelOrderRequest(orderId));
+            })
+            .Produces<CancelOrderResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(CancelOrderRequest request)
+    {
+        var order = await _orderRepository.GetByIdAsync(request.OrderId);
+        if (order is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            await _service.CancelOrderAsync(order);
+        }
+        catch (OrderStatusException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
+
+        return Results.Ok(new CancelOrderResponse(request.CorrelationId())
+        {
+            OrderId = order.Id,
+            Status = order.Status.ToString()
+        });
+    }
+}
