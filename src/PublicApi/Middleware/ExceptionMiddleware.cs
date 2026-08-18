@@ -32,23 +32,43 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = MapException(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) MapException(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case PaymentNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            // A stale hold that can no longer be renewed — operator-actionable, not a server fault.
+            case PaymentReauthorizationException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            // A domain rejection the caller can act on.
+            case PaymentException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            // A PayPal failure: pass a provider 4xx through as a client 4xx; otherwise a gateway (5xx) error.
+            // The message is already caller-safe (built in the gateway) — never a raw provider/JSON string.
+            case PaymentGatewayException gatewayException:
+                var status = gatewayException.StatusCode is >= 400 and < 500
+                    ? gatewayException.StatusCode.Value
+                    : (int)HttpStatusCode.BadGateway;
+                return (status, gatewayException.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
