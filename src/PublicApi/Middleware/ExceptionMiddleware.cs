@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            SubscriptionPlanNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            BillingConfigurationException config => ((int)HttpStatusCode.ServiceUnavailable, config.Message),
+            BillingException billing when billing.StatusCode == HttpStatusCode.UnprocessableEntity =>
+                ((int)HttpStatusCode.BadRequest, billing.Message),
+            BillingException billing => ((int)HttpStatusCode.BadGateway, billing.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            UnauthorizedAccessException unauthorized => ((int)HttpStatusCode.Unauthorized, unauthorized.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
