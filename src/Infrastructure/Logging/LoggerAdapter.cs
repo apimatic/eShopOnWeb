@@ -20,4 +20,9 @@ public class LoggerAdapter<T> : IAppLogger<T>
     {
         _logger.LogInformation(message, args);
     }
+
+    public void LogError(System.Exception exception, string message, params object[] args)
+    {
+        _logger.LogError(exception, message, args);
+    }
 }
