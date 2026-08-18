@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map each failure kind to a coherent status and a caller-safe message. Payment exceptions carry
+        // messages built to be safe to return (no card data, no SDK/JSON internals).
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            PaymentNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            PaymentValidationException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            PaymentConflictException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // Covers PaymentGatewayException and its subclasses (challenge-required, reauthorization-expired),
+            // each of which carries the client status the caller should see.
+            PaymentGatewayException gateway => (gateway.ClientStatusCode, gateway.Message),
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
