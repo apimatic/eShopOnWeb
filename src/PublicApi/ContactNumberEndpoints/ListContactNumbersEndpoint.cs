@@ -1,0 +1,52 @@
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Specifications;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.ContactNumberEndpoints;
+
+/// <summary>GET /api/contact-numbers — the caller's own registered numbers.</summary>
+public class ListContactNumbersEndpoint : IEndpoint
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/contact-numbers",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async (
+                IReadRepository<ContactNumber> repository,
+                ClaimsPrincipal user,
+                CancellationToken ct) =>
+            {
+                var buyerId = user.Identity?.Name;
+                if (string.IsNullOrEmpty(buyerId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                var numbers = await repository.ListAsync(new ContactNumbersByBuyerSpecification(buyerId), ct);
+                var response = new ListContactNumbersResponse
+                {
+                    ContactNumbers = numbers
+                        .Select(c => new ContactNumberDto
+                        {
+                            ContactNumberId = c.Id,
+                            PhoneNumber = c.PhoneNumber,
+                            RegisteredAt = c.RegisteredAt
+                        })
+                        .ToList()
+                };
+
+                return Results.Ok(response);
+            })
+            .Produces<ListContactNumbersResponse>()
+            .WithTags("ContactNumberEndpoints");
+    }
+}

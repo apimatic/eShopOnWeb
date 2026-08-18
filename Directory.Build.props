@@ -1,0 +1,24 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      The Twilio SDK (netstandard2.0) hard-binds its framework-abstraction dependencies (Microsoft.Extensions.*)
+      to 10.0.x and pins System.Net.Http.Json to 10.0.8. The app runs on the .NET 10 runtime via roll-forward,
+      which supplies those. Central versions hold them at 10.0.8; the intentional downgrade of the app's
+      System.Net.Http.Json / System.Text.Json pins raises NU1605, which this repo treats as an error — suppress.
+    -->
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Align the SDK-consuming projects (everything except the browser-WebAssembly projects and the pure-domain
+    ApplicationCore) with the Twilio SDK's 10.0 framework abstractions so they compile without CS1705. The
+    WASM projects run on the net8 in-browser runtime and never touch the SDK, so they are deliberately excluded.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' AND '$(MSBuildProjectName)' != 'BlazorShared' AND '$(MSBuildProjectName)' != 'BlazorAdmin' AND '$(MSBuildProjectName)' != 'ApplicationCore'">
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+</Project>
