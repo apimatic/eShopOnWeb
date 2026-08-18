@@ -23,6 +23,35 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Additive lifecycle state introduced by the SMS-notification capability.
+    // The classic checkout only ever created a "placed" order; dispatch/cancel let
+    // operators move it forward so shoppers can be notified as it progresses.
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>Marks the order as dispatched. Only a placed order may be dispatched.</summary>
+    public void Dispatch()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} was cancelled and cannot be dispatched.");
+        }
+        if (Status == OrderStatus.Dispatched)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been dispatched.");
+        }
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>Cancels the order. A placed or dispatched order may be cancelled; a cancelled one may not be cancelled again.</summary>
+    public void Cancel()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been cancelled.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
