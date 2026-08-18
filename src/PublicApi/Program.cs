@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,12 +13,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Notifications;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,33 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- SMS order notifications (Twilio) ---------------------------------------------------------
+// Bind + validate the Twilio credentials at startup: a missing credential is a deployment fault
+// that must stop the app from booting, not a 401 on the first request. Values come only from
+// configuration (user-secrets / environment), never from a source file.
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.CONFIG_SECTION))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<TwilioSettings>>().Value);
+
+// The Twilio client is long-lived over its own named HttpClient: Timeout bounds one attempt,
+// PooledConnectionLifetime keeps DNS fresh behind the singleton client.
+builder.Services.AddHttpClient("TwilioMessaging", c => c.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<TwilioSettings>();
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TwilioMessaging");
+    return TwilioClientFactory.Create(settings, httpClient);
+});
+builder.Services.AddScoped<ISmsGateway, TwilioSmsGateway>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+// ---------------------------------------------------------------------------------------------
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
