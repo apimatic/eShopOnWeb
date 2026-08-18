@@ -1,0 +1,67 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.PublicApi.NotificationEndpoints;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class OrderNotificationsResponse
+{
+    public int OrderId { get; set; }
+    public List<NotificationDto> Notifications { get; set; } = new();
+}
+
+/// <summary>
+/// What was sent for one of the caller's orders and what became of each message. Each entry
+/// carries its own <c>notificationId</c> — what the operator endpoints act on.
+/// </summary>
+public class OrderNotificationsEndpoint : IEndpoint<IResult, int, ClaimsPrincipal>
+{
+    private readonly IOrderNotificationService _orderNotificationService;
+
+    public OrderNotificationsEndpoint(IOrderNotificationService orderNotificationService)
+    {
+        _orderNotificationService = orderNotificationService;
+    }
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/orders/{orderId:int}/notifications",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (int orderId, ClaimsPrincipal user) => await HandleAsync(orderId, user))
+            .Produces<OrderNotificationsResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(int orderId, ClaimsPrincipal user)
+    {
+        var buyerId = user.GetBuyerId();
+        if (string.IsNullOrEmpty(buyerId))
+        {
+            return Results.Unauthorized();
+        }
+
+        // Scoped to the caller: null means the order does not exist or is not theirs.
+        var notifications = await _orderNotificationService.GetOrderNotificationsForBuyerAsync(orderId, buyerId);
+        if (notifications is null)
+        {
+            return Results.NotFound();
+        }
+
+        var response = new OrderNotificationsResponse
+        {
+            OrderId = orderId,
+            Notifications = notifications.Select(NotificationDto.FromEntity).ToList()
+        };
+        return Results.Ok(response);
+    }
+}
