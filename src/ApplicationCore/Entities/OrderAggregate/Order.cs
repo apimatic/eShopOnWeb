@@ -23,6 +23,16 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Additive payment/fulfilment state. Null only for legacy orders created before a payment was attached.
+    public OrderPayment? Payment { get; private set; }
+
+    /// <summary>Attach the payment record when the order is placed (before any money movement).</summary>
+    public void SetPayment(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
