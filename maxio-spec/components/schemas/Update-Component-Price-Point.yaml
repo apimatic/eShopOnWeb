@@ -1,0 +1,27 @@
+title: Update Component Price Point
+type: object
+properties:
+  name:
+    type: string
+  handle:
+    type: string
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  use_site_exchange_rate:
+    type: boolean
+    description: Whether to use the site level exchange rate or define your own prices for each currency if you have multiple currencies defined on the site.
+  tax_included:
+    type: boolean
+    description: Whether or not the price point includes tax
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
+  prices:
+    type: array
+    items:
+      $ref: "./Update-Price.yaml"
