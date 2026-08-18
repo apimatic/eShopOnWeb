@@ -32,23 +32,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map known application exceptions to sensible status codes. Their messages are authored to be
+        // free of shopper PII and secrets, so they are safe to return.
+        (HttpStatusCode statusCode, string message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            InvalidOrderStateException => (HttpStatusCode.Conflict, exception.Message),
+            BadRequestException => (HttpStatusCode.BadRequest, exception.Message),
+            InvalidPhoneNumberException => (HttpStatusCode.BadRequest, exception.Message),
+            SmsProviderException => (HttpStatusCode.BadGateway, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
