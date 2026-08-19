@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    The vendored Firecrawl .NET SDK (cloned from context-plugins/firecrawl-csharp-sdk) pins its own
+    package versions directly on its PackageReferences. The repository root enables central package
+    management, which forbids inline versions. This file shadows the root Directory.Packages.props for
+    everything under external/ so the vendored SDK builds with its own versions untouched.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
