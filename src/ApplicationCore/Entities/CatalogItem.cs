@@ -15,6 +15,17 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
 
+    /// <summary>
+    /// The supplier this item was imported from, if any. Null for items created directly in the store.
+    /// </summary>
+    public int? SupplierId { get; private set; }
+
+    /// <summary>
+    /// The supplier's own stable identifier or URL for this product. Together with <see cref="SupplierId"/>
+    /// this is how a re-sync matches a found product back to an existing catalog item instead of duplicating it.
+    /// </summary>
+    public string? SupplierProductKey { get; private set; }
+
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
         string description,
@@ -51,6 +62,32 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Links this catalog item to the supplier product it was imported from, establishing the
+    /// idempotency key used by subsequent syncs.
+    /// </summary>
+    public void AssignSupplierSource(int supplierId, string supplierProductKey)
+    {
+        Guard.Against.NegativeOrZero(supplierId, nameof(supplierId));
+        Guard.Against.NullOrWhiteSpace(supplierProductKey, nameof(supplierProductKey));
+        SupplierId = supplierId;
+        SupplierProductKey = supplierProductKey;
+    }
+
+    /// <summary>
+    /// Applies the latest name/description/price captured from a supplier listing. Unlike
+    /// <see cref="UpdateDetails"/> this tolerates a zero (free) price and a missing description,
+    /// which real supplier pages sometimes have.
+    /// </summary>
+    public void UpdateImportedDetails(string name, string? description, decimal price)
+    {
+        Guard.Against.NullOrWhiteSpace(name, nameof(name));
+        Guard.Against.Negative(price, nameof(price));
+        Name = name;
+        Description = description ?? string.Empty;
+        Price = price;
     }
 
     public void UpdatePictureUri(string pictureName)

@@ -6,14 +6,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierSync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +47,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier catalog sync (Firecrawl-backed). API credentials are bound from the "Firecrawl" section
+// (Firecrawl:ApiKey / Firecrawl:BaseUrl); values are supplied via user-secrets/environment, never committed.
+builder.Services.Configure<FirecrawlSettings>(builder.Configuration.GetSection("Firecrawl"));
+builder.Services.AddHttpClient<IFirecrawlClient, FirecrawlClient>(client =>
+{
+    // Scraping a page can take a while; give Firecrawl room before the client gives up.
+    client.Timeout = TimeSpan.FromSeconds(180);
+});
+builder.Services.AddScoped<ISupplierSyncService, SupplierSyncService>();
+builder.Services.AddScoped<ISupplierCatalogImporter, SupplierCatalogImporter>();
+builder.Services.AddSingleton<ISupplierSyncQueue, ChannelSupplierSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncBackgroundService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

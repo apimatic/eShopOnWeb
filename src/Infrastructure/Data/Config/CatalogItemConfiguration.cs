@@ -25,6 +25,13 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
 
+        builder.Property(ci => ci.SupplierProductKey)
+            .IsRequired(false)
+            .HasMaxLength(512);
+
+        // Speeds up (and documents) the idempotent re-sync lookup by supplier + supplier product key.
+        builder.HasIndex(ci => new { ci.SupplierId, ci.SupplierProductKey });
+
         builder.HasOne(ci => ci.CatalogBrand)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogBrandId);
