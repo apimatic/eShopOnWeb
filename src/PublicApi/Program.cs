@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Firecrawl;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierSync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +86,26 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// --- Supplier catalog sync (Firecrawl integration) ---
+// Firecrawl config is read from the "Firecrawl" section (Firecrawl:ApiKey, Firecrawl:BaseUrl).
+// The API key value is never stored in the repository: it is supplied at runtime via .NET
+// user-secrets or the FIRECRAWL_API_KEY environment variable (only the variable NAME is referenced
+// here). Firecrawl:BaseUrl is an optional override used verbatim when set.
+builder.Services.Configure<FirecrawlOptions>(options =>
+{
+    options.ApiKey = builder.Configuration["Firecrawl:ApiKey"]
+        ?? Environment.GetEnvironmentVariable("FIRECRAWL_API_KEY");
+    options.BaseUrl = builder.Configuration["Firecrawl:BaseUrl"]
+        ?? Environment.GetEnvironmentVariable("FIRECRAWL_BASE_URL");
+});
+builder.Services.AddHttpClient<IFirecrawlClient, FirecrawlClient>(client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddSingleton<ISyncQueue, BackgroundSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncHostedService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
