@@ -15,6 +15,20 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
 
+    /// <summary>
+    /// Set when this item originated from a supplier catalog sync. Together with
+    /// <see cref="SupplierProductCode"/> it uniquely identifies the source product, so a
+    /// re-sync updates this same item instead of creating a duplicate. Null for items that
+    /// were created directly in the store's own catalog.
+    /// </summary>
+    public int? SupplierId { get; private set; }
+
+    /// <summary>
+    /// The supplier's own identifier (SKU/product code) or URL for this product. Stable across
+    /// syncs and used to match a found product back to the catalog item it was imported into.
+    /// </summary>
+    public string? SupplierProductCode { get; private set; }
+
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
         string description,
@@ -51,6 +65,18 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Links this catalog item to the supplier product it was imported from, so subsequent
+    /// syncs can find and update it rather than importing a second copy.
+    /// </summary>
+    public void SetSupplierReference(int supplierId, string supplierProductCode)
+    {
+        Guard.Against.NegativeOrZero(supplierId, nameof(supplierId));
+        Guard.Against.NullOrWhiteSpace(supplierProductCode, nameof(supplierProductCode));
+        SupplierId = supplierId;
+        SupplierProductCode = supplierProductCode;
     }
 
     public void UpdatePictureUri(string pictureName)

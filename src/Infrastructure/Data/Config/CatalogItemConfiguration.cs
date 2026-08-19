@@ -32,5 +32,16 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.HasOne(ci => ci.CatalogType)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogTypeId);
+
+        builder.Property(ci => ci.SupplierProductCode)
+            .IsRequired(false)
+            .HasMaxLength(200);
+
+        builder.Property(ci => ci.SupplierId)
+            .IsRequired(false);
+
+        // Speeds up (and expresses) the supplier + product-code lookup that keeps sync imports
+        // idempotent.
+        builder.HasIndex(ci => new { ci.SupplierId, ci.SupplierProductCode });
     }
 }
