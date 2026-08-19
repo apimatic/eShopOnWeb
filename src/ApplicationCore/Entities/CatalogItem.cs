@@ -15,6 +15,11 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
 
+    // Supplier provenance — set on items imported from a supplier's listing so a re-sync matches the
+    // same catalog item (by supplier + the supplier's own identifier/URL) instead of duplicating it.
+    public int? SupplierId { get; private set; }
+    public string? SupplierProductKey { get; private set; }
+
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
         string description,
@@ -51,6 +56,16 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Associates this item with the supplier and the supplier's own stable identifier/URL for it,
+    /// so subsequent syncs can find and update this same item rather than creating a duplicate.
+    /// </summary>
+    public void LinkToSupplier(int supplierId, string supplierProductKey)
+    {
+        SupplierId = Guard.Against.NegativeOrZero(supplierId, nameof(supplierId));
+        SupplierProductKey = Guard.Against.NullOrWhiteSpace(supplierProductKey, nameof(supplierProductKey));
     }
 
     public void UpdatePictureUri(string pictureName)

@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    The vendored Firecrawl SDK declares inline PackageReference versions. The repo root enables
+    Central Package Management (and pins a net8.0 TargetFramework), neither of which suits this
+    netstandard2.0 third-party project. This nearest-wins file opts the SDK subtree out of CPM so it
+    builds with its own declared package versions and target framework.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

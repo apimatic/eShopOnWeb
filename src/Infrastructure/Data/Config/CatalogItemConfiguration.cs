@@ -32,5 +32,18 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.HasOne(ci => ci.CatalogType)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogTypeId);
+
+        builder.Property(ci => ci.SupplierProductKey)
+            .IsRequired(false)
+            .HasMaxLength(2048);
+
+        // Optional link back to the supplier a catalog item was imported from.
+        builder.HasOne<Supplier>()
+            .WithMany()
+            .HasForeignKey(ci => ci.SupplierId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Speeds up (and expresses the intent of) the per-supplier product-key match used on re-sync.
+        builder.HasIndex(ci => new { ci.SupplierId, ci.SupplierProductKey });
     }
 }
