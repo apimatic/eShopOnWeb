@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,23 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Twilio SMS order-notification feature ---
+// Settings are bound from the "Twilio:" configuration section (values come from
+// user-secrets / environment; never hard-coded).
+builder.Services.Configure<TwilioOptions>(builder.Configuration.GetSection(TwilioOptions.SectionName));
+builder.Services.AddScoped<ISmsConfiguration, TwilioSmsConfiguration>();
+
+// Hand-written Twilio clients (built to the api-specs OpenAPI contracts, no SDK).
+// RemoveAllLoggers() stops the default HttpClient logging from ever writing request
+// URIs — which for lookup/reconciliation contain phone numbers — to a log sink.
+builder.Services.AddHttpClient<ITwilioMessagingClient, TwilioMessagingClient>().RemoveAllLoggers();
+builder.Services.AddHttpClient<ITwilioPhoneLookupClient, TwilioPhoneLookupClient>().RemoveAllLoggers();
+
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<INotificationOperationsService, NotificationOperationsService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

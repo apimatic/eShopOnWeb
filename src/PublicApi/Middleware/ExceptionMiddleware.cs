@@ -32,23 +32,27 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            InvalidOrderStateException => (HttpStatusCode.Conflict, exception.Message),
+            PhoneNumberValidationException => (HttpStatusCode.BadRequest, exception.Message),
+            InvalidRequestException => (HttpStatusCode.BadRequest, exception.Message),
+            // Surface a provider failure without echoing Twilio's raw message (which could
+            // reference a phone number). The Twilio error code is safe to include.
+            TwilioApiException twilioException => (
+                HttpStatusCode.BadGateway,
+                twilioException.TwilioCode is int code
+                    ? $"The messaging provider returned an error (code {code})."
+                    : "The messaging provider returned an error."),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
