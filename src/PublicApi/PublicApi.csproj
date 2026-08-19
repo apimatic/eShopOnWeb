@@ -29,6 +29,8 @@
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <!-- Match the Firecrawl SDK's transitive System.Text.Json requirement (>= 10.0.8). -->
+    <PackageReference Include="System.Text.Json" VersionOverride="10.0.8" />
   </ItemGroup>
 
   <ItemGroup>

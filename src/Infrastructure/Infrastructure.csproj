@@ -11,9 +11,14 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+		<!-- The vendored Firecrawl SDK requires System.Text.Json >= 10.0.8 transitively; override the
+		     repo's centrally-pinned 8.0.3 for the projects that consume the SDK. -->
+		<PackageReference Include="System.Text.Json" VersionOverride="10.0.8" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Vendored Firecrawl .NET SDK (consumed from source; see external/firecrawl-csharp-sdk). -->
+		<ProjectReference Include="..\..\external\firecrawl-csharp-sdk\FirecrawlApi.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    The vendored Firecrawl .NET SDK (external/firecrawl-csharp-sdk) pins its own
+    NuGet package versions inline in its .csproj. The repository root uses Central
+    Package Management (Directory.Packages.props with ManagePackageVersionsCentrally=true),
+    which forbids inline versions. This nearer Directory.Packages.props shadows the root
+    one for everything under external/ and opts the vendored SDK out of CPM so its inline
+    versions are honored.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
