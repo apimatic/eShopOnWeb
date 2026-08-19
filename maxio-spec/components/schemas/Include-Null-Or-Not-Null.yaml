@@ -1,0 +1,7 @@
+title: Include Null Or Not Null
+description: Allows to filter by `not_null` or `null`.
+type: string
+enum:
+  - not_null
+  - "null"
+example: not_null
