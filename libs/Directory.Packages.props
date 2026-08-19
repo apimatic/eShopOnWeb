@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    The vendored Firecrawl C# SDK under this folder ships its own explicit
+    PackageReference versions and targets netstandard2.0. The repository root
+    uses Central Package Management (and pins TargetFramework=net8.0), which
+    would clash with the SDK's inline versions. This nearest-wins file shadows
+    the root Directory.Packages.props for everything under libs/ so the vendored
+    SDK builds exactly as its authors intended, untouched.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

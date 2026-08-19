@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using FirecrawlApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -10,10 +11,12 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Firecrawl;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierCatalogSync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +47,26 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier catalog sync (Firecrawl-backed).
+builder.Services.Configure<FirecrawlOptions>(builder.Configuration.GetSection(FirecrawlOptions.SectionName));
+var firecrawlOptions = builder.Configuration.GetSection(FirecrawlOptions.SectionName).Get<FirecrawlOptions>() ?? new FirecrawlOptions();
+builder.Services.AddFirecrawlApiClient(options =>
+{
+    // Credentials come from configuration (Firecrawl:ApiKey, loaded from the FIRECRAWL_API_KEY
+    // environment variable into user-secrets); no value is ever hard-coded here.
+    options.BearerAuth = firecrawlOptions.ApiKey;
+
+    // Firecrawl:BaseUrl is an optional override; when present it is used verbatim.
+    if (!string.IsNullOrWhiteSpace(firecrawlOptions.BaseUrl))
+    {
+        options.Server.Default.Production.BaseUrl = firecrawlOptions.BaseUrl;
+    }
+});
+builder.Services.AddScoped<ISupplierProductScraper, FirecrawlSupplierProductScraper>();
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddSingleton<ISupplierSyncQueue, SupplierSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncBackgroundService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
