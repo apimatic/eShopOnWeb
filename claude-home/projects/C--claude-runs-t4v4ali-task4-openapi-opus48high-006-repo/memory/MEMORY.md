@@ -1,0 +1,2 @@
+- [eShop SMS notifications](eshop-sms-notifications.md) — how the PublicApi Twilio order-notification feature is wired, configured, and run
+- [Twilio spec endpoints](twilio-spec-endpoints.md) — which Twilio OpenAPI docs/endpoints back each notification capability
