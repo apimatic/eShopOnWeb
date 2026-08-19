@@ -1,0 +1,26 @@
+title: Failed Payment Event Data
+type: object
+description: Example schema for an `failed_payment` event
+properties:
+  amount_in_cents:
+    type: integer
+    description: The monetary value of the payment, expressed in cents.
+  applied_amount:
+    type: integer
+    description: The monetary value of the payment, expressed in dollars.
+  memo:
+    type:
+      - string
+      - "null"
+    description: The memo passed when the payment was created.
+  payment_method:
+    allOf:
+      - $ref: "../Invoice-Payment-Method-Type.yaml"
+  transaction_id:
+    type: integer
+    description: The transaction ID of the failed payment.
+required:
+  - amount_in_cents
+  - applied_amount
+  - transaction_id
+  - payment_method

@@ -1,0 +1,11 @@
+title: Subscriptions Mrr Error Response
+type: object
+properties:
+  errors:
+    $ref: "./Attribute-Error.yaml"
+required:
+  - errors
+examples:
+  - errors:
+      attribute:
+        - "supplied value is invalid, expected ISO 8601 format"
