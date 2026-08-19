@@ -14,6 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierSync;
+using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Services.Firecrawl;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +47,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier catalog sync: Firecrawl-backed listing reader + background import pipeline.
+builder.Services.Configure<FirecrawlOptions>(builder.Configuration.GetSection(FirecrawlOptions.SectionName));
+builder.Services.AddHttpClient<FirecrawlClient>();
+builder.Services.AddScoped<ISupplierProductReader, FirecrawlProductReader>();
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddScoped<ISupplierSyncStarter, SupplierSyncStarter>();
+builder.Services.AddSingleton<ISupplierSyncQueue, SupplierSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncWorker>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
