@@ -35,20 +35,41 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
+            await WriteErrorAsync(context, duplicationException.Message);
+        }
+        else if (exception is BillingValidationException validationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteErrorAsync(context, validationException.Message);
+        }
+        else if (exception is BillingGatewayException gatewayException)
+        {
+            context.Response.StatusCode = gatewayException.StatusCode switch
             {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+                400 or 404 or 422 => (int)HttpStatusCode.BadRequest,
+                401 or 403 => (int)HttpStatusCode.BadGateway,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await WriteErrorAsync(context, gatewayException.Message);
+        }
+        else if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await WriteErrorAsync(context, billingException.Message);
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteErrorAsync(context, exception.Message);
         }
+    }
+
+    private static Task WriteErrorAsync(HttpContext context, string message)
+    {
+        return context.Response.WriteAsync(new ErrorDetails
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
