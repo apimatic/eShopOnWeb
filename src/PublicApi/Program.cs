@@ -11,6 +11,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -84,6 +85,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+MapMaxioEnvironmentVariables(builder.Configuration);
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +165,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +183,43 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var mappings = new Dictionary<string, string?>();
+
+    void Map(string envName, string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            mappings[configKey] = value;
+        }
+    }
+
+    Map("MAXIO_API_KEY", "Maxio:ApiKey");
+    Map("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+    Map("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+    Map("MAXIO_BASE_URL", "Maxio:BaseUrl");
+
+    if (!mappings.ContainsKey("Maxio:BaseUrl"))
+    {
+        var environment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+        var subdomain = mappings.TryGetValue("Maxio:Subdomain", out var mappedSubdomain)
+            ? mappedSubdomain
+            : Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+
+        if (!string.IsNullOrWhiteSpace(subdomain) &&
+            string.Equals(environment, "EU", StringComparison.OrdinalIgnoreCase))
+        {
+            mappings["Maxio:BaseUrl"] = $"https://{subdomain}.ebilling.maxio.com";
+        }
+    }
+
+    if (mappings.Count > 0)
+    {
+        configuration.AddInMemoryCollection(mappings);
+    }
+}
 
 public partial class Program { }
