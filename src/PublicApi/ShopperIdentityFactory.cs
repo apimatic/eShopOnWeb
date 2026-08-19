@@ -1,0 +1,50 @@
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionBilling;
+using Microsoft.eShopWeb.Infrastructure.Identity;
+
+namespace Microsoft.eShopWeb.PublicApi;
+
+internal static class ShopperIdentityFactory
+{
+    public static async Task<ShopperIdentity?> FromUserAsync(ClaimsPrincipal principal, UserManager<ApplicationUser> userManager)
+    {
+        var userName = principal.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return null;
+        }
+
+        var user = await userManager.FindByNameAsync(userName);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var email = user.Email ?? user.UserName ?? userName;
+        var (firstName, lastName) = SplitName(email);
+        return new ShopperIdentity(user.Id, email, firstName, lastName);
+    }
+
+    private static (string FirstName, string LastName) SplitName(string email)
+    {
+        var local = email.Split('@')[0];
+        var parts = local.Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var first = parts.Length > 0 ? Capitalize(parts[0]) : "Shopper";
+        var last = parts.Length > 1 ? Capitalize(parts[^1]) : "eShop";
+        return (first, last);
+    }
+
+    private static string Capitalize(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
+    }
+}

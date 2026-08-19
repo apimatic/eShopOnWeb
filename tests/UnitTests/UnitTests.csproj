@@ -17,11 +17,13 @@
     </PackageReference>
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />      
-    <PackageReference Include="xunit.runner.console" />     
+    <PackageReference Include="xunit.runner.console" />
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />     
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationCore\ApplicationCore.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
   </ItemGroup>
 
