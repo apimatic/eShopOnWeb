@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -24,6 +25,8 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+BindMaxioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +47,7 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +183,31 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>
+    /// Maps MAXIO_* environment variables onto the Maxio: configuration section so the
+    /// same keys work whether they arrive as env vars or user-secrets.
+    /// </summary>
+    private static void BindMaxioEnvironmentVariables(ConfigurationManager configuration)
+    {
+        var map = new Dictionary<string, string?>();
+        Add("MAXIO_API_KEY", "Maxio:ApiKey");
+        Add("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+        Add("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+        Add("MAXIO_BASE_URL", "Maxio:BaseUrl");
+        if (map.Count > 0)
+        {
+            configuration.AddInMemoryCollection(map);
+        }
+
+        void Add(string envName, string configKey)
+        {
+            var value = Environment.GetEnvironmentVariable(envName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                map[configKey] = value;
+            }
+        }
+    }
+}
