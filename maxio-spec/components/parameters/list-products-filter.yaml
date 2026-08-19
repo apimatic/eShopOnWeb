@@ -1,0 +1,7 @@
+in: query
+name: filter
+description: Filter to use for List Products operations
+schema:
+  $ref: "../schemas/List-Products-Filter.yaml"
+style: deepObject
+explode: true

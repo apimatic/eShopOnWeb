@@ -1,0 +1,25 @@
+title: Movement
+type: object
+properties:
+  timestamp:
+    type: string
+    format: date-time
+  amount_in_cents:
+    type: integer
+    format: int64
+  amount_formatted:
+    type: string
+  description:
+    type: string
+  category:
+    type: string
+  breakouts:
+    $ref: "./Breakouts.yaml"
+  line_items:
+    type: array
+    items:
+      $ref: "Movement-Line-Item.yaml"
+  subscription_id:
+    type: integer
+  subscriber_name:
+    type: string
