@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Firecrawl;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierSync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier catalog sync (additive): Firecrawl-backed listing reader + import service, plus the
+// background worker that runs each sync off the request thread.
+// The API key binds from Firecrawl:ApiKey; as a fallback (e.g. when running from a bare
+// environment without user-secrets) we source it from the FIRECRAWL_API_KEY variable at runtime.
+// No secret value is ever written into the repository.
+var firecrawlApiKey = builder.Configuration["Firecrawl:ApiKey"]
+    ?? Environment.GetEnvironmentVariable("FIRECRAWL_API_KEY");
+if (!string.IsNullOrWhiteSpace(firecrawlApiKey))
+{
+    builder.Configuration["Firecrawl:ApiKey"] = firecrawlApiKey;
+}
+
+builder.Services.AddSupplierCatalogSync(builder.Configuration);
+builder.Services.AddSingleton<ISupplierSyncQueue, SupplierSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncBackgroundService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
