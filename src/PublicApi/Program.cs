@@ -6,14 +6,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Firecrawl;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +54,35 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// ---- Supplier catalog sync (Firecrawl integration) ----
+// Source the Firecrawl API key from the FIRECRAWL_API_KEY environment variable into the
+// Firecrawl:ApiKey configuration key. Secret VALUES are never written into the repository; they
+// arrive via the environment (or .NET user-secrets, which the app loads automatically in
+// Development). An optional FIRECRAWL_BASE_URL likewise maps onto Firecrawl:BaseUrl.
+var firecrawlApiKeyFromEnv = builder.Configuration["FIRECRAWL_API_KEY"];
+if (!string.IsNullOrWhiteSpace(firecrawlApiKeyFromEnv))
+{
+    builder.Configuration["Firecrawl:ApiKey"] = firecrawlApiKeyFromEnv;
+}
+var firecrawlBaseUrlFromEnv = builder.Configuration["FIRECRAWL_BASE_URL"];
+if (!string.IsNullOrWhiteSpace(firecrawlBaseUrlFromEnv))
+{
+    builder.Configuration["Firecrawl:BaseUrl"] = firecrawlBaseUrlFromEnv;
+}
+
+builder.Services.Configure<FirecrawlConfiguration>(
+    builder.Configuration.GetSection(FirecrawlConfiguration.CONFIG_NAME));
+
+// Firecrawl scrape + LLM extraction can take a while; give the typed client a generous timeout.
+builder.Services.AddHttpClient<IFirecrawlClient, FirecrawlClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(180);
+});
+
+builder.Services.AddSingleton<ISupplierSyncQueue, SupplierSyncQueue>();
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddHostedService<SupplierSyncBackgroundService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
