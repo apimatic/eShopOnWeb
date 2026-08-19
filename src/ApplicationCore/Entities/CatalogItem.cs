@@ -15,6 +15,18 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
 
+    /// <summary>
+    /// The supplier this item was imported from, if any. Null for items created directly in the store.
+    /// </summary>
+    public int? SupplierId { get; private set; }
+
+    /// <summary>
+    /// The supplier's own stable identifier for this product (its SKU/id, or the product URL).
+    /// Together with <see cref="SupplierId"/> this is how a re-run of a sync matches an existing
+    /// catalog item instead of creating a duplicate.
+    /// </summary>
+    public string? SupplierItemKey { get; private set; }
+
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
         string description,
@@ -51,6 +63,18 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Links this catalog item to the supplier and the supplier's own identifier for the product,
+    /// so subsequent syncs of the same supplier update this item rather than creating a duplicate.
+    /// </summary>
+    public void SetSupplierReference(int supplierId, string supplierItemKey)
+    {
+        Guard.Against.NegativeOrZero(supplierId, nameof(supplierId));
+        Guard.Against.NullOrWhiteSpace(supplierItemKey, nameof(supplierItemKey));
+        SupplierId = supplierId;
+        SupplierItemKey = supplierItemKey;
     }
 
     public void UpdatePictureUri(string pictureName)

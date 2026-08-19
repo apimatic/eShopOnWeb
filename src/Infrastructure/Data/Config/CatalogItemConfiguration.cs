@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Entities.SupplierAggregate;
 
 namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
 
@@ -25,6 +26,10 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
 
+        builder.Property(ci => ci.SupplierItemKey)
+            .IsRequired(false)
+            .HasMaxLength(512);
+
         builder.HasOne(ci => ci.CatalogBrand)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogBrandId);
@@ -32,5 +37,13 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.HasOne(ci => ci.CatalogType)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogTypeId);
+
+        builder.HasOne<Supplier>()
+            .WithMany()
+            .HasForeignKey(ci => ci.SupplierId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Imported items are matched by (supplier, supplier item key) so re-syncs never duplicate.
+        builder.HasIndex(ci => new { ci.SupplierId, ci.SupplierItemKey });
     }
 }
