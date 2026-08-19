@@ -14,6 +14,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Vendored third-party Firecrawl .NET SDK (not published on NuGet). Shielded from the
+		     repo's central package management by external/Directory.Packages.props. -->
+		<ProjectReference Include="..\..\external\firecrawl-csharp-sdk\FirecrawlApi.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

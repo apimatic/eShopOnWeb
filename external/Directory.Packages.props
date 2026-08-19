@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Shields the vendored, third-party Firecrawl SDK from the repository's central package
+    management. The SDK pins its own package versions on each PackageReference, which is
+    incompatible with the root Directory.Packages.props (ManagePackageVersionsCentrally=true).
+    MSBuild imports only the nearest Directory.Packages.props, so this file stops the root one
+    from applying to anything under external/.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

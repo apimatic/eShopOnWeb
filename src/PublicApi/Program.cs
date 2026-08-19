@@ -10,6 +10,8 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Services.Firecrawl;
+using Microsoft.eShopWeb.PublicApi.SupplierEndpoints;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -44,6 +46,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Supplier catalog sync (additive capability) ---
+// The Firecrawl API key value is supplied out-of-band as the FIRECRAWL_API_KEY environment
+// variable and loaded into .NET user-secrets as Firecrawl:ApiKey. As a fallback (so the same
+// build runs against any Firecrawl account without editing the repo), map the raw env var onto
+// the Firecrawl:ApiKey config key when it is not already set. No secret value lives in the repo.
+builder.Configuration["Firecrawl:ApiKey"] ??= builder.Configuration["FIRECRAWL_API_KEY"];
+
+var firecrawlSection = builder.Configuration.GetSection(FirecrawlSettings.SectionName);
+builder.Services.Configure<FirecrawlSettings>(firecrawlSection);
+var firecrawlSettings = firecrawlSection.Get<FirecrawlSettings>() ?? new FirecrawlSettings();
+
+builder.Services.AddFirecrawlSupplierScraper(firecrawlSettings);
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddSingleton<ICatalogSyncQueue, CatalogSyncQueue>();
+builder.Services.AddHostedService<CatalogSyncBackgroundService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
