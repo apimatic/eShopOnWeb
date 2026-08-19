@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Runtime.Loader;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,10 +12,13 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
+using MaxioAdvancedBilling;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +28,37 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+
+AssemblyLoadContext.Default.Resolving += (context, name) =>
+{
+    if (string.IsNullOrEmpty(name.Name))
+    {
+        return null;
+    }
+
+    foreach (var loaded in context.Assemblies)
+    {
+        if (string.Equals(loaded.GetName().Name, name.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return loaded;
+        }
+    }
+
+    var path = Path.Combine(AppContext.BaseDirectory, name.Name + ".dll");
+    if (!File.Exists(path))
+    {
+        return null;
+    }
+
+    try
+    {
+        return context.LoadFromAssemblyPath(path);
+    }
+    catch (Exception)
+    {
+        return null;
+    }
+};
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +81,7 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +122,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddInMemoryCollection(MaxioEnvironmentAliases.FromProcessEnvironment());
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddTransient<MaxioStatusCaptureHandler>();
+builder.Services.AddHttpClient("Maxio")
+    .AddHttpMessageHandler<MaxioStatusCaptureHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddTransient(sp =>
+{
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("Maxio");
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    var options = new MaxioAdvancedBillingClientOptions();
+    MaxioClientOptionsConfigurator.Apply(options, settings);
+    return new MaxioAdvancedBillingClient(http, options);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +217,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
