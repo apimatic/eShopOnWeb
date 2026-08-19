@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +85,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+AddMaxioEnvironmentAliases(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +183,28 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void AddMaxioEnvironmentAliases(ConfigurationManager configuration)
+    {
+        var mapped = new Dictionary<string, string?>();
+        Map("MAXIO_API_KEY", "Maxio:ApiKey");
+        Map("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+        Map("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+        Map("MAXIO_BASE_URL", "Maxio:BaseUrl");
+
+        if (mapped.Count > 0)
+        {
+            configuration.AddInMemoryCollection(mapped);
+        }
+
+        void Map(string environmentName, string configurationKey)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                mapped[configurationKey] = value;
+            }
+        }
+    }
+}
