@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,14 +11,17 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Firecrawl;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.BackgroundTasks;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +48,26 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier catalog sync: reads a supplier's product listing via Firecrawl and imports the products
+// into the store's own catalog. Additive — it does not touch the existing catalog/basket/order flow.
+builder.Services.Configure<FirecrawlOptions>(builder.Configuration.GetSection(FirecrawlOptions.SectionName));
+builder.Services.AddHttpClient<IFirecrawlClient, FirecrawlClient>((serviceProvider, client) =>
+{
+    var firecrawlOptions = serviceProvider.GetRequiredService<IOptions<FirecrawlOptions>>().Value;
+    // Firecrawl:BaseUrl is an optional override; when unset the spec's declared server is used.
+    client.BaseAddress = new Uri(firecrawlOptions.ResolveBaseUrl().TrimEnd('/') + "/");
+    if (!string.IsNullOrWhiteSpace(firecrawlOptions.ApiKey))
+    {
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firecrawlOptions.ApiKey);
+    }
+    client.Timeout = TimeSpan.FromSeconds(firecrawlOptions.RequestTimeoutSeconds);
+});
+builder.Services.AddScoped<IProductListingReader, FirecrawlProductListingReader>();
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddScoped<ISupplierCatalogSyncProcessor, SupplierCatalogSyncProcessor>();
+builder.Services.AddSingleton<IBackgroundSyncQueue, BackgroundSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncHostedService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
