@@ -1,0 +1,37 @@
+title: Subscription Migration Preview Options
+type: object
+properties:
+  product_id:
+    type: integer
+    description: "The ID of the target Product. Either a product_id or product_handle must be present. A Subscription can be migrated to another product for both the current Product Family and another Product Family. Note: Going to another Product Family, components will not be migrated as well."
+  product_price_point_id:
+    type: integer
+    description: The ID of the specified product's price point. This can be passed to migrate to a non-default price point.
+  include_trial:
+    type: boolean
+    description: "Whether to include the trial period configured for the product price point when starting a new billing period. Note that if preserve_period is set, then include_trial will be ignored."
+    default: false
+  include_initial_charge:
+    type: boolean
+    default: false
+    description: "If `true` is sent initial charges will be assessed. "
+  include_coupons:
+    type: boolean
+    description: "If `true` is sent, any coupons associated with the subscription will be applied to the migration. If `false` is sent, coupons will not be applied. Note: When migrating to a new product family, the coupon cannot migrate."
+    default: true
+  preserve_period:
+    type: boolean
+    description: "If `false` is sent, the subscription's billing period will be reset to today and the full price of the new product will be charged. If `true` is sent, the billing period will not change and a prorated charge will be issued for the new product."
+    default: false
+  product_handle:
+    type: string
+    description: "The handle of the target Product. Either a product_id or product_handle must be present. A Subscription can be migrated to another product for both the current Product Family and another Product Family. Note: Going to another Product Family, components will not be migrated as well. "
+  product_price_point_handle:
+    type: string
+    description: The ID or handle of the specified product's price point. This can be passed to migrate to a non-default price point.
+  proration:
+    $ref: "./Proration.yaml"
+  proration_date:
+    type: string
+    format: date-time
+    description: The date that the proration is calculated from for the preview

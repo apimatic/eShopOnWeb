@@ -1,0 +1,7 @@
+title: Subscription Group Signup Request
+type: object
+properties:
+  subscription_group:
+    $ref: "./Subscription-Group-Signup.yaml"
+required:
+  - subscription_group
