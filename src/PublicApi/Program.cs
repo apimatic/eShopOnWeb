@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.SupplierIntegration;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SupplierIntegration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Supplier-catalog sync: read a supplier's product listing with Firecrawl and import it.
+builder.Services.Configure<FirecrawlSettings>(builder.Configuration.GetSection(FirecrawlSettings.ConfigurationSection));
+builder.Services.AddHttpClient<ISupplierListingReader, FirecrawlListingReader>(client =>
+{
+    // Scraping + LLM extraction can take a while; allow headroom over the per-scrape timeout.
+    client.Timeout = TimeSpan.FromSeconds(200);
+});
+builder.Services.AddScoped<ISupplierCatalogSyncService, SupplierCatalogSyncService>();
+builder.Services.AddSingleton<ISupplierSyncQueue, SupplierSyncQueue>();
+builder.Services.AddHostedService<SupplierSyncBackgroundService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
