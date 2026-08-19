@@ -41,6 +41,31 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            context.Response.StatusCode = maxioException.StatusCode switch
+            {
+                HttpStatusCode.NotFound => (int)HttpStatusCode.NotFound,
+                HttpStatusCode.Conflict => (int)HttpStatusCode.Conflict,
+                HttpStatusCode.UnprocessableEntity => (int)HttpStatusCode.BadRequest,
+                >= HttpStatusCode.BadRequest and < HttpStatusCode.InternalServerError => (int)HttpStatusCode.BadRequest,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = configurationException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,8 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +87,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+ApplyMaxioEnvironmentVariables(builder.Configuration);
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>();
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +167,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +186,23 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void ApplyMaxioEnvironmentVariables(ConfigurationManager configuration)
+    {
+        var overlay = new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+            ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+            ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+            ["Maxio:BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+        }
+        .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+        .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        if (overlay.Count > 0)
+        {
+            configuration.AddInMemoryCollection(overlay);
+        }
+    }
+}
