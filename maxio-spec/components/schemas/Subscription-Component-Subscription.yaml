@@ -1,0 +1,9 @@
+title: Subscription Component Subscription
+type: object
+description: "An optional object, will be returned if provided `include=subscription` query param."
+properties:
+  state:
+    $ref: "./Subscription-State.yaml"
+  updated_at:
+    type: string
+    format: date-time
