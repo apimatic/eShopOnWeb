@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -25,7 +26,10 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+BindMaxioEnvironmentVariables(builder.Configuration);
+
 builder.Services.AddEndpoints();
+builder.Services.AddHttpContextAccessor();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -44,6 +48,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>();
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +92,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindMaxioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +169,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +188,30 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>
+    /// Maps MAXIO_* environment variables onto the Maxio: configuration section without writing secret values to disk.
+    /// </summary>
+    private static void BindMaxioEnvironmentVariables(ConfigurationManager configuration)
+    {
+        var aliases = new Dictionary<string, string?>();
+        BindAlias(aliases, "MAXIO_API_KEY", MaxioOptions.ApiKeyKey);
+        BindAlias(aliases, "MAXIO_SITE_SUBDOMAIN", MaxioOptions.SubdomainKey);
+        BindAlias(aliases, "MAXIO_DEFAULT_PRODUCT_FAMILY", MaxioOptions.ProductFamilyHandleKey);
+
+        if (aliases.Count > 0)
+        {
+            configuration.AddInMemoryCollection(aliases);
+        }
+    }
+
+    private static void BindAlias(Dictionary<string, string?> aliases, string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            aliases[configurationKey] = value;
+        }
+    }
+}
