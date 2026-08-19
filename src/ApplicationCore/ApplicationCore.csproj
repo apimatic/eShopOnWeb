@@ -16,5 +16,8 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\BlazorShared\BlazorShared.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="UnitTests" />
+	</ItemGroup>
 
 </Project>
