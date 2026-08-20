@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ardalis.ApiEndpoints" />
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="MinimalApi.Endpoint" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
@@ -19,6 +20,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" />
+    <!-- The netstandard2.0 Maxio SDK assembly was compiled against the 10.0.8
+         async-interface contract, while NuGet selects the dependency-free net8
+         asset of System.Net.ServerSentEvents for the host. Keep that required
+         contract explicit so it is copied to the application output. -->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" >
