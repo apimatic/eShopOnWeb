@@ -34,21 +34,36 @@ public class ExceptionMiddleware
 
         if (exception is DuplicateException duplicationException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteError(context, HttpStatusCode.Conflict, duplicationException.Message);
+        }
+        else if (exception is UnknownSubscriptionPlanException unknownPlan)
+        {
+            await WriteError(context, HttpStatusCode.BadRequest, unknownPlan.Message);
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            await WriteError(context, HttpStatusCode.ServiceUnavailable, configurationException.Message);
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            var status = maxioException.StatusCode is >= 400 and < 500
+                ? HttpStatusCode.BadRequest
+                : HttpStatusCode.BadGateway;
+            await WriteError(context, status, maxioException.Message);
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteError(context, HttpStatusCode.InternalServerError, exception.Message);
         }
+    }
+
+    private static async Task WriteError(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
