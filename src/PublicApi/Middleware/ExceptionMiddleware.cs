@@ -35,20 +35,38 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteError(context, duplicationException.Message);
+        }
+        else if (exception is InvalidSubscriptionRequestException invalidRequest)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteError(context, invalidRequest.Message);
+        }
+        else if (exception is MaxioNotConfiguredException notConfigured)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await WriteError(context, notConfigured.Message);
+        }
+        else if (exception is MaxioApiException maxioApi)
+        {
+            context.Response.StatusCode = maxioApi.StatusCode == HttpStatusCode.UnprocessableEntity
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            await WriteError(context, maxioApi.Message);
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteError(context, exception.Message);
         }
+    }
+
+    private static Task WriteError(HttpContext context, string message)
+    {
+        return context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
