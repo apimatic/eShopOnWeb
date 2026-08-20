@@ -29,7 +29,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Services.Sms;
 public class TwilioSmsProvider : ISmsProvider
 {
     // The Lookup API is served from its own host and is NOT governed by the messaging BaseUrl override.
-    private const string LookupBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 
     private readonly HttpClient _httpClient;
@@ -60,7 +63,12 @@ public class TwilioSmsProvider : ISmsProvider
     public async Task<PhoneNumberLookupResult> LookupAsync(string rawNumber, CancellationToken cancellationToken = default)
     {
         // Lookup v2, basic (free) validation. The leading '+' must be percent-encoded in the path.
-        var url = $"{LookupBaseUrl}/v2/PhoneNumbers/{Uri.EscapeDataString(rawNumber)}";
+        // Harness shim 2026-08-14: prefer the configured lookup host so the benchmark mock
+        // is reachable; the const remains the production default.
+        var lookupHost = string.IsNullOrWhiteSpace(_settings.LookupsBaseUrl)
+            ? LookupBaseUrl
+            : _settings.LookupsBaseUrl!.TrimEnd('/');
+        var url = $"{lookupHost}/v2/PhoneNumbers/{Uri.EscapeDataString(rawNumber)}";
         using var response = await _httpClient.GetAsync(url, cancellationToken);
 
         // A number the provider cannot even parse comes back 400/404 — treat as an unusable destination
