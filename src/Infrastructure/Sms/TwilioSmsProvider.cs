@@ -25,7 +25,10 @@ public class TwilioSmsProvider : ISmsProvider
     // The classic messaging/core API and the lookup API are served from different hosts. Only the
     // messaging host is overridable via Twilio:BaseUrl; lookup is always the provider's own host.
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
-    private const string LookupBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     private readonly HttpClient _httpClient;
     private readonly TwilioSettings _settings;
