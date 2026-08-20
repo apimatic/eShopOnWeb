@@ -34,21 +34,41 @@ public class ExceptionMiddleware
 
         if (exception is DuplicateException duplicationException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
+            await WriteAsync(context, HttpStatusCode.Conflict, duplicationException.Message);
+        }
+        else if (exception is BillingValidationException validationException)
+        {
+            await WriteAsync(context, HttpStatusCode.BadRequest, validationException.Message);
+        }
+        else if (exception is BillingConfigurationException configurationException)
+        {
+            await WriteAsync(context, HttpStatusCode.ServiceUnavailable, configurationException.Message);
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            var status = maxioException.StatusCode switch
             {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+                HttpStatusCode.UnprocessableEntity => HttpStatusCode.BadRequest,
+                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => HttpStatusCode.ServiceUnavailable,
+                HttpStatusCode.NotFound => HttpStatusCode.BadGateway,
+                _ when (int)maxioException.StatusCode >= 500 => HttpStatusCode.BadGateway,
+                _ => HttpStatusCode.BadGateway
+            };
+            await WriteAsync(context, status, maxioException.Message);
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.InternalServerError, exception.Message);
         }
+    }
+
+    private static async Task WriteAsync(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
