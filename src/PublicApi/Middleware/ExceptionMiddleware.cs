@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -34,21 +35,32 @@ public class ExceptionMiddleware
 
         if (exception is DuplicateException duplicationException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.Conflict, duplicationException.Message);
+            return;
         }
-        else
+
+        if (exception is InvalidContactNumberException or EmptyOrderException or CatalogItemNotFoundException or NotificationCannotBeResentException or ArgumentException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.BadRequest, exception.Message);
+            return;
         }
+
+        if (exception is ContactNumberNotFoundException or OrderNotFoundException or NotificationNotFoundException)
+        {
+            await WriteAsync(context, HttpStatusCode.NotFound, exception.Message);
+            return;
+        }
+
+        await WriteAsync(context, HttpStatusCode.InternalServerError, exception.Message);
+    }
+
+    private static async Task WriteAsync(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

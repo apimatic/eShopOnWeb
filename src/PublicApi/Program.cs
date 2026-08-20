@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -84,6 +85,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+AddTwilioEnvironmentOverrides(builder.Configuration);
+builder.Services.AddTwilioNotifications(builder.Configuration);
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +183,29 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void AddTwilioEnvironmentOverrides(ConfigurationManager configuration)
+    {
+        var pairs = new Dictionary<string, string?>();
+        AddMapped(pairs, "Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+        AddMapped(pairs, "Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+        AddMapped(pairs, "Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+        AddMapped(pairs, "Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+        AddMapped(pairs, "Twilio:BaseUrl", "TWILIO_BASE_URL");
+
+        if (pairs.Count > 0)
+        {
+            configuration.AddInMemoryCollection(pairs);
+        }
+    }
+
+    private static void AddMapped(IDictionary<string, string?> pairs, string configKey, string environmentVariable)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            pairs[configKey] = value;
+        }
+    }
+}
