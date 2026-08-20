@@ -1,0 +1,7 @@
+title: Subscription Component Allocation Error
+type: object
+properties:
+  errors:
+    type: array
+    items:
+      $ref: "./Subscription-Component-Allocation-Error-Item.yaml"

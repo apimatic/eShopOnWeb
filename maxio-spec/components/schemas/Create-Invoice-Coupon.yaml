@@ -1,0 +1,27 @@
+title: Create Invoice Coupon
+type: object
+properties:
+  code:
+    type: string
+  subcode:
+    type: string
+  percentage:
+    type:
+      - string
+      - number
+    maximum: 100
+    example: 50
+  amount:
+    type:
+      - string
+      - number
+    minimum: 0
+  description:
+    type: string
+    maxLength: 255
+  product_family_id:
+    type:
+      - string
+      - integer
+  compounding_strategy:
+    $ref: "./Compounding-Strategy.yaml"
