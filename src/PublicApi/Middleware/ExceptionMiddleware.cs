@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -35,20 +36,53 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, duplicationException.Message);
+            return;
         }
-        else
+
+        if (exception is UnusableContactNumberException unusable)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteAsync(context, unusable.Message);
+            return;
         }
+
+        if (exception is InvalidOrderOperationException invalidOrder)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await WriteAsync(context, invalidOrder.Message);
+            return;
+        }
+
+        if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteAsync(context, argumentException.Message);
+            return;
+        }
+
+        if (exception is KeyNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await WriteAsync(context, "The requested resource was not found.");
+            return;
+        }
+
+        if (exception is MessagingProviderException provider)
+        {
+            context.Response.StatusCode = (int)(provider.StatusCode ?? HttpStatusCode.BadGateway);
+            await WriteAsync(context, provider.Message);
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await WriteAsync(context, "An unexpected error occurred.");
     }
+
+    private static Task WriteAsync(HttpContext context, string message)
+        => context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
 }
