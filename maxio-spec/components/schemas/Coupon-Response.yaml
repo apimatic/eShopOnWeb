@@ -1,0 +1,5 @@
+title: Coupon Response
+type: object
+properties:
+  coupon:
+    $ref: "./Coupon.yaml"
