@@ -1,19 +1,24 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
-using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Billing;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -24,31 +29,51 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            if (ex is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+            {
+                _logger.LogDebug("Request {TraceIdentifier} was canceled by the caller.", httpContext.TraceIdentifier);
+                return;
+            }
+
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
 
-        if (exception is DuplicateException duplicationException)
+        string detail;
+        if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = (int)billingException.StatusCode;
+            detail = billingException.Message;
+            _logger.LogWarning(
+                exception,
+                "Billing request {TraceIdentifier} failed with status {StatusCode}.",
+                context.TraceIdentifier,
+                context.Response.StatusCode);
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            detail = duplicationException.Message;
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            detail = "An unexpected error occurred.";
+            _logger.LogError(exception, "Unhandled request failure {TraceIdentifier}.", context.TraceIdentifier);
         }
+
+        var problem = new
+        {
+            type = "about:blank",
+            title = ReasonPhrases.GetReasonPhrase(context.Response.StatusCode),
+            status = context.Response.StatusCode,
+            detail,
+            traceId = context.TraceIdentifier
+        };
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
     }
 }

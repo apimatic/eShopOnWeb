@@ -36,7 +36,7 @@ project's existing endpoint conventions. Route them under `/api/` named for the 
 
 ---
 
-## Sandbox entities (already seeded on site `cp-exp-1`)
+## Sandbox entities (already seeded on the site named by `MAXIO_SITE_SUBDOMAIN`)
 
 The demo catalog already exists — no need to create it. **Handles are stable; numeric IDs
 are not** — Maxio reassigns them on re-seed, so the IDs below may already be stale.

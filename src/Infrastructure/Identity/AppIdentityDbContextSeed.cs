@@ -15,18 +15,60 @@ public class AppIdentityDbContextSeed
             identityDbContext.Database.Migrate();
         }
 
-        await roleManager.CreateAsync(new IdentityRole(BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS));
+        if (!await roleManager.RoleExistsAsync(BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS))
+        {
+            await roleManager.CreateAsync(new IdentityRole(BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS));
+        }
 
-        var defaultUser = new ApplicationUser { UserName = "demouser@microsoft.com", Email = "demouser@microsoft.com" };
-        await userManager.CreateAsync(defaultUser, AuthorizationConstants.DEFAULT_PASSWORD);
+        var defaultUser = await userManager.FindByNameAsync("demouser@microsoft.com");
+        if (defaultUser is null)
+        {
+            defaultUser = new ApplicationUser
+            {
+                Id = "demouser",
+                UserName = "demouser@microsoft.com",
+                Email = "demouser@microsoft.com",
+                FirstName = "Demo",
+                LastName = "User"
+            };
+            await userManager.CreateAsync(defaultUser, AuthorizationConstants.DEFAULT_PASSWORD);
+        }
+        else if (string.IsNullOrWhiteSpace(defaultUser.FirstName) ||
+                 string.IsNullOrWhiteSpace(defaultUser.LastName))
+        {
+            defaultUser.FirstName = "Demo";
+            defaultUser.LastName = "User";
+            await userManager.UpdateAsync(defaultUser);
+        }
 
         string adminUserName = "admin@microsoft.com";
-        var adminUser = new ApplicationUser { UserName = adminUserName, Email = adminUserName };
-        await userManager.CreateAsync(adminUser, AuthorizationConstants.DEFAULT_PASSWORD);
-        adminUser = await userManager.FindByNameAsync(adminUserName);
+        var adminUser = await userManager.FindByNameAsync(adminUserName);
+        if (adminUser is null)
+        {
+            adminUser = new ApplicationUser
+            {
+                Id = "admin",
+                UserName = adminUserName,
+                Email = adminUserName,
+                FirstName = "eShop",
+                LastName = "Administrator"
+            };
+            await userManager.CreateAsync(adminUser, AuthorizationConstants.DEFAULT_PASSWORD);
+        }
+        else if (string.IsNullOrWhiteSpace(adminUser.FirstName) ||
+                 string.IsNullOrWhiteSpace(adminUser.LastName))
+        {
+            adminUser.FirstName = "eShop";
+            adminUser.LastName = "Administrator";
+            await userManager.UpdateAsync(adminUser);
+        }
+
         if (adminUser != null)
         {
-            await userManager.AddToRoleAsync(adminUser, BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS);
+            if (!await userManager.IsInRoleAsync(adminUser, BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS))
+            {
+                await userManager.AddToRoleAsync(adminUser, BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS);
+            }
         }
     }
 }
