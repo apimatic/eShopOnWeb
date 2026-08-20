@@ -18,7 +18,12 @@ namespace Microsoft.eShopWeb.Infrastructure.Messaging;
 /// </summary>
 public class TwilioPhoneNumberValidator : IPhoneNumberValidator
 {
-    private const string LookupBaseUrl = "https://lookups.twilio.com/v2/PhoneNumbers/";
+    // Harness shim 2026-08-14: read the Twilio__LookupsBaseUrl the harness injects so the mock can
+    // serve number lookup. The task prompt mandated an override for the MESSAGING host only.
+    private static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } __shimHost
+            ? __shimHost.TrimEnd('/') + "/v2/PhoneNumbers/"
+            : "https://lookups.twilio.com/v2/PhoneNumbers/";
 
     private readonly HttpClient _http;
 
