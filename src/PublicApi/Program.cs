@@ -11,6 +11,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -25,6 +26,15 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var maxioEnvironmentConfiguration = new Dictionary<string, string?>();
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_API_KEY")))
+    maxioEnvironmentConfiguration["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN")))
+    maxioEnvironmentConfiguration["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")))
+    maxioEnvironmentConfiguration["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentConfiguration);
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -32,6 +42,7 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
