@@ -1,0 +1,31 @@
+title: Full Subscription Group Response
+type: object
+properties:
+  uid:
+    type: string
+  scheme:
+    type: integer
+  customer_id:
+    type: integer
+  payment_profile_id:
+    type: integer
+  subscription_ids:
+    type: array
+    items:
+      type: integer
+  primary_subscription_id:
+    type: integer
+  next_assessment_at:
+    type: string
+    format: date-time
+  state:
+    $ref: "./Subscription-State.yaml"
+  cancel_at_end_of_period:
+    type: boolean
+  current_billing_amount_in_cents:
+    type: integer
+    format: int64
+  customer:
+    $ref: "./Subscription-Group-Customer.yaml"
+  account_balances:
+    $ref: "./Subscription-Group-Balances.yaml"
