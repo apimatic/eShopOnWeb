@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,8 @@ public static class Dependencies
          
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
+            services.AddDbContext<SubscriptionDbContext>(options =>
+                options.UseInMemoryDatabase("Subscriptions"));
         }
         else
         {
@@ -35,6 +38,9 @@ public static class Dependencies
             // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
+            services.AddDbContext<SubscriptionDbContext>(options =>
+                options.UseSqlServer(configuration.GetConnectionString("CatalogConnection"), sql =>
+                    sql.MigrationsHistoryTable("__SubscriptionMigrationsHistory")));
         }
     }
 }
