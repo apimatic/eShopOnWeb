@@ -34,6 +34,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Configuration" Version="$(SystemExtensionVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(SystemExtensionVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(SystemExtensionVersion)" />
     <PackageVersion Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="$(VSCodeGeneratorVersion)" />
     <PackageVersion Include="Microsoft.Web.LibraryManager.Build" Version="2.1.175" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(EntityFramworkCoreVersion)" />
@@ -48,7 +50,6 @@
     <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" />
     <PackageVersion Include="System.Net.Http.Json" Version="$(SystemExtensionVersion)" />
     <PackageVersion Include="System.Security.Claims" Version="4.3.0" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.3" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="7.3.1" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />
