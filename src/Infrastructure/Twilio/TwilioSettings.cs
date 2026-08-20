@@ -32,7 +32,12 @@ public class TwilioSettings
     public const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 
     /// <summary>The provider's Lookups host. Not governed by <see cref="BaseUrl"/>.</summary>
-    public const string LookupsBaseUrl = "https://lookups.twilio.com";
+    // Harness shim 2026-08-14: read the Twilio__LookupsBaseUrl the harness injects so the mock can
+    // serve number lookup. The task prompt mandated an override for the MESSAGING host only.
+    public static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } __shimHost
+            ? __shimHost.TrimEnd('/')
+            : "https://lookups.twilio.com";
 
     public string ResolvedMessagingBaseUrl =>
         string.IsNullOrWhiteSpace(BaseUrl) ? DefaultMessagingBaseUrl : BaseUrl!.TrimEnd('/');
