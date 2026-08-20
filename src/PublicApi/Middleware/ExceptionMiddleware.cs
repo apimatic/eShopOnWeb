@@ -28,27 +28,42 @@ public class ExceptionMiddleware
         }
     }
 
+    private static async Task WriteAsync(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
         if (exception is DuplicateException duplicationException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.Conflict, duplicationException.Message);
+        }
+        else if (exception is SubscriptionPlanNotFoundException planNotFound)
+        {
+            await WriteAsync(context, HttpStatusCode.NotFound, planNotFound.Message);
+        }
+        else if (exception is BillingValidationException validation)
+        {
+            await WriteAsync(context, HttpStatusCode.BadRequest, validation.Message);
+        }
+        else if (exception is BillingProviderException provider)
+        {
+            var status = provider.StatusCode == 404
+                ? HttpStatusCode.NotFound
+                : HttpStatusCode.BadGateway;
+            await WriteAsync(context, status, provider.Message);
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
