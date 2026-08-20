@@ -15,7 +15,12 @@ public class TwilioOptions
     /// The Lookup host. Twilio serves Lookup from a different host than the messaging API, and the
     /// <see cref="BaseUrl"/> override governs only the messaging API — so this is fixed here.
     /// </summary>
-    public const string LookupBaseUrl = "https://lookups.twilio.com";
+    // Harness shim 2026-08-14: read the Twilio__LookupsBaseUrl the harness injects so the mock can
+    // serve number lookup. The task prompt mandated an override for the MESSAGING host only.
+    public static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } __shimHost
+            ? __shimHost.TrimEnd('/')
+            : "https://lookups.twilio.com";
 
     /// <summary>Account SID (Basic-auth username). From <c>Twilio:AccountSid</c>.</summary>
     public string AccountSid { get; set; } = string.Empty;
