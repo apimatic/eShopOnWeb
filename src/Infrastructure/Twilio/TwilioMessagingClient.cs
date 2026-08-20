@@ -27,7 +27,15 @@ namespace Microsoft.eShopWeb.Infrastructure.Twilio;
 public class TwilioMessagingClient : ITwilioMessagingClient
 {
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
-    private const string LookupsBaseUrl = "https://lookups.twilio.com";
+    // HARNESS SHIM, added 2026-08-17 AFTER the agent finished - NOT this run's work.
+    // Number lookup rides a SECOND Twilio host (lookups.twilio.com) which Twilio:BaseUrl does not
+    // govern, so without this the call leaves for the real host and ~18 checks per run die in setup.
+    // The env var is supplied by the grading profile (app.config.Twilio__LookupsBaseUrl -> Proc.cs:236).
+    // Default is unchanged, so the build behaves exactly as delivered when the var is absent.
+    private static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } __lookupsOverride
+            ? __lookupsOverride
+            : "https://lookups.twilio.com";
     private const int MaxTransientRetries = 3;
     private const int MaxListPages = 100;
 
