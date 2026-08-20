@@ -31,7 +31,10 @@ public class TwilioSettings
     public const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 
     /// <summary>The Lookup host — a different capability, not governed by <see cref="BaseUrl"/>.</summary>
-    public const string LookupBaseUrl = "https://lookups.twilio.com";
+    public static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     /// <summary>The effective messaging base address: the override if present, otherwise the provider default.</summary>
     public string ResolveMessagingBaseUrl() =>
