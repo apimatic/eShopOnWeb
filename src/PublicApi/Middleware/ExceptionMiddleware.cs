@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        context.Response.StatusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (int)HttpStatusCode.Conflict,
+            EntityNotFoundException => (int)HttpStatusCode.NotFound,
+            ForbiddenAccessException => (int)HttpStatusCode.Forbidden,
+            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+            OrderPaymentException paymentException => paymentException.StatusCode,
+            PayerActionRequiredException => (int)HttpStatusCode.Conflict,
+            PayPalClientException paypalException when paypalException.StatusCode is >= 400 and < 500
+                => paypalException.StatusCode,
+            PayPalClientException => (int)HttpStatusCode.BadGateway,
+            ArgumentException => (int)HttpStatusCode.BadRequest,
+            _ => (int)HttpStatusCode.InternalServerError
+        };
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
