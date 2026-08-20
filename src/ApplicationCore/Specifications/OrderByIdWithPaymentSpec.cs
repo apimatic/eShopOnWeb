@@ -1,16 +1,16 @@
-﻿using Ardalis.Specification;
+using Ardalis.Specification;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
 
-public class OrderWithItemsByIdSpec : Specification<Order>
+public class OrderByIdWithPaymentSpec : Specification<Order>, ISingleResultSpecification<Order>
 {
-    public OrderWithItemsByIdSpec(int orderId)
+    public OrderByIdWithPaymentSpec(int orderId)
     {
         Query
             .Where(order => order.Id == orderId)
             .Include(o => o.OrderItems)
-            .ThenInclude(i => i.ItemOrdered)
+                .ThenInclude(i => i.ItemOrdered)
             .Include(o => o.PaymentRefunds);
     }
 }
