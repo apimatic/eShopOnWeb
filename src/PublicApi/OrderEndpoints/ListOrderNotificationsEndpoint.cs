@@ -1,0 +1,61 @@
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class ListOrderNotificationsEndpoint : IEndpoint<IResult, ListOrderNotificationsRequest, IOrderNotificationService>
+{
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public ListOrderNotificationsEndpoint(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/orders/{orderId}/notifications",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (int orderId, IOrderNotificationService orderService) =>
+            {
+                return await HandleAsync(new ListOrderNotificationsRequest(orderId), orderService);
+            })
+            .Produces<ListOrderNotificationsResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(ListOrderNotificationsRequest request, IOrderNotificationService orderService)
+    {
+        var buyerId = BuyerIdentity.RequireBuyerId(_httpContextAccessor.HttpContext!.User);
+        var notifications = await orderService.ListBuyerOrderNotificationsAsync(buyerId, request.OrderId);
+        return Results.Ok(new ListOrderNotificationsResponse
+        {
+            OrderId = request.OrderId,
+            Notifications = notifications.Select(NotificationMapper.ToDto).ToList()
+        });
+    }
+}
+
+public class ListOrderNotificationsRequest : BaseRequest
+{
+    public ListOrderNotificationsRequest(int orderId)
+    {
+        OrderId = orderId;
+    }
+
+    public int OrderId { get; }
+}
+
+public class ListOrderNotificationsResponse
+{
+    public int OrderId { get; set; }
+    public System.Collections.Generic.List<OrderNotificationDto> Notifications { get; set; } = new();
+}
