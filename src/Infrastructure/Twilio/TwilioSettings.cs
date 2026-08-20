@@ -27,6 +27,11 @@ public class TwilioSettings
     /// govern other provider hosts (such as lookup).
     /// </summary>
     public string? BaseUrl { get; set; }
+    /// <summary>Optional override for the number-LOOKUP host. Added by the harness shim
+    /// 2026-08-14 so the benchmark mock can serve lookups; the task prompt mandated an
+    /// override for the messaging host only.</summary>
+    public string? LookupsBaseUrl { get; set; }
+
 
     public const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 

@@ -21,7 +21,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Twilio;
 public class TwilioPhoneNumberLookup : IPhoneNumberLookup
 {
     // Lookup is a distinct provider host from the messaging API.
-    public const string LookupBaseUrl = "https://lookups.twilio.com";
+    public static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     private readonly HttpClient _httpClient;
     private readonly TwilioSettings _settings;
@@ -36,7 +39,12 @@ public class TwilioPhoneNumberLookup : IPhoneNumberLookup
 
     public async Task<PhoneNumberLookupResult> LookupAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
-        var url = $"{LookupBaseUrl}/v2/PhoneNumbers/{Uri.EscapeDataString(phoneNumber)}";
+        // Harness shim 2026-08-14: prefer the configured lookup host so the benchmark mock is
+        // reachable; the const below remains the production default.
+        var lookupHost = string.IsNullOrWhiteSpace(_settings.LookupsBaseUrl)
+            ? LookupBaseUrl
+            : _settings.LookupsBaseUrl!.TrimEnd('/');
+        var url = $"{lookupHost}/v2/PhoneNumbers/{Uri.EscapeDataString(phoneNumber)}";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_settings.AccountSid}:{_settings.AuthToken}"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
