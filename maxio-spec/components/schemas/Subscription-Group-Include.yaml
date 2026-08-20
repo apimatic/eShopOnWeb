@@ -1,0 +1,4 @@
+title: Subscription Group Include
+type: string
+enum:
+  - current_billing_amount_in_cents

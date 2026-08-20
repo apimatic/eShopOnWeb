@@ -1,0 +1,14 @@
+title: Create or Update Segment Price
+type: object
+properties:
+  starting_quantity:
+    type: integer
+  ending_quantity:
+    type: integer
+  unit_price:
+    type:
+      - string
+      - number
+    description: The price can contain up to 8 decimal places. i.e. 1.00 or 0.0012 or 0.00000065
+required:
+  - unit_price
