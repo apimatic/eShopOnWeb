@@ -9,7 +9,9 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.ApplicationCore.Subscriptions;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -24,6 +26,23 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the exercise/deployment environment variable names into the strongly-typed
+// Maxio configuration section. User-secrets and normal Maxio:* configuration remain supported.
+var maxioEnvironmentSettings = new Dictionary<string, string?>();
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_API_KEY")))
+{
+    maxioEnvironmentSettings["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+}
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN")))
+{
+    maxioEnvironmentSettings["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+}
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")))
+{
+    maxioEnvironmentSettings["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+}
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentSettings);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +63,14 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .Validate(MaxioOptions.IsValid, "Maxio configuration is missing or invalid.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(120));
+builder.Services.AddSingleton<SubscriptionOperationLock>();
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +187,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
