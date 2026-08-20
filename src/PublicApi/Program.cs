@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -51,6 +52,10 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+BindPayPalEnvironmentVariables(builder.Configuration);
+
+builder.Services.AddPayPalPayments(builder.Configuration);
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -84,6 +89,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindPayPalEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +166,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +184,28 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindPayPalEnvironmentVariables(ConfigurationManager configuration)
+{
+    var overlay = new Dictionary<string, string?>();
+    Map(overlay, configuration, "PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Map(overlay, configuration, "PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Map(overlay, configuration, "PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Map(overlay, configuration, "PAYPAL_CURRENCY", "PayPal:Currency");
+    Map(overlay, configuration, "PAYPAL_BASE_URL", "PayPal:BaseUrl");
+    if (overlay.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overlay);
+    }
+}
+
+static void Map(Dictionary<string, string?> overlay, IConfiguration configuration, string envName, string configKey)
+{
+    var value = configuration[envName] ?? Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        overlay[configKey] = value;
+    }
+}
 
 public partial class Program { }
