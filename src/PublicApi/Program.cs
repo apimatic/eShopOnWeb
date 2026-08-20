@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,7 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +86,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+MapTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.AddTwilioMessaging(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +182,22 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapTwilioEnvironmentVariables(ConfigurationManager configuration)
+{
+    Map("Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+    Map("Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+    Map("Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+    Map("Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+
+    void Map(string key, string environmentVariable)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[key] = value;
+        }
+    }
+}
 
 public partial class Program { }

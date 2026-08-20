@@ -18,8 +18,10 @@ public static class Dependencies
 
         if (useOnlyInMemoryDatabase)
         {
-            services.AddDbContext<CatalogContext>(c =>
-               c.UseInMemoryDatabase("Catalog"));
+            var catalogRoot = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
+            services.AddSingleton(catalogRoot);
+            services.AddDbContext<CatalogContext>((sp, c) =>
+               c.UseInMemoryDatabase("Catalog", sp.GetRequiredService<Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot>()));
          
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
