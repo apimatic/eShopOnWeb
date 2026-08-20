@@ -26,7 +26,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 public class TwilioMessagingGateway : ISmsGateway
 {
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
-    private const string LookupsBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
     private const int MaxReconciliationPages = 200;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
