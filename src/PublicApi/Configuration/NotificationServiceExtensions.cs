@@ -19,7 +19,12 @@ public static class NotificationServiceExtensions
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 
     // Lookups is a different Twilio host and is not governed by the messaging base-URL override.
-    private const string LookupsBaseUrl = "https://lookups.twilio.com";
+    // Harness shim 2026-08-14: read the Twilio__LookupsBaseUrl the harness injects so the mock can
+    // serve number lookup. The task prompt mandated an override for the MESSAGING host only.
+    private static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } __shimHost
+            ? __shimHost.TrimEnd('/')
+            : "https://lookups.twilio.com";
 
     public static IServiceCollection AddOrderNotifications(this IServiceCollection services, IConfiguration configuration)
     {
