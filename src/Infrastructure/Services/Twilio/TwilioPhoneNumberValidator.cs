@@ -21,7 +21,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 public class TwilioPhoneNumberValidator : IPhoneNumberValidator
 {
     // Lookup lives on its own host; the messaging base-URL override does not apply here.
-    private const string LookupBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     private readonly HttpClient _http;
 
