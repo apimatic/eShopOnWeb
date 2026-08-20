@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,21 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(MaxioOptions.IsValid,
+        "Maxio requires ApiKey, ProductFamilyHandle, and either a valid Subdomain or an absolute HTTPS BaseUrl.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<ISubscriptionEnrollmentLock, SubscriptionEnrollmentLock>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +176,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
