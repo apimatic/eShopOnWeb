@@ -14,7 +14,10 @@ public class TwilioOptions
     public const string DefaultMessagingBaseUrl = "https://api.twilio.com";
 
     /// <summary>Twilio host for the Lookups v2 API (not governed by <see cref="BaseUrl"/>).</summary>
-    public const string LookupsBaseUrl = "https://lookups.twilio.com";
+    public static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     public string AccountSid { get; set; } = string.Empty;
 
