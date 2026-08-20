@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -84,6 +85,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+ApplyMaxioEnvironmentVariables(builder.Configuration);
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +163,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +181,27 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void ApplyMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var overlay = new Dictionary<string, string?>();
+    Overlay("MAXIO_API_KEY", "Maxio:ApiKey");
+    Overlay("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+    Overlay("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+    Overlay("MAXIO_BASE_URL", "Maxio:BaseUrl");
+    if (overlay.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overlay);
+    }
+
+    void Overlay(string envName, string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            overlay[configKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
