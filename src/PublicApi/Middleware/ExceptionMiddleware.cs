@@ -34,21 +34,51 @@ public class ExceptionMiddleware
 
         if (exception is DuplicateException duplicationException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.Conflict, duplicationException.Message);
+        }
+        else if (exception is BillingValidationException validationException)
+        {
+            await WriteAsync(context, HttpStatusCode.BadRequest, validationException.Message);
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            await WriteAsync(context, HttpStatusCode.ServiceUnavailable, configurationException.Message);
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            var status = MapMaxioStatus(maxioException.StatusCode);
+            await WriteAsync(context, status, maxioException.Message);
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteAsync(context, HttpStatusCode.InternalServerError, exception.Message);
         }
+    }
+
+    private static HttpStatusCode MapMaxioStatus(HttpStatusCode statusCode)
+    {
+        return statusCode switch
+        {
+            HttpStatusCode.BadRequest => HttpStatusCode.BadRequest,
+            HttpStatusCode.NotFound => HttpStatusCode.NotFound,
+            HttpStatusCode.Conflict => HttpStatusCode.Conflict,
+            HttpStatusCode.UnprocessableEntity => HttpStatusCode.UnprocessableEntity,
+            HttpStatusCode.TooManyRequests => HttpStatusCode.ServiceUnavailable,
+            HttpStatusCode.Unauthorized => HttpStatusCode.ServiceUnavailable,
+            HttpStatusCode.Forbidden => HttpStatusCode.ServiceUnavailable,
+            HttpStatusCode.GatewayTimeout => HttpStatusCode.GatewayTimeout,
+            _ when (int)statusCode >= 500 => HttpStatusCode.BadGateway,
+            _ => HttpStatusCode.BadGateway
+        };
+    }
+
+    private static async Task WriteAsync(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
