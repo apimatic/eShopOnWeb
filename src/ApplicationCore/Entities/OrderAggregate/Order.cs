@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
@@ -17,11 +18,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +48,112 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public bool BelongsTo(string buyerId) =>
+        string.Equals(BuyerId, buyerId, StringComparison.OrdinalIgnoreCase);
+
+    public OrderPayment EnsurePayment(string currency)
+    {
+        Guard.Against.NullOrEmpty(currency, nameof(currency));
+        if (Payment == null)
+        {
+            if (Id <= 0)
+            {
+                throw new InvalidOperationException("The order must be persisted before a payment can be attached.");
+            }
+
+            Payment = new OrderPayment(Id, currency);
+        }
+
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        EnsurePayable();
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been fulfilled and cannot be cancelled. Issue a refund instead.");
+        }
+
+        if (Status == OrderStatus.Cancelled)
+        {
+            return;
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded()
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded))
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be refunded from status {Status}.");
+        }
+
+        if (Payment == null)
+        {
+            throw new InvalidOperationException($"Order {Id} has no captured payment to refund.");
+        }
+
+        Status = Payment.RefundableRemaining <= 0.001m
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
+    }
+
+    public void EnsureOwnedBy(string buyerId)
+    {
+        if (!BelongsTo(buyerId))
+        {
+            throw new UnauthorizedAccessException("The requested order does not belong to the caller.");
+        }
+    }
+
+    public void EnsurePayable()
+    {
+        if (Status == OrderStatus.Authorized)
+        {
+            return;
+        }
+
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+        }
+    }
+
+    public void EnsureCancellable()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been fulfilled and cannot be cancelled. Issue a refund instead.");
+        }
+    }
+
+    public bool IsAlreadyAuthorized() =>
+        Status is OrderStatus.Authorized or OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded
+        && Payment?.AuthorizationId != null;
+
+    public bool IsAlreadyFulfilled() =>
+        Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded
+        && Payment?.CaptureId != null;
+
+    public bool IsAlreadyCancelled() => Status == OrderStatus.Cancelled;
+
+    public decimal RemainingRefundableAmount() => Payment?.RefundableRemaining ?? 0m;
 }
