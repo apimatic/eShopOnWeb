@@ -2,3 +2,20 @@
 
 This folder demonstrates how to configure API endpoints as individual classes. You can compare it to the traditional controller-based approach found in /Web/Controllers/Api.
 
+## Maxio subscription billing
+
+The JWT-authenticated subscription endpoints are:
+
+- `GET /api/subscription-plans`
+- `POST /api/subscriptions` with `{ "productHandle": "<handle from the plans response>" }`
+- `GET /api/my-subscriptions`
+
+For local development, copy the injected sandbox variables into this project's user-secrets store:
+
+```powershell
+dotnet user-secrets set "Maxio:ApiKey" "$env:MAXIO_API_KEY" --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:Subdomain" "$env:MAXIO_SITE_SUBDOMAIN" --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "$env:MAXIO_DEFAULT_PRODUCT_FAMILY" --project src/PublicApi/PublicApi.csproj
+```
+
+`Maxio:BaseUrl` is an optional absolute HTTPS override. When omitted, the base address is derived from `Maxio:Subdomain`. Production configuration uses the same four `Maxio` keys through the deployment's secret configuration provider.

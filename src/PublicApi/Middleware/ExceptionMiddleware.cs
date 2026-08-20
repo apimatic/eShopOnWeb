@@ -41,14 +41,38 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingValidationException billingValidationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteErrorAsync(context, billingValidationException.Message);
+        }
+        else if (exception is SubscriptionInProgressException subscriptionInProgressException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            context.Response.Headers.RetryAfter = "5";
+            await WriteErrorAsync(context, subscriptionInProgressException.Message);
+        }
+        else if (exception is BillingUnavailableException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            context.Response.Headers.RetryAfter = "30";
+            await WriteErrorAsync(context, "The subscription billing service is temporarily unavailable.");
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }
+
+    private static Task WriteErrorAsync(HttpContext context, string message) =>
+        context.Response.WriteAsync(new ErrorDetails
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
 }
