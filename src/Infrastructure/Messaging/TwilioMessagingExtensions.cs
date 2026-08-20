@@ -80,6 +80,11 @@ public static class TwilioMessagingExtensions
                 options.Server.Default.Production.BaseUrl = s.BaseUrl;
             }
 
+            // Twilio__LookupsBaseUrl overrides ONLY the Lookup host, verbatim.
+            var lookupsBaseUrl = System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl");
+            if (!string.IsNullOrEmpty(lookupsBaseUrl))
+                options.Server.Default4.Production.BaseUrl = lookupsBaseUrl;
+
             return new TwilioSdkClient(httpClient, options);
         });
 
