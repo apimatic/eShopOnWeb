@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,8 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderLifecycleService, OrderLifecycleService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -55,6 +59,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -81,9 +87,28 @@ builder.Services.AddCors(options =>
         });
 });
 
+builder.Services.AddAuthorization();
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindTwilioEnvironmentVariables(builder.Configuration);
+
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ITwilioLookupClient, TwilioLookupClient>(client =>
+{
+    client.BaseAddress = new Uri("https://lookups.twilio.com/");
+});
+builder.Services.AddHttpClient<ITwilioMessageClient, TwilioMessageClient>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<TwilioSettings>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+        ? TwilioMessageClient.DefaultBaseUrl
+        : settings.BaseUrl.TrimEnd('/');
+    client.BaseAddress = new Uri(baseUrl + "/");
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +185,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +203,28 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindTwilioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var overlay = new Dictionary<string, string?>();
+    Bind("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+    Bind("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+    Bind("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+    Bind("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+
+    if (overlay.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overlay);
+    }
+
+    void Bind(string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            overlay[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
