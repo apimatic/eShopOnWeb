@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node \"C:\\claude-runs\\t1cur2ali-none-cur-grok46high-014\\repo\\.cursor\\hooks\\cursor-process-guard.js\""
+      }
+    ]
+  }
+}
