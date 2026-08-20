@@ -1,0 +1,12 @@
+title: Signup Proforma Preview Response
+type: object
+properties:
+  proforma_invoice_preview:
+    $ref: "Signup-Proforma-Preview.yaml"
+required:
+  - proforma_invoice_preview
+x-examples:
+  example-1:
+    proforma_invoice_preview:
+      current_proforma_invoice: {}
+      next_proforma_invoice: {}

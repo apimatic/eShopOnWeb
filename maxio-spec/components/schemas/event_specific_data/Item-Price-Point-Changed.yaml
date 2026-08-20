@@ -1,0 +1,22 @@
+title: Item Price Point Changed
+type: object
+properties:
+  item_id:
+    type: integer
+  item_type:
+    type: string
+  item_handle:
+    type: string
+  item_name:
+    type: string
+  previous_price_point:
+    $ref: "./Item-Price-Point-Data.yaml"
+  current_price_point:
+    $ref: "./Item-Price-Point-Data.yaml"
+required:
+  - item_id
+  - item_type
+  - item_handle
+  - item_name
+  - previous_price_point
+  - current_price_point
