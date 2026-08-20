@@ -12,10 +12,13 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.ApplicationCore.Billing;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -83,7 +86,16 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+builder.Services.AddHttpContextAccessor();
 builder.Configuration.AddEnvironmentVariables();
+Program.ApplyMaxioEnvironmentOverrides(builder.Configuration);
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<ISubscriptionBillingService, MaxioBillingService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    MaxioBillingService.ConfigureClient(client, options);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +191,38 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>
+    /// Maps documented MAXIO_* environment variables onto the Maxio: configuration section.
+    /// User-secrets (Development) and Maxio__* env vars still work; these names are the contract.
+    /// </summary>
+    internal static void ApplyMaxioEnvironmentOverrides(IConfiguration configuration)
+    {
+        if (configuration is not ConfigurationManager manager)
+        {
+            return;
+        }
+
+        var overrides = new Dictionary<string, string?>();
+        MapIfPresent(overrides, "MAXIO_API_KEY", "Maxio:ApiKey");
+        MapIfPresent(overrides, "MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+        MapIfPresent(overrides, "MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+
+        if (overrides.Count == 0)
+        {
+            return;
+        }
+
+        manager.AddInMemoryCollection(overrides);
+    }
+
+    private static void MapIfPresent(IDictionary<string, string?> target, string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            target[configurationKey] = value;
+        }
+    }
+}
