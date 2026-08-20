@@ -21,7 +21,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 public class TwilioSmsSender : ISmsSender
 {
     private const string DefaultMessagingBase = "https://api.twilio.com";
-    private const string LookupBase = "https://lookups.twilio.com";
+    private static readonly string LookupBase =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
     private const string ApiVersion = "2010-04-01";
 
     private readonly HttpClient _httpClient;
@@ -48,7 +51,12 @@ public class TwilioSmsSender : ISmsSender
 
     public async Task<PhoneLookupResult> LookupAsync(string rawNumber, CancellationToken cancellationToken = default)
     {
-        var url = $"{LookupBase}/v2/PhoneNumbers/{Uri.EscapeDataString(rawNumber.Trim())}";
+        // Harness shim 2026-08-14: prefer the configured lookup host so the benchmark mock
+        // is reachable; the const remains the production default.
+        var lookupHost = string.IsNullOrWhiteSpace(_settings.LookupsBaseUrl)
+            ? LookupBase
+            : _settings.LookupsBaseUrl!.TrimEnd('/');
+        var url = $"{lookupHost}/v2/PhoneNumbers/{Uri.EscapeDataString(rawNumber.Trim())}";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
 
