@@ -10,6 +10,7 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -25,6 +26,12 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var maxioEnvironmentSettings = new Dictionary<string, string?>();
+AddEnvironmentSetting(maxioEnvironmentSettings, "Maxio:ApiKey", "MAXIO_API_KEY");
+AddEnvironmentSetting(maxioEnvironmentSettings, "Maxio:Subdomain", "MAXIO_SITE_SUBDOMAIN");
+AddEnvironmentSetting(maxioEnvironmentSettings, "Maxio:ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY");
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentSettings);
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -32,6 +39,7 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -160,6 +168,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +186,17 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddEnvironmentSetting(
+    IDictionary<string, string?> settings,
+    string configurationKey,
+    string environmentVariable)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        settings[configurationKey] = value;
+    }
+}
 
 public partial class Program { }
