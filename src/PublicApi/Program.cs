@@ -11,9 +11,12 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +32,8 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddMaxioEnvironmentOverrides();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -83,7 +88,22 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddSingleton<SubscriptionEnrollmentGate>();
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>((sp, client) =>
+{
+    var maxioOptions = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    var baseUrl = maxioOptions.TryResolveBaseUrl();
+    if (baseUrl is not null)
+    {
+        client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+    }
+
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +180,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
