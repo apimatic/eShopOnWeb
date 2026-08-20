@@ -108,9 +108,14 @@ builder.Services.AddSingleton(sp =>
     };
 
     // Twilio:BaseUrl overrides ONLY the messaging (api) host, verbatim. It must not touch the
-    // Lookup host (Server.Default4), which stays at its default.
+    // Lookup host (Server.Default4), which has its own override below.
     if (!string.IsNullOrEmpty(twilio.BaseUrl))
         options.Server.Default.Production.BaseUrl = twilio.BaseUrl;
+
+    // Twilio__LookupsBaseUrl overrides ONLY the Lookup host, verbatim.
+    var lookupsBaseUrl = System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl");
+    if (!string.IsNullOrEmpty(lookupsBaseUrl))
+        options.Server.Default4.Production.BaseUrl = lookupsBaseUrl;
 
     return new TwilioSdkClient(httpClient, options);
 });
