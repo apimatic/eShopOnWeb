@@ -1,0 +1,8 @@
+title: Proforma Invoice Role
+type: string
+description: "'proforma' value is deprecated in favor of proforma_adhoc and proforma_automatic"
+enum:
+  - unset
+  - proforma
+  - proforma_adhoc
+  - proforma_automatic
