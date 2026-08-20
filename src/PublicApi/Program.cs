@@ -45,6 +45,20 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+BindTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioOptions.SectionName));
+builder.Logging.AddFilter("System.Net.Http.HttpClient.TwilioMessaging", LogLevel.Warning);
+builder.Logging.AddFilter("System.Net.Http.HttpClient.TwilioLookups", LogLevel.Warning);
+builder.Services.AddHttpClient(Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioGateway.MessagingClientName)
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler { AllowAutoRedirect = false });
+builder.Services.AddHttpClient(Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioGateway.LookupsClientName)
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<ITwilioGateway, Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioGateway>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<ICatalogOrderService, CatalogOrderService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -160,6 +174,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +193,23 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void BindTwilioEnvironmentVariables(ConfigurationManager configuration)
+    {
+        Map("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+        Map("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+        Map("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+        Map("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+        Map("TWILIO_BASE_URL", "Twilio:BaseUrl");
+
+        void Map(string environmentName, string configurationKey)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                configuration[configurationKey] = value;
+            }
+        }
+    }
+}
