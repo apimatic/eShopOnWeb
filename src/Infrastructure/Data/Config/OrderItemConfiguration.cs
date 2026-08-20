@@ -17,6 +17,9 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
                 .IsRequired();
         });
 
+        // The legacy schema stores owned snapshot columns as nullable.
+        builder.Navigation(i => i.ItemOrdered).IsRequired(false);
+
         builder.Property(oi => oi.UnitPrice)
             .IsRequired(true)
             .HasColumnType("decimal(18,2)");
