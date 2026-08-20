@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node \"C:\\claude-runs\\stopfix-task3-none-cur-grok46high-001\\repo\\.cursor\\hooks\\cursor-process-guard.js\""
+      }
+    ]
+  },
+  "version": 1
+}
