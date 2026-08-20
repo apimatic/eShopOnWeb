@@ -16,7 +16,10 @@ public class TwilioSettings
 
     /// <summary>The host for the Twilio Lookups API. This is a distinct capability served from
     /// its own host and is deliberately NOT governed by <see cref="BaseUrl"/>.</summary>
-    public const string LookupsBaseUrl = "https://lookups.twilio.com";
+    public static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
 
     /// <summary>Account SID (Basic-auth username). Bound from <c>Twilio:AccountSid</c>.</summary>
     public string? AccountSid { get; set; }
