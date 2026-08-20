@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node \"C:\\claude-runs\\t3curzaid-task3-openapi-cur-grok46high-002\\repo\\.cursor\\hooks\\cursor-process-guard.js\""
+      }
+    ]
+  }
+}
