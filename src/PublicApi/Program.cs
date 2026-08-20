@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey), "Maxio:ApiKey is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.BaseUrl)
+                         || !string.IsNullOrWhiteSpace(options.Subdomain),
+        "Maxio:Subdomain is required when Maxio:BaseUrl is not set.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ProductFamilyHandle),
+        "Maxio:ProductFamilyHandle is required.")
+    .Validate(MaxioOptions.HasValidBaseUrl,
+        "Maxio:BaseUrl must be an absolute HTTPS URL (HTTP is allowed only for loopback testing).")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddSingleton<ISubscriptionOperationLock, SubscriptionOperationLock>();
+builder.Services.AddScoped<ISubscriptionMappingStore, SubscriptionMappingStore>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +178,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
