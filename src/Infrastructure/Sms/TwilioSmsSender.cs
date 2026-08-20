@@ -24,7 +24,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Sms;
 /// </summary>
 public class TwilioSmsSender : ISmsSender
 {
-    private const string LookupBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
     private const string ApiVersion = "2010-04-01";
 
     private readonly HttpClient _http;
