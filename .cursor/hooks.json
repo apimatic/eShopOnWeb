@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node \"C:\\claude-runs\\t1cur2ali-maxio-sdk-merged-cur-grok46high-015\\repo\\.cursor\\hooks\\cursor-process-guard.js\""
+      }
+    ]
+  }
+}
