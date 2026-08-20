@@ -80,6 +80,11 @@ builder.Services.AddTwilioSdkClient(options =>
     {
         options.Server.Default.Production.BaseUrl = twilioSettings.BaseUrl;
     }
+
+    // Twilio__LookupsBaseUrl overrides ONLY the Lookup host, verbatim.
+    var lookupsBaseUrl = System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl");
+    if (!string.IsNullOrEmpty(lookupsBaseUrl))
+        options.Server.Default4.Production.BaseUrl = lookupsBaseUrl;
 });
 
 builder.Services.AddScoped<ITwilioMessagingGateway, TwilioMessagingGateway>();
