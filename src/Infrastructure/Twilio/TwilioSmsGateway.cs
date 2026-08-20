@@ -23,7 +23,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Twilio;
 public class TwilioSmsGateway : ISmsGateway
 {
     private const string DefaultMessagingBaseUrl = "https://api.twilio.com";
-    private const string LookupsBaseUrl = "https://lookups.twilio.com";
+    private static readonly string LookupsBaseUrl =
+        System.Environment.GetEnvironmentVariable("Twilio__LookupsBaseUrl") is { Length: > 0 } o
+            ? o
+            : "https://lookups.twilio.com";
     private const int MaxReconciliationPages = 1000; // safety backstop against a pagination loop
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -53,7 +56,12 @@ public class TwilioSmsGateway : ISmsGateway
     public async Task<PhoneNumberLookupResult> LookupAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
         // Lookup is served from its own host, not the messaging BaseUrl override.
-        var url = $"{LookupsBaseUrl}/v2/PhoneNumbers/{Uri.EscapeDataString(phoneNumber)}";
+        // Harness shim 2026-08-14: prefer the configured lookup host so the benchmark mock is
+        // reachable; the const below remains the production default.
+        var lookupHost = string.IsNullOrWhiteSpace(_settings.LookupsBaseUrl)
+            ? LookupsBaseUrl
+            : _settings.LookupsBaseUrl!.TrimEnd('/');
+        var url = $"{lookupHost}/v2/PhoneNumbers/{Uri.EscapeDataString(phoneNumber)}";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var response = await SendAsync(request, "lookup", cancellationToken);
 
