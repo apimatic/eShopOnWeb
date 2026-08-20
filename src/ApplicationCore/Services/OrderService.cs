@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
@@ -49,5 +51,45 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> PlaceOrderAsync(string buyerId, IReadOnlyList<(int CatalogItemId, int Quantity)> items, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+
+        if (items.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException();
+        }
+
+        var catalogIds = items.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItems = await _itemRepository.ListAsync(new CatalogItemsSpecification(catalogIds));
+        var catalogById = catalogItems.ToDictionary(c => c.Id);
+
+        var orderItems = new List<OrderItem>();
+        foreach (var line in items)
+        {
+            Guard.Against.NegativeOrZero(line.Quantity, nameof(line.Quantity));
+            if (!catalogById.TryGetValue(line.CatalogItemId, out var catalogItem))
+            {
+                throw new CatalogItemNotFoundException(line.CatalogItemId);
+            }
+
+            var pictureUri = string.IsNullOrWhiteSpace(catalogItem.PictureUri)
+                ? "placeholder"
+                : _uriComposer.ComposePicUri(catalogItem.PictureUri);
+            if (string.IsNullOrWhiteSpace(pictureUri))
+            {
+                pictureUri = "placeholder";
+            }
+
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, pictureUri);
+            orderItems.Add(new OrderItem(itemOrdered, catalogItem.Price, line.Quantity));
+        }
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
     }
 }
