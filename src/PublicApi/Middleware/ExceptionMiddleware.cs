@@ -41,6 +41,21 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioBillingException billingException)
+        {
+            var statusCode = billingException.StatusCode;
+            if (statusCode < 400 || statusCode > 599)
+            {
+                statusCode = (int)HttpStatusCode.InternalServerError;
+            }
+
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = statusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
