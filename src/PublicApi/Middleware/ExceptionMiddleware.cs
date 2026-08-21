@@ -35,20 +35,45 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteError(context, duplicationException.Message);
+        }
+        else if (exception is SubscriptionPlanNotFoundException planNotFound)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await WriteError(context, planNotFound.Message);
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await WriteError(context, configurationException.Message);
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            context.Response.StatusCode = MapMaxioStatus(maxioException.StatusCode);
+            await WriteError(context, maxioException.Message);
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteError(context, exception.Message);
         }
+    }
+
+    private static int MapMaxioStatus(int statusCode)
+    {
+        return statusCode switch
+        {
+            400 or 404 or 409 or 422 => statusCode == 422 ? (int)HttpStatusCode.BadRequest : statusCode,
+            _ => (int)HttpStatusCode.BadGateway
+        };
+    }
+
+    private static Task WriteError(HttpContext context, string message)
+    {
+        return context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
