@@ -28,7 +28,14 @@ namespace PublicApiIntegrationTests
 
         private static string CreateToken(string userName, string[] roles)
         {
-            var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, "test-user-id"),
+                new(ClaimTypes.Name, userName),
+                new(ClaimTypes.Email, userName),
+                new(ClaimTypes.GivenName, "Test"),
+                new(ClaimTypes.Surname, "User")
+            };
 
             foreach (var role in roles)
             {

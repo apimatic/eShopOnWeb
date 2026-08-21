@@ -27,7 +27,26 @@ public class IdentityTokenClaimService : ITokenClaimsService
         var user = await _userManager.FindByNameAsync(userName);
         if (user == null) throw new UserNotFoundException(userName);
         var roles = await _userManager.GetRolesAsync(user);
-        var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, userName)
+        };
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.FirstName))
+        {
+            claims.Add(new Claim(ClaimTypes.GivenName, user.FirstName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.LastName))
+        {
+            claims.Add(new Claim(ClaimTypes.Surname, user.LastName));
+        }
 
         foreach (var role in roles)
         {
