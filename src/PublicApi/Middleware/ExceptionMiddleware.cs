@@ -41,6 +41,24 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            context.Response.StatusCode = billingException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            context.Response.StatusCode = MapMaxioStatus(maxioException.StatusCode);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +69,13 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static int MapMaxioStatus(int maxioStatus) => maxioStatus switch
+    {
+        409 => (int)HttpStatusCode.Conflict,
+        404 => (int)HttpStatusCode.NotFound,
+        422 => (int)HttpStatusCode.BadRequest,
+        >= 400 and < 500 => (int)HttpStatusCode.BadRequest,
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }

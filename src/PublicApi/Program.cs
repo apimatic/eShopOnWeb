@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,8 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+ApplyMaxioEnvironmentOverrides(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +47,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+
+        builder.Services.AddHttpClient<IMaxioAdvancedBillingGateway, MaxioAdvancedBillingGateway>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(100);
+        });
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +191,31 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>
+    /// Maps MAXIO_* environment variables onto the Maxio: configuration section
+    /// without writing secret values into any repository file.
+    /// </summary>
+    internal static void ApplyMaxioEnvironmentOverrides(ConfigurationManager configuration)
+    {
+        var map = new Dictionary<string, string?>();
+        MapIfPresent(map, "MAXIO_API_KEY", "Maxio:ApiKey");
+        MapIfPresent(map, "MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+        MapIfPresent(map, "MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+        MapIfPresent(map, "MAXIO_BASE_URL", "Maxio:BaseUrl");
+        if (map.Count > 0)
+        {
+            configuration.AddInMemoryCollection(map);
+        }
+    }
+
+    private static void MapIfPresent(IDictionary<string, string?> map, string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            map[configurationKey] = value;
+        }
+    }
+}
