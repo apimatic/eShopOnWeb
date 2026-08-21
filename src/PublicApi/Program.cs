@@ -12,12 +12,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -82,8 +84,20 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindPayPalEnvironmentVariables(builder.Configuration);
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddScoped<IPayPalSettings>(sp => sp.GetRequiredService<IOptions<PayPalOptions>>().Value);
+builder.Services.AddSingleton<PayPalTokenCache>();
+builder.Services.AddHttpClient<IPayPalPaymentsGateway, PayPalPaymentsGateway>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +174,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +193,23 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void BindPayPalEnvironmentVariables(ConfigurationManager configuration)
+    {
+        Map("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+        Map("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+        Map("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+        Map("PAYPAL_CURRENCY", "PayPal:Currency");
+        Map("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+        void Map(string environmentName, string configurationKey)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentName) ?? configuration[environmentName];
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                configuration[configurationKey] = value;
+            }
+        }
+    }
+}
