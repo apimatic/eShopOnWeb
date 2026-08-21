@@ -41,13 +41,34 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
-        else
+        else if (exception is PaymentException paymentException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = paymentException.StatusCode;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is InvalidOperationException invalidOperation)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = invalidOperation.Message
+            }.ToString());
+        }
+        else
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            var message = exception is System.Text.Json.JsonException
+                ? "An unexpected error occurred."
+                : exception.Message;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
             }.ToString());
         }
     }
