@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,43 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromItemsAsync(string buyerId, IReadOnlyList<CatalogOrderLine> items, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+
+        if (items.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException("An order must contain at least one item.");
+        }
+
+        foreach (var line in items)
+        {
+            Guard.Against.NegativeOrZero(line.CatalogItemId, nameof(line.CatalogItemId));
+            Guard.Against.NegativeOrZero(line.Quantity, nameof(line.Quantity));
+        }
+
+        var catalogItemIds = items.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItemsSpecification = new CatalogItemsSpecification(catalogItemIds);
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var missing = catalogItemIds.Except(catalogItems.Select(c => c.Id)).ToArray();
+        if (missing.Length > 0)
+        {
+            throw new CatalogItemNotFoundException(missing[0]);
+        }
+
+        var orderItems = items.Select(line =>
+        {
+            var catalogItem = catalogItems.First(c => c.Id == line.CatalogItemId);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, line.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
     }
 }
