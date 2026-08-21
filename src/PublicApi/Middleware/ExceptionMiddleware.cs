@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+// IApiStatusCodeException lives in ApplicationCore.Exceptions (imported above).
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,17 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is IApiStatusCodeException apiException)
+        {
+            // Payment / gateway errors already know the status the caller should see (a caller-actionable
+            // 4xx stays a 4xx; an outage is a 5xx). The message is caller-safe by construction.
+            context.Response.StatusCode = apiException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
             }.ToString());
         }
         else
