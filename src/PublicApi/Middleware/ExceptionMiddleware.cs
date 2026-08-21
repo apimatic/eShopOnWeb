@@ -32,6 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        if (exception is PayerActionRequiredException payerAction)
+        {
+            context.Response.StatusCode = payerAction.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payerAction.Message
+            }.ToString());
+            return;
+        }
+
+        if (exception is CheckoutException checkoutException)
+        {
+            context.Response.StatusCode = checkoutException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = checkoutException.Message
+            }.ToString());
+            return;
+        }
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
