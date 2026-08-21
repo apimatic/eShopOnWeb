@@ -32,13 +32,34 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Payment-boundary failures carry the status the caller should see and a caller-safe message;
+        // never surface provider internals.
+        if (exception is PaymentProcessorException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            // Invalid input (e.g. unknown catalog item, non-positive quantity) is a client error.
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = argumentException.Message
             }.ToString());
         }
         else
