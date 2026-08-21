@@ -17,11 +17,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        PaymentStatus = OrderPaymentStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderPaymentStatus PaymentStatus { get; private set; } = OrderPaymentStatus.AwaitingPayment;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +46,54 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public OrderPayment EnsurePayment()
+    {
+        Payment ??= new OrderPayment();
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (PaymentStatus is OrderPaymentStatus.Fulfilled or OrderPaymentStatus.Cancelled
+            or OrderPaymentStatus.Refunded or OrderPaymentStatus.PartiallyRefunded)
+        {
+            throw new InvalidOperationException($"Cannot authorize an order in status {PaymentStatus}.");
+        }
+
+        PaymentStatus = OrderPaymentStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (PaymentStatus is OrderPaymentStatus.Cancelled or OrderPaymentStatus.Refunded)
+        {
+            throw new InvalidOperationException($"Cannot fulfil an order in status {PaymentStatus}.");
+        }
+
+        PaymentStatus = OrderPaymentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (PaymentStatus is OrderPaymentStatus.Fulfilled or OrderPaymentStatus.Refunded
+            or OrderPaymentStatus.PartiallyRefunded)
+        {
+            throw new InvalidOperationException($"Cannot cancel an order in status {PaymentStatus}.");
+        }
+
+        PaymentStatus = OrderPaymentStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        if (PaymentStatus is not OrderPaymentStatus.Fulfilled and not OrderPaymentStatus.PartiallyRefunded
+            and not OrderPaymentStatus.Refunded)
+        {
+            throw new InvalidOperationException($"Cannot refund an order in status {PaymentStatus}.");
+        }
+
+        PaymentStatus = fullyRefunded ? OrderPaymentStatus.Refunded : OrderPaymentStatus.PartiallyRefunded;
     }
 }
