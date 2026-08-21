@@ -22,6 +22,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +44,43 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkAuthorized()
+    {
+        EnsureStatusIs(OrderStatus.AwaitingPayment, OrderStatus.Authorized);
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        EnsureStatusIs(OrderStatus.Authorized, OrderStatus.Fulfilled);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        EnsureStatusIs(OrderStatus.AwaitingPayment, OrderStatus.Authorized, OrderStatus.Cancelled);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkPartiallyRefunded()
+    {
+        EnsureStatusIs(OrderStatus.Fulfilled, OrderStatus.PartiallyRefunded);
+        Status = OrderStatus.PartiallyRefunded;
+    }
+
+    public void MarkRefunded()
+    {
+        EnsureStatusIs(OrderStatus.Fulfilled, OrderStatus.PartiallyRefunded, OrderStatus.Refunded);
+        Status = OrderStatus.Refunded;
+    }
+
+    private void EnsureStatusIs(params OrderStatus[] allowed)
+    {
+        if (Array.IndexOf(allowed, Status) < 0)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot leave status '{Status}'.");
+        }
     }
 }
