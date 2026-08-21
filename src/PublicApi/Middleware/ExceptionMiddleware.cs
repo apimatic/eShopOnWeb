@@ -4,16 +4,20 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -31,8 +35,25 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        _logger.LogError(exception, "An unhandled API exception occurred.");
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is MaxioApiException maxioException)
+        {
+            context.Response.StatusCode = maxioException.StatusCode == HttpStatusCode.UnprocessableEntity
+                ? StatusCodes.Status422UnprocessableEntity
+                : StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = context.Response.StatusCode,
+                title = context.Response.StatusCode == StatusCodes.Status422UnprocessableEntity
+                    ? "The billing provider rejected the request."
+                    : "The billing provider is temporarily unavailable.",
+                errors = context.Response.StatusCode == StatusCodes.Status422UnprocessableEntity
+                    ? maxioException.Errors
+                    : null
+            });
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -47,7 +68,7 @@ public class ExceptionMiddleware
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected server error occurred."
             }.ToString());
         }
     }

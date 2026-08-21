@@ -42,14 +42,14 @@ project's existing endpoint conventions. Route them under `/api/` named for the 
 
 ---
 
-## Sandbox entities (already seeded on site `cp-exp-2`)
+## Sandbox entities (already seeded on site `<MAXIO_SITE_SUBDOMAIN>`)
 
 The demo catalog already exists — no need to create it. **Handles are stable; numeric IDs
 are not** — Maxio reassigns them on re-seed, so the IDs below may already be stale.
 
 | Entity | Handle | ID (current) | Notes |
 |--------|--------|--------------|-------|
-| Product Family | `eshop-subscribe` | 3023074 | Container for the plans + component |
+| Product Family | `<MAXIO_DEFAULT_PRODUCT_FAMILY>` | 3023074 | Container for the plans + component |
 | Pro Plan | `eshop-pro` | 7126957 | $299.00/mo — default subscribe target |
 | Basic Plan | `basic-plan` | 7126958 | $29.00/mo — alternate plan (also seeded) |
 | Metered component | `api-call` | 3057195 | Metered, $0.01/unit — also seeded on the family |
