@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
@@ -40,15 +41,38 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+            return;
         }
-        else
+
+        if (exception is PaymentException paymentException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = paymentException.StatusCode is >= 400 and < 600
+                ? paymentException.StatusCode
+                : (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = paymentException.Message
             }.ToString());
+            return;
         }
+
+        if (exception is JsonException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The payment provider returned a response that could not be processed."
+            }.ToString());
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }

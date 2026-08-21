@@ -9,12 +9,19 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
-
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(b => b.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
@@ -41,5 +48,29 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.OwnsOne(o => o.Payment, payment =>
+        {
+            payment.WithOwner();
+            payment.Property(p => p.PayPalOrderId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationStatus).HasMaxLength(32);
+            payment.Property(p => p.CaptureId).HasMaxLength(64);
+            payment.Property(p => p.CaptureStatus).HasMaxLength(32);
+            payment.Property(p => p.Currency).HasMaxLength(3);
+            payment.Property(p => p.AuthorizeRequestId).HasMaxLength(64);
+            payment.Property(p => p.CaptureRequestId).HasMaxLength(64);
+            payment.Property(p => p.VoidRequestId).HasMaxLength(64);
+            payment.Property(p => p.CapturedAmount).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.PaypalFee).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.NetAmount).HasColumnType("decimal(18,2)");
+        });
+
+        builder.Navigation(o => o.Payment).IsRequired();
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
