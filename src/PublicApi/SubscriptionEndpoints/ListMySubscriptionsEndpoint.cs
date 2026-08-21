@@ -1,0 +1,45 @@
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.Infrastructure.Identity;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public sealed class ListMySubscriptionsEndpoint : IEndpoint
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/my-subscriptions",
+                [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+                (ISubscriptionService subscriptionService,
+                    UserManager<ApplicationUser> userManager,
+                    HttpContext context) =>
+                    await HandleAsync(subscriptionService, userManager, context))
+            .Produces<SubscriptionDto[]>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status502BadGateway)
+            .WithTags("SubscriptionEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(
+        ISubscriptionService subscriptionService,
+        UserManager<ApplicationUser> userManager,
+        HttpContext context)
+    {
+        var user = await BillingUserResolver.ResolveAsync(context.User, userManager);
+        if (user is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var subscriptions = await subscriptionService.ListForUserAsync(user, context.RequestAborted);
+        return Results.Ok(subscriptions.Select(SubscriptionDto.From).ToArray());
+    }
+}
