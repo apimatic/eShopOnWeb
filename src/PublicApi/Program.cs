@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +85,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+OverlayTwilioFromEnvironment(builder.Configuration);
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTwilioMessaging(builder.Configuration);
+builder.Services.AddScoped<OrderNotificationSender>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IShopperOrderService, ShopperOrderService>();
+builder.Services.AddScoped<IOperatorOrderService, OperatorOrderService>();
+builder.Services.AddScoped<IOrderNotificationQuery, OrderNotificationQuery>();
+builder.Services.AddScoped<INotificationOperatorService, NotificationOperatorService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +189,23 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void OverlayTwilioFromEnvironment(Microsoft.Extensions.Configuration.ConfigurationManager configuration)
+{
+    void Map(string configKey, string environmentName)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configKey] = value;
+        }
+    }
+
+    Map("Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+    Map("Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+    Map("Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+    Map("Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+    Map("Twilio:BaseUrl", "TWILIO_BASE_URL");
+}
 
 public partial class Program { }
