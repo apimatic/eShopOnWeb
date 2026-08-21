@@ -1,6 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -11,9 +16,11 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +31,21 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var maxioEnvironmentSettings = new Dictionary<string, string?>();
+AddEnvironmentSetting("MAXIO_API_KEY", "Maxio:ApiKey");
+AddEnvironmentSetting("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+AddEnvironmentSetting("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentSettings);
+
+void AddEnvironmentSetting(string environmentName, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        maxioEnvironmentSettings[configurationKey] = value;
+    }
+}
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +72,54 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey), "Maxio:ApiKey is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.Subdomain), "Maxio:Subdomain is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ProductFamilyHandle), "Maxio:ProductFamilyHandle is required.")
+    .Validate(options => string.IsNullOrWhiteSpace(options.BaseUrl) ||
+        Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _), "Maxio:BaseUrl must be an absolute URL when set.")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<MaxioWriteGuard>();
+builder.Services.AddTransient<MaxioWriteOnceHandler>();
+builder.Services.AddHttpClient("Maxio", client => client.Timeout = TimeSpan.FromSeconds(12))
+    .AddHttpMessageHandler<MaxioWriteOnceHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        },
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        }
+    };
+    options.Server.Production.Us.Site = settings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("Maxio");
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddSingleton<IMaxioBillingGateway, MaxioBillingGateway>();
+builder.Services.AddScoped<IBillingLinkStore, EfBillingLinkStore>();
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
+builder.Services.AddScoped<BillingUserResolver>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +230,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
