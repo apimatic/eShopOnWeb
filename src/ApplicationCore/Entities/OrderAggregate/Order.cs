@@ -23,6 +23,53 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // A stable, globally-unique token minted when the order is placed. It anchors the PayPal idempotency
+    // keys for this order's payment operations, so retries (and concurrent double-clicks) of the same logical
+    // action reuse one key — while distinct orders never collide, even when integer ids are reused across
+    // an in-memory database reset.
+    public Guid IdempotencyToken { get; private set; } = Guid.NewGuid();
+
+    // Additive fulfilment state. A newly placed order awaits payment; the payment/operator flows
+    // (see PaymentAggregate) drive it through the remaining states. Transitions are guarded so an
+    // order can never, e.g., be fulfilled twice or cancelled after fulfilment.
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be authorized from status {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}; it must be authorized first.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}; cancellation is only possible before fulfilment.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        if (Status != OrderStatus.Fulfilled && Status != OrderStatus.PartiallyRefunded)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be refunded from status {Status}; only a fulfilled order can be refunded.");
+        }
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
