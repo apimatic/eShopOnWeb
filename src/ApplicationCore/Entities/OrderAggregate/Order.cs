@@ -23,6 +23,12 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Payment/fulfilment lifecycle. Additive: original orders had no status.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The PayPal-owned payment state, set once the order is paid (authorized).</summary>
+    public OrderPayment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +49,42 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attach the authorization result and move the order to <see cref="OrderStatus.Authorized"/>.</summary>
+    public void MarkAuthorized(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Move a captured order to <see cref="OrderStatus.Fulfilled"/>.</summary>
+    public void MarkFulfilled()
+    {
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Move a voided (pre-fulfilment) order to <see cref="OrderStatus.Cancelled"/>.</summary>
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+        Payment?.MarkAuthorizationVoided();
+    }
+
+    /// <summary>
+    /// Reflect a refund against the payment: fully refunded orders become
+    /// <see cref="OrderStatus.Refunded"/>, otherwise <see cref="OrderStatus.PartiallyRefunded"/>.
+    /// </summary>
+    public void ReflectRefundState()
+    {
+        if (Payment is null)
+        {
+            return;
+        }
+
+        Status = Payment.RemainingRefundable() <= 0m
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }

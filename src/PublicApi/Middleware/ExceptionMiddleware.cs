@@ -32,23 +32,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map known domain failures to actionable status codes. The messages on these exceptions are
+        // curated, caller-safe strings (see the ApplicationCore payment exceptions).
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            EntityNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            InvalidOrderStateException => (HttpStatusCode.Conflict, exception.Message),
+            PaymentRejectedException => (HttpStatusCode.UnprocessableEntity, exception.Message),
+            PaymentProviderException => (HttpStatusCode.BadGateway, exception.Message),
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

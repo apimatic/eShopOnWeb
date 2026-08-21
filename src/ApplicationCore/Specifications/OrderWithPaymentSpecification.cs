@@ -1,0 +1,17 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+/// <summary>Loads a single order with its items and full payment state (authorization, capture, refunds).</summary>
+public class OrderWithPaymentSpecification : Specification<Order>
+{
+    public OrderWithPaymentSpecification(int orderId)
+    {
+        Query.Where(o => o.Id == orderId)
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ItemOrdered);
+        Query.Include(o => o.Payment)
+            .ThenInclude(p => p!.Refunds);
+    }
+}
