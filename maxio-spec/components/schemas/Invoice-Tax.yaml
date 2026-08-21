@@ -1,0 +1,37 @@
+title: Invoice Tax
+type: object
+properties:
+  uid:
+    type: string
+  title:
+    type: string
+  description:
+    type:
+      - string
+      - "null"
+  source_type:
+    $ref: "./Tax-Source-Type.yaml"
+  source_id:
+    type: integer
+  percentage:
+    type: string
+  taxable_amount:
+    type: string
+  tax_amount:
+    type: string
+  transaction_id:
+    type: integer
+  line_item_breakouts:
+    type: array
+    items:
+      $ref: "./Invoice-Tax-Breakout.yaml"
+  tax_component_breakouts:
+    type: array
+    items:
+      $ref: "./Invoice-Tax-Component-Breakout.yaml"
+  eu_vat:
+    type: boolean
+  type:
+    type: string
+  tax_exempt_amount:
+    type: string
