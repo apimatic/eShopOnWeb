@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Payment-flow failures carry caller-safe messages and map to a distinct status per kind, so a
+        // client can tell "you asked for something invalid" apart from "the provider is unavailable".
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            PaymentEntityNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            PaymentActionRequiredException => ((int)HttpStatusCode.PaymentRequired, exception.Message),
+            InvalidPaymentOperationException => ((int)HttpStatusCode.Conflict, exception.Message),
+            AuthorizationRenewalException => ((int)HttpStatusCode.Conflict, exception.Message),
+            PaymentGatewayException => ((int)HttpStatusCode.BadGateway, exception.Message),
+            PaymentException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }

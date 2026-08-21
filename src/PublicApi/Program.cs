@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,30 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Bind the PayPal:* configuration keys from the PAYPAL_* environment variables when present, so the
+// same build runs against any account without hard-coding a value. Secrets are never written to disk;
+// user-secrets (loaded by the host in Development) remain the fallback source.
+var payPalConfig = new Dictionary<string, string?>();
+void MapPayPalEnv(string configKey, string envVar)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalConfig[configKey] = value;
+    }
+}
+MapPayPalEnv("PayPal:ClientId", "PAYPAL_CLIENT_ID");
+MapPayPalEnv("PayPal:ClientSecret", "PAYPAL_CLIENT_SECRET");
+MapPayPalEnv("PayPal:Environment", "PAYPAL_ENVIRONMENT");
+MapPayPalEnv("PayPal:Currency", "PAYPAL_CURRENCY");
+MapPayPalEnv("PayPal:BaseUrl", "PAYPAL_BASE_URL");
+if (payPalConfig.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalConfig);
+}
+
+builder.Services.AddPayPalIntegration(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
