@@ -54,6 +54,8 @@ public class ManageController : Controller
 
         var model = new IndexViewModel
         {
+            FirstName = user.FirstName,
+            LastName = user.LastName,
             Username = user.UserName,
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
@@ -96,6 +98,18 @@ public class ManageController : Controller
             if (!setPhoneResult.Succeeded)
             {
                 throw new ApplicationException($"Unexpected error occurred setting phone number for user with ID '{user.Id}'.");
+            }
+        }
+
+        if (!string.Equals(model.FirstName, user.FirstName, StringComparison.Ordinal) ||
+            !string.Equals(model.LastName, user.LastName, StringComparison.Ordinal))
+        {
+            user.FirstName = model.FirstName;
+            user.LastName = model.LastName;
+            var updateProfileResult = await _userManager.UpdateAsync(user);
+            if (!updateProfileResult.Succeeded)
+            {
+                throw new ApplicationException($"Unexpected error occurred updating profile for user with ID '{user.Id}'.");
             }
         }
 
