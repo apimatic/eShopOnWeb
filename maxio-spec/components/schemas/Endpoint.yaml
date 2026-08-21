@@ -1,0 +1,15 @@
+title: Endpoint
+type: object
+properties:
+  id:
+    type: integer
+  url:
+    type: string
+  site_id:
+    type: integer
+  status:
+    type: string
+  webhook_subscriptions:
+    type: array
+    items:
+      type: string
