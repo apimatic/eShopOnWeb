@@ -45,6 +45,9 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// PayPal payments + saved cards (Flow 1 & 2). Binds the PayPal:* configuration section.
+Microsoft.eShopWeb.Infrastructure.PayPal.PayPalServiceCollectionExtensions.AddPayPalIntegration(builder.Services, builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
