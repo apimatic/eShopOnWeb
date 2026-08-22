@@ -35,20 +35,39 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteErrorAsync(context, duplicationException.Message);
+        }
+        else if (exception is InvalidContactNumberException invalidContact)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteErrorAsync(context, invalidContact.Message);
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteErrorAsync(context, argumentException.Message);
+        }
+        else if (exception is InvalidOrderOperationException invalidOrder)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await WriteErrorAsync(context, invalidOrder.Message);
+        }
+        else if (exception is ContactNumberNotFoundException or OrderNotFoundException or NotificationNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await WriteErrorAsync(context, exception.Message);
         }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            await WriteErrorAsync(context, exception.Message);
         }
     }
+
+    private static Task WriteErrorAsync(HttpContext context, string message)
+        => context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
 }

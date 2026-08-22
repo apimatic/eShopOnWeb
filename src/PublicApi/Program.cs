@@ -12,18 +12,21 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+ApplyTwilioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +47,24 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IShopperContactNumberService, ShopperContactNumberService>();
+builder.Services.AddScoped<IShopperOrderService, ShopperOrderService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+
+BindTwilioSettings(builder);
+builder.Services.AddHttpClient<ITwilioMessageClient, TwilioMessageClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<TwilioSettings>();
+    var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? "https://api.twilio.com" : settings.BaseUrl.TrimEnd('/');
+    client.BaseAddress = new Uri(baseUrl + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<ITwilioLookupClient, TwilioLookupClient>(client =>
+{
+    client.BaseAddress = new Uri("https://lookups.twilio.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -55,6 +76,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -84,6 +107,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+ApplyTwilioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +184,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +202,34 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindTwilioSettings(WebApplicationBuilder builder)
+{
+    builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<TwilioSettings>>().Value);
+}
+
+static void ApplyTwilioEnvironmentVariables(IConfigurationManager configuration)
+{
+    var mapped = new Dictionary<string, string?>();
+    Map("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+    Map("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+    Map("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+    Map("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+
+    if (mapped.Count > 0)
+    {
+        configuration.AddInMemoryCollection(mapped);
+    }
+
+    void Map(string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            mapped[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
