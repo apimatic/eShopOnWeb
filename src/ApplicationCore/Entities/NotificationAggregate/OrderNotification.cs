@@ -1,0 +1,103 @@
+using System;
+using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+public class OrderNotification : BaseEntity, IAggregateRoot
+{
+#pragma warning disable CS8618 // Required by Entity Framework
+    private OrderNotification() { }
+#pragma warning restore CS8618
+
+    public OrderNotification(
+        int orderId,
+        string buyerId,
+        OrderNotificationKind kind,
+        string body,
+        int? sourceNotificationId = null)
+    {
+        Guard.Against.NegativeOrZero(orderId, nameof(orderId));
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(body, nameof(body));
+
+        OrderId = orderId;
+        BuyerId = buyerId;
+        Kind = kind;
+        Body = body;
+        SourceNotificationId = sourceNotificationId;
+        CreatedAt = DateTimeOffset.UtcNow;
+        ProviderStatus = "pending";
+    }
+
+    public int OrderId { get; private set; }
+    public string BuyerId { get; private set; }
+    public OrderNotificationKind Kind { get; private set; }
+    public string? Body { get; private set; }
+    public bool ContentRedacted { get; private set; }
+    public string? ProviderMessageSid { get; private set; }
+    public string ProviderStatus { get; private set; }
+    public int? ProviderErrorCode { get; private set; }
+    public DateTimeOffset? ScheduledFor { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset? LastProviderSyncAt { get; private set; }
+    public int? SourceNotificationId { get; private set; }
+
+    public void RecordProviderAcceptance(string sid, string status, DateTimeOffset? scheduledFor = null)
+    {
+        Guard.Against.NullOrEmpty(sid, nameof(sid));
+        Guard.Against.NullOrEmpty(status, nameof(status));
+
+        ProviderMessageSid = sid;
+        ProviderStatus = status;
+        ScheduledFor = scheduledFor;
+        LastProviderSyncAt = DateTimeOffset.UtcNow;
+    }
+
+    public void RecordProviderFailure(int? errorCode)
+    {
+        ProviderStatus = "failed";
+        ProviderErrorCode = errorCode;
+        LastProviderSyncAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SyncFromProvider(string status, int? errorCode, string? body)
+    {
+        Guard.Against.NullOrEmpty(status, nameof(status));
+
+        ProviderStatus = status;
+        ProviderErrorCode = errorCode;
+        LastProviderSyncAt = DateTimeOffset.UtcNow;
+
+        if (ContentRedacted)
+        {
+            Body = null;
+            return;
+        }
+
+        if (string.IsNullOrEmpty(body))
+        {
+            Body = null;
+            ContentRedacted = true;
+            return;
+        }
+
+        Body = body;
+    }
+
+    public void MarkContentRedacted()
+    {
+        Body = null;
+        ContentRedacted = true;
+    }
+
+    public bool DidNotReachRecipient()
+    {
+        return ProviderStatus is "failed" or "undelivered" or "canceled";
+    }
+
+    public bool IsNotYetSent()
+    {
+        return ProviderStatus is "scheduled" or "accepted" or "queued" or "pending";
+    }
+}
