@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.Infrastructure.TwilioMessaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +85,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+MapTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.AddTwilioMessaging(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +163,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +182,29 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void MapTwilioEnvironmentVariables(IConfigurationManager configuration)
+    {
+        var mapped = new Dictionary<string, string?>();
+        Map("Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+        Map("Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+        Map("Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+        Map("Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+        Map("Twilio:BaseUrl", "TWILIO_BASE_URL");
+
+        if (mapped.Count > 0)
+        {
+            configuration.AddInMemoryCollection(mapped);
+        }
+
+        void Map(string key, string environmentVariableName)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentVariableName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                mapped[key] = value;
+            }
+        }
+    }
+}

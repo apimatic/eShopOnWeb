@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,31 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            InvalidContactNumberException invalid => ((int)HttpStatusCode.BadRequest, invalid.Message),
+            ContactNumberNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            OrderNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            NotificationNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            CatalogItemNotFoundException notFound => ((int)HttpStatusCode.BadRequest, notFound.Message),
+            EmptyBasketOnCheckoutException empty => ((int)HttpStatusCode.BadRequest, empty.Message),
+            ArgumentOutOfRangeException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            InvalidOperationException invalid => ((int)HttpStatusCode.Conflict, invalid.Message),
+            SmsProviderException provider when (int?)provider.ProviderStatusCode is 401 or 403 =>
+                ((int)HttpStatusCode.BadGateway, "The messaging provider is unavailable."),
+            SmsProviderException provider when (int?)provider.ProviderStatusCode is >= 400 and < 500 =>
+                ((int)provider.ProviderStatusCode!, provider.Message),
+            SmsProviderException provider => ((int)HttpStatusCode.BadGateway, provider.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
