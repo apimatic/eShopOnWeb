@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Microsoft.eShopWeb.Web</RootNamespace>
-    <UserSecretsId>aspnet-Web2-1FA3F72E-E7E3-4360-9E49-1CCCD7FE85F7</UserSecretsId>
+    <UserSecretsId>61b206fc-0b18-44b5-8b6d-5a569c47c832</UserSecretsId>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
@@ -84,3 +84,4 @@
     </Content>
   </ItemGroup>
 </Project>
+
