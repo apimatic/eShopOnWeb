@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.PublicApi.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IShopOrderService, ShopOrderService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+
+CopyTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.AddTwilioMessaging(builder.Configuration, builder.Environment);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +167,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +185,23 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void CopyTwilioEnvironmentVariables(ConfigurationManager configuration)
+{
+    Copy("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+    Copy("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+    Copy("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+    Copy("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+    Copy("TWILIO_BASE_URL", "Twilio:BaseUrl");
+
+    void Copy(string environmentName, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
