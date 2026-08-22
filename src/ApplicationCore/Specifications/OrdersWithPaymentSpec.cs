@@ -1,13 +1,13 @@
-﻿using Ardalis.Specification;
+using Ardalis.Specification;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
 
-public class CustomerOrdersWithItemsSpecification : Specification<Order>
+public class OrdersWithPaymentSpec : Specification<Order>
 {
-    public CustomerOrdersWithItemsSpecification(string buyerId)
+    public OrdersWithPaymentSpec()
     {
-        Query.Where(o => o.BuyerId == buyerId)
+        Query
             .Include(o => o.OrderItems)
                 .ThenInclude(i => i.ItemOrdered)
             .Include(o => o.Refunds);
