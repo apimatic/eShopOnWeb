@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,23 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+
+builder.Configuration.AddEnvironmentVariables();
+ApplyTwilioEnvironmentOverrides(builder.Configuration);
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ISmsMessagingService, TwilioMessagingClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<IPhoneNumberLookupService, TwilioLookupClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<ShopperOrderService>();
+builder.Services.AddScoped<IShopperOrderService>(sp => sp.GetRequiredService<ShopperOrderService>());
+builder.Services.AddScoped<IOrderNotificationQueryService>(sp => sp.GetRequiredService<ShopperOrderService>());
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +103,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+ApplyTwilioEnvironmentOverrides(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +180,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +198,29 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void ApplyTwilioEnvironmentOverrides(ConfigurationManager configuration)
+{
+    var overrides = new Dictionary<string, string?>();
+    AddIfPresent(overrides, "Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+    AddIfPresent(overrides, "Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+    AddIfPresent(overrides, "Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+    AddIfPresent(overrides, "Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+    AddIfPresent(overrides, "Twilio:BaseUrl", "TWILIO_BASE_URL");
+
+    if (overrides.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overrides);
+    }
+}
+
+static void AddIfPresent(Dictionary<string, string?> target, string configurationKey, string environmentVariableName)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariableName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        target[configurationKey] = value;
+    }
+}
 
 public partial class Program { }
