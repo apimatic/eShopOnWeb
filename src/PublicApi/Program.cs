@@ -4,6 +4,7 @@ using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +90,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+ApplyPayPalEnvironmentVariables(builder.Configuration);
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -154,12 +162,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-app.UseHttpsRedirection();
+// WebApplicationFactory hosts over HTTP. If ASPNETCORE_URLS also lists HTTPS
+// (leftover from a local run), redirection 307s and HttpClient drops Authorization.
+var serverName = app.Services.GetService<IServer>()?.GetType().Name;
+if (!string.Equals(serverName, "TestServer", StringComparison.Ordinal))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +192,23 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+void ApplyPayPalEnvironmentVariables(IConfiguration config)
+{
+    Map("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Map("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Map("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Map("PAYPAL_CURRENCY", "PayPal:Currency");
+    Map("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+    void Map(string environmentName, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            config[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
