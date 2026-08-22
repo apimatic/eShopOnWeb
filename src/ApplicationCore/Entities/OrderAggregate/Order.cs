@@ -22,6 +22,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderFulfillmentStatus FulfillmentStatus { get; private set; } = OrderFulfillmentStatus.Placed;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +44,30 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkDispatched()
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Cancelled)
+        {
+            throw new InvalidOperationException("A cancelled order cannot be dispatched.");
+        }
+
+        if (FulfillmentStatus == OrderFulfillmentStatus.Dispatched)
+        {
+            throw new InvalidOperationException("The order has already been dispatched.");
+        }
+
+        FulfillmentStatus = OrderFulfillmentStatus.Dispatched;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Cancelled)
+        {
+            throw new InvalidOperationException("The order has already been cancelled.");
+        }
+
+        FulfillmentStatus = OrderFulfillmentStatus.Cancelled;
     }
 }
