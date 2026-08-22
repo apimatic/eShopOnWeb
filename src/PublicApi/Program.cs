@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json.Serialization;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -12,6 +14,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +33,7 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -44,6 +48,9 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IShopOrderService, ShopOrderService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -68,6 +75,7 @@ builder.Services.AddAuthentication(config =>
         ValidateAudience = false
     };
 });
+builder.Services.AddAuthorization();
 
 const string CORS_POLICY = "CorsPolicy";
 builder.Services.AddCors(options =>
@@ -82,8 +90,27 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+
+builder.Services.AddHttpClient<ITwilioLookupClient, TwilioLookupClient>(client =>
+{
+    client.BaseAddress = new Uri("https://lookups.twilio.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<ITwilioMessagingClient, TwilioMessagingClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.ExpectContinue = false;
+    client.DefaultRequestVersion = new Version(1, 1);
+    client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +187,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +205,29 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindTwilioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var mapped = new Dictionary<string, string?>();
+    Bind("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+    Bind("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+    Bind("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+    Bind("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+    Bind("TWILIO_BASE_URL", "Twilio:BaseUrl");
+
+    if (mapped.Count > 0)
+    {
+        configuration.AddInMemoryCollection(mapped);
+    }
+
+    void Bind(string environmentName, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            mapped[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }

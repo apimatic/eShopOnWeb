@@ -1,0 +1,59 @@
+using System;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.ContactNumberEndpoints;
+
+public class CreateContactNumberEndpoint : IEndpoint<IResult, CreateContactNumberRequest, IContactNumberService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapPost("api/contact-numbers",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
+            (CreateContactNumberRequest request, ClaimsPrincipal user, IContactNumberService contactNumberService) =>
+            {
+                return await HandleAsync(WithBuyer(request, user), contactNumberService);
+            })
+            .Produces<CreateContactNumberResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .WithTags("ContactNumberEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(CreateContactNumberRequest request, IContactNumberService contactNumberService)
+    {
+        var buyerId = request.BuyerId;
+        if (string.IsNullOrWhiteSpace(buyerId))
+        {
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var contact = await contactNumberService.RegisterAsync(buyerId, request.PhoneNumber);
+            var response = new CreateContactNumberResponse(request.CorrelationId())
+            {
+                ContactNumberId = contact.Id,
+                PhoneNumber = contact.PhoneNumber
+            };
+            return Results.Created($"api/contact-numbers/{contact.Id}", response);
+        }
+        catch (InvalidContactNumberException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static CreateContactNumberRequest WithBuyer(CreateContactNumberRequest request, ClaimsPrincipal user)
+    {
+        request.BuyerId = user.GetBuyerId();
+        return request;
+    }
+}
