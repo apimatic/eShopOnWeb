@@ -32,23 +32,31 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            PaymentValidationException validation => ((int)HttpStatusCode.BadRequest, validation.Message),
+            PaymentNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            PaymentForbiddenException forbidden => ((int)HttpStatusCode.Forbidden, forbidden.Message),
+            PaymentConflictException conflict => ((int)HttpStatusCode.Conflict, conflict.Message),
+            AuthorizationUnrenewableException unrenewable => ((int)HttpStatusCode.Conflict, unrenewable.Message),
+            PayerActionRequiredException payerAction => ((int)HttpStatusCode.Conflict, payerAction.Message),
+            UnauthorizedAccessException unauthorized => ((int)HttpStatusCode.Unauthorized, unauthorized.Message),
+            PayPalGatewayException gateway => (MapGatewayStatus(gateway.StatusCode), gateway.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = status,
+            Message = message
+        }.ToString());
     }
+
+    private static int MapGatewayStatus(int paypalStatus) => paypalStatus switch
+    {
+        400 or 401 or 403 or 404 or 409 or 422 => paypalStatus,
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }
