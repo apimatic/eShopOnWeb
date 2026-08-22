@@ -35,20 +35,55 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, duplicationException.Message);
+            return;
         }
-        else
+
+        if (exception is UnusableDestinationException or ArgumentException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteAsync(context, exception.Message);
+            return;
         }
+
+        if (exception is NotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await WriteAsync(context, exception.Message);
+            return;
+        }
+
+        if (exception is InvalidOrderOperationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await WriteAsync(context, exception.Message);
+            return;
+        }
+
+        if (exception is UnauthorizedAccessException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+            await WriteAsync(context, exception.Message);
+            return;
+        }
+
+        if (exception is Microsoft.eShopWeb.Infrastructure.Services.TwilioApiException twilioException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await WriteAsync(context, twilioException.Message);
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await WriteAsync(context, exception.Message);
+    }
+
+    private static Task WriteAsync(HttpContext context, string message)
+    {
+        return context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
