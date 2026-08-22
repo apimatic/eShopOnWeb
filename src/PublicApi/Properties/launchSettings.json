@@ -13,7 +13,9 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "UseOnlyInMemoryDatabase": "true",
+        "DOTNET_ROLL_FORWARD": "Major"
       },
       "applicationUrl": "https://localhost:15703;http://localhost:15704"
     },
