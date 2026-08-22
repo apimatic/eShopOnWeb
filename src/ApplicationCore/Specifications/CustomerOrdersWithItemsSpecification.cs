@@ -9,6 +9,7 @@ public class CustomerOrdersWithItemsSpecification : Specification<Order>
     {
         Query.Where(o => o.BuyerId == buyerId)
             .Include(o => o.OrderItems)
-                .ThenInclude(i => i.ItemOrdered);
+                .ThenInclude(i => i.ItemOrdered)
+            .Include(o => o.Payment.Refunds);
     }
 }
