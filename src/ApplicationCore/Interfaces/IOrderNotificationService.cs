@@ -1,0 +1,43 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Interfaces;
+
+public record NotificationReconciliationEntry(
+    string? NotificationId,
+    string? ProviderMessageSid,
+    string? ApplicationStatus,
+    string? ProviderStatus,
+    string? Kind,
+    DateTimeOffset? ProviderDateSent,
+    DateTimeOffset? ApplicationCreatedAt,
+    string Match);
+
+public record NotificationReconciliationReport(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    string FromNumber,
+    IReadOnlyList<NotificationReconciliationEntry> Entries);
+
+public interface IOrderNotificationService
+{
+    Task NotifyOrderPlacedAsync(Order order, CancellationToken cancellationToken = default);
+
+    Task NotifyOrderDispatchedAsync(Order order, CancellationToken cancellationToken = default);
+
+    Task NotifyOrderCancelledAsync(Order order, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OrderNotification>> ListForOrderAsync(int orderId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OrderNotification>> ListForBuyerOrderAsync(string buyerId, int orderId, CancellationToken cancellationToken = default);
+
+    Task<OrderNotification> ResendAsync(int notificationId, string idempotencyKey, CancellationToken cancellationToken = default);
+
+    Task RedactContentAsync(int notificationId, CancellationToken cancellationToken = default);
+
+    Task<NotificationReconciliationReport> ReconcileAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+}
