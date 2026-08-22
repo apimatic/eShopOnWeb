@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Configuration.AddEnvironmentVariables();
+MapPayPalEnvironmentVariables(builder.Configuration);
+builder.Services.AddEShopPayPal(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,7 +88,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +182,29 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapPayPalEnvironmentVariables(ConfigurationManager configuration)
+{
+    var aliases = new Dictionary<string, string?>();
+    void Copy(string envKey, string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(envKey);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            aliases[configKey] = value;
+        }
+    }
+
+    Copy("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Copy("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Copy("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Copy("PAYPAL_CURRENCY", "PayPal:Currency");
+    Copy("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+    if (aliases.Count > 0)
+    {
+        configuration.AddInMemoryCollection(aliases);
+    }
+}
 
 public partial class Program { }
