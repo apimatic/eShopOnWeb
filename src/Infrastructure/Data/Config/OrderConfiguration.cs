@@ -41,5 +41,45 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.OwnsOne(o => o.Payment, payment =>
+        {
+            payment.Property(p => p.PayPalOrderId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationStatus).HasMaxLength(32);
+            payment.Property(p => p.CaptureId).HasMaxLength(64);
+            payment.Property(p => p.CaptureStatus).HasMaxLength(32);
+            payment.Property(p => p.Currency).HasMaxLength(8);
+            payment.Property(p => p.InvoiceId).HasMaxLength(100);
+            payment.Property(p => p.CreateRequestId).HasMaxLength(100);
+            payment.Property(p => p.AuthorizeRequestId).HasMaxLength(100);
+            payment.Property(p => p.CaptureRequestId).HasMaxLength(100);
+            payment.Property(p => p.VoidRequestId).HasMaxLength(100);
+            payment.Property(p => p.CapturedAmount).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.PaypalFee).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.NetAmount).HasColumnType("decimal(18,2)");
+        });
+        builder.Navigation(o => o.Payment).IsRequired();
+
+        builder.OwnsMany(o => o.Refunds, refund =>
+        {
+            refund.WithOwner().HasForeignKey("OrderId");
+            refund.HasKey(r => r.Id);
+            refund.Property(r => r.Id).ValueGeneratedOnAdd();
+            refund.Property(r => r.PayPalRefundId).HasMaxLength(64).IsRequired();
+            refund.Property(r => r.Status).HasMaxLength(32).IsRequired();
+            refund.Property(r => r.Currency).HasMaxLength(8).IsRequired();
+            refund.Property(r => r.IdempotencyKey).HasMaxLength(100).IsRequired();
+            refund.Property(r => r.Amount).HasColumnType("decimal(18,2)");
+            refund.Property(r => r.TotalRefundedAmount).HasColumnType("decimal(18,2)");
+        });
+
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

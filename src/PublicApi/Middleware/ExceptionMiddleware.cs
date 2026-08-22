@@ -35,20 +35,46 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await Write(context, duplicationException.Message);
+            return;
         }
-        else
+
+        if (exception is PaymentChallengeRequiredException challenge)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await Write(context, challenge.Message);
+            return;
         }
+
+        if (exception is OrderPaymentException orderPayment)
+        {
+            context.Response.StatusCode = orderPayment.StatusCode;
+            await Write(context, orderPayment.Message);
+            return;
+        }
+
+        if (exception is PaymentGatewayException gateway)
+        {
+            context.Response.StatusCode = gateway.StatusCode;
+            await Write(context, gateway.Message);
+            return;
+        }
+
+        if (exception is ArgumentException argument)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await Write(context, argument.Message);
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await Write(context, "An unexpected error occurred.");
     }
+
+    private static Task Write(HttpContext context, string message) =>
+        context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
 }
