@@ -41,5 +41,32 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(o => o.PaymentOperationKey).HasMaxLength(64);
+        builder.Property(o => o.PaypalOrderId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(32);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CaptureStatus).HasMaxLength(32);
+        builder.Property(o => o.PayIdempotencyKey).HasMaxLength(128);
+        builder.Property(o => o.CaptureIdempotencyKey).HasMaxLength(128);
+        builder.Property(o => o.VoidIdempotencyKey).HasMaxLength(128);
+
+        builder.Property(o => o.CapturedGross).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PaypalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
     }
 }
