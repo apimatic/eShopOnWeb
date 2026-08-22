@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
@@ -7,10 +8,11 @@ namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
 public class Buyer : BaseEntity, IAggregateRoot
 {
     public string IdentityGuid { get; private set; }
+    public string? PayPalCustomerId { get; private set; }
 
-    private List<PaymentMethod> _paymentMethods = new List<PaymentMethod>();
+    private readonly List<PaymentMethod> _paymentMethods = new List<PaymentMethod>();
 
-    public IEnumerable<PaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
+    public IReadOnlyCollection<PaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
 
     #pragma warning disable CS8618 // Required by Entity Framework
     private Buyer() { }
@@ -19,5 +21,42 @@ public class Buyer : BaseEntity, IAggregateRoot
     {
         Guard.Against.NullOrEmpty(identity, nameof(identity));
         IdentityGuid = identity;
+    }
+
+    public void SetPayPalCustomerId(string customerId)
+    {
+        Guard.Against.NullOrEmpty(customerId, nameof(customerId));
+        PayPalCustomerId = customerId;
+    }
+
+    public PaymentMethod AddPaymentMethod(
+        string vaultId,
+        string last4,
+        string? brand,
+        string? expiry,
+        string? cardholderName)
+    {
+        Guard.Against.NullOrEmpty(vaultId, nameof(vaultId));
+        Guard.Against.NullOrEmpty(last4, nameof(last4));
+
+        var alias = string.IsNullOrWhiteSpace(brand) ? $"Card ending {last4}" : $"{brand} ending {last4}";
+        var method = new PaymentMethod(alias, vaultId, last4, brand, expiry, cardholderName);
+        _paymentMethods.Add(method);
+        return method;
+    }
+
+    public PaymentMethod? GetPaymentMethod(int paymentMethodId) =>
+        _paymentMethods.FirstOrDefault(m => m.Id == paymentMethodId);
+
+    public bool RemovePaymentMethod(int paymentMethodId)
+    {
+        var method = GetPaymentMethod(paymentMethodId);
+        if (method is null)
+        {
+            return false;
+        }
+
+        _paymentMethods.Remove(method);
+        return true;
     }
 }
