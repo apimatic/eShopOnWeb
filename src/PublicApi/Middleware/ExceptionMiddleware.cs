@@ -32,23 +32,35 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            InvalidContactNumberException invalid => ((int)HttpStatusCode.BadRequest, invalid.Message),
+            EmptyCatalogOrderException empty => ((int)HttpStatusCode.BadRequest, empty.Message),
+            CatalogItemNotFoundException missingItem => ((int)HttpStatusCode.BadRequest, missingItem.Message),
+            ContactNumberNotFoundException => ((int)HttpStatusCode.NotFound, "Contact number was not found."),
+            OrderNotFoundException => ((int)HttpStatusCode.NotFound, "Order was not found."),
+            NotificationNotFoundException => ((int)HttpStatusCode.NotFound, "Notification was not found."),
+            InvalidOrderStateException state => ((int)HttpStatusCode.Conflict, state.Message),
+            NotificationResendNotAllowedException resend => ((int)HttpStatusCode.Conflict, resend.Message),
+            SmsGatewayException sms => MapSmsGateway(sms),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = status,
+            Message = message
+        }.ToString());
     }
+
+    private static (int Status, string Message) MapSmsGateway(SmsGatewayException exception) =>
+        exception.HttpStatusCode switch
+        {
+            401 or 403 => (502, "The messaging provider is unavailable."),
+            429 => (503, "The messaging provider is temporarily unavailable."),
+            >= 400 and < 500 => (exception.HttpStatusCode.Value, exception.Message),
+            _ => (502, exception.Message)
+        };
 }
