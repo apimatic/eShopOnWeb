@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Extensions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -35,20 +36,58 @@ public class ExceptionMiddleware
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            await WriteAsync(context, duplicationException.Message);
+            return;
         }
-        else
+
+        if (exception is InvalidOrderStateException invalidState)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await WriteAsync(context, invalidState.Message);
+            return;
         }
+
+        if (exception is InvalidPhoneNumberException invalidPhone)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            var message = invalidPhone.ValidationErrors.Count > 0
+                ? $"{invalidPhone.Message} ({string.Join(", ", invalidPhone.ValidationErrors)})"
+                : invalidPhone.Message;
+            await WriteAsync(context, message);
+            return;
+        }
+
+        if (exception is ClientRequestException clientRequest)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await WriteAsync(context, clientRequest.Message);
+            return;
+        }
+
+        if (exception is ResourceNotFoundException notFound)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await WriteAsync(context, notFound.Message);
+            return;
+        }
+
+        if (exception is UnauthorizedAccessException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            await WriteAsync(context, "Unauthorized");
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await WriteAsync(context, PhoneNumberLogSanitizer.Redact(exception.Message));
+    }
+
+    private static async Task WriteAsync(HttpContext context, string message)
+    {
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
