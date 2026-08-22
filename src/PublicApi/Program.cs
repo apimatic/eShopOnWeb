@@ -83,7 +83,22 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
 builder.Configuration.AddEnvironmentVariables();
+TwilioConfiguration.BindFromEnvironment(builder.Configuration);
+
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Messaging.TwilioOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Messaging.TwilioOptions.SectionName));
+builder.Services.AddHttpClient<Microsoft.eShopWeb.ApplicationCore.Messaging.ITwilioLookupClient, Microsoft.eShopWeb.Infrastructure.Messaging.TwilioLookupClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<Microsoft.eShopWeb.ApplicationCore.Messaging.ITwilioMessageClient, Microsoft.eShopWeb.Infrastructure.Messaging.TwilioMessageClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IContactNumberService, Microsoft.eShopWeb.Infrastructure.Services.ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, Microsoft.eShopWeb.Infrastructure.Services.OrderNotificationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +175,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

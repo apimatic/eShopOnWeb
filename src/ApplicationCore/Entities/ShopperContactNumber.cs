@@ -1,0 +1,30 @@
+using System;
+using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Entities;
+
+public class ShopperContactNumber : BaseEntity, IAggregateRoot
+{
+#pragma warning disable CS8618 // Required by Entity Framework
+    private ShopperContactNumber() { }
+
+    public ShopperContactNumber(string buyerId, string canonicalNumber)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(canonicalNumber, nameof(canonicalNumber));
+
+        BuyerId = buyerId;
+        CanonicalNumber = canonicalNumber;
+        CreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public string BuyerId { get; private set; }
+
+    /// <summary>
+    /// Provider-canonical E.164 form. Never write this value to logs.
+    /// </summary>
+    public string CanonicalNumber { get; private set; }
+
+    public DateTimeOffset CreatedAt { get; private set; }
+}
