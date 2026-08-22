@@ -32,23 +32,35 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            UnusableContactNumberException unusable => ((int)HttpStatusCode.BadRequest, unusable.Message),
+            InvalidOrderOperationException invalid => ((int)HttpStatusCode.BadRequest, invalid.Message),
+            ContactNumberNotFoundException => ((int)HttpStatusCode.NotFound, "Contact number was not found."),
+            OrderNotFoundException => ((int)HttpStatusCode.NotFound, "Order was not found."),
+            OrderNotificationNotFoundException => ((int)HttpStatusCode.NotFound, "Notification was not found."),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "The caller is not authenticated."),
+            NotificationProviderException provider => MapProvider(provider),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int Status, string Message) MapProvider(NotificationProviderException provider)
+    {
+        return (int?)provider.StatusCode switch
+        {
+            401 or 403 => (502, "Provider unavailable."),
+            429 => (503, "Temporarily unavailable."),
+            >= 400 and < 500 => ((int)provider.StatusCode!, provider.Message),
+            _ => (502, provider.Message)
+        };
     }
 }
