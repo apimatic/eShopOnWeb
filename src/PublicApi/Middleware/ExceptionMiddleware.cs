@@ -24,31 +24,44 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => (HttpStatusCode.Conflict, duplicationException.Message),
+            ResourceNotFoundException notFound => (HttpStatusCode.NotFound, notFound.Message),
+            ForbiddenOperationException forbidden => (HttpStatusCode.Forbidden, forbidden.Message),
+            InvalidPaymentRequestException invalid => (HttpStatusCode.BadRequest, invalid.Message),
+            PaymentConflictException conflict => (HttpStatusCode.Conflict, conflict.Message),
+            AuthorizationNotRenewableException expired => (HttpStatusCode.Conflict, expired.Message),
+            PayerActionRequiredException payerAction => (HttpStatusCode.Conflict, payerAction.Message),
+            PayPalGatewayException paypal when paypal.StatusCode is >= 400 and < 500 =>
+                ((HttpStatusCode)paypal.StatusCode, FormatPayPal(paypal)),
+            PayPalGatewayException paypal => (HttpStatusCode.BadGateway, FormatPayPal(paypal)),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static string FormatPayPal(PayPalGatewayException exception)
+    {
+        if (string.IsNullOrEmpty(exception.DebugId))
+        {
+            return exception.Message;
         }
+
+        return $"{exception.Message} (PayPal debug_id {exception.DebugId})";
     }
 }
