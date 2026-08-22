@@ -16,6 +16,37 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+            p.Property(x => x.PayPalOrderId).HasMaxLength(64);
+            p.Property(x => x.PayPalOrderStatus).HasMaxLength(64);
+            p.Property(x => x.AuthorizationId).HasMaxLength(64);
+            p.Property(x => x.AuthorizationStatus).HasMaxLength(64);
+            p.Property(x => x.CaptureId).HasMaxLength(64);
+            p.Property(x => x.CaptureStatus).HasMaxLength(64);
+            p.Property(x => x.Currency).HasMaxLength(3);
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.RefundedAmount).HasColumnType("decimal(18,2)");
+            p.Ignore(x => x.RemainingRefundableAmount);
+        });
+        builder.Navigation(o => o.Payment).IsRequired();
+
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
