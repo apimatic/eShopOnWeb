@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -17,23 +19,29 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
+        Payment = new OrderPayment();
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public OrderPayment Payment { get; private set; } = new OrderPayment();
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
     // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
+    private readonly List<OrderRefund> _refunds = new List<OrderRefund>();
 
     // Using List<>.AsReadOnly() 
     // This will create a read only wrapper around the private list so is protected against "external updates".
     // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
+    public IReadOnlyCollection<OrderRefund> Refunds => _refunds.AsReadOnly();
 
     public decimal Total()
     {
@@ -43,5 +51,100 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public decimal RefundedAmount()
+    {
+        return _refunds.Where(r => r.IsSuccessful).Sum(r => r.Amount);
+    }
+
+    public decimal RemainingRefundableAmount()
+    {
+        var captured = Payment.CapturedAmount ?? 0m;
+        var remaining = captured - RefundedAmount();
+        return remaining < 0 ? 0 : remaining;
+    }
+
+    public OrderRefund? FindRefundByIdempotencyKey(string idempotencyKey)
+    {
+        return _refunds.FirstOrDefault(r =>
+            string.Equals(r.IdempotencyKey, idempotencyKey, StringComparison.Ordinal));
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Status == OrderStatus.Authorized)
+        {
+            return;
+        }
+
+        EnsureStatus(OrderStatus.AwaitingPayment, "authorize");
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            return;
+        }
+
+        EnsureStatus(OrderStatus.Authorized, "fulfil");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return;
+        }
+
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOrderStateException(
+                "This order has already been fulfilled. Cancel is not available after capture; issue a refund instead.");
+        }
+
+        if (Status is not OrderStatus.AwaitingPayment and not OrderStatus.Authorized)
+        {
+            throw new InvalidOrderStateException($"Order {Id} cannot be cancelled while it is {Status}.");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public OrderRefund AddRefund(string payPalRefundId, string? status, decimal amount, string idempotencyKey)
+    {
+        if (Status is not OrderStatus.Fulfilled and not OrderStatus.PartiallyRefunded)
+        {
+            throw new InvalidOrderStateException(
+                $"Order {Id} cannot be refunded while it is {Status}. Refunds are only available after fulfilment.");
+        }
+
+        var remaining = RemainingRefundableAmount();
+        if (amount > remaining)
+        {
+            throw new InvalidOrderStateException(
+                $"Refund amount {amount:0.00} exceeds the remaining captured amount {remaining:0.00} for order {Id}.");
+        }
+
+        var refund = new OrderRefund(payPalRefundId, status, amount, idempotencyKey);
+        _refunds.Add(refund);
+
+        Status = RemainingRefundableAmount() == 0m
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
+
+        return refund;
+    }
+
+    private void EnsureStatus(OrderStatus expected, string action)
+    {
+        if (Status != expected)
+        {
+            throw new InvalidOrderStateException(
+                $"Order {Id} cannot {action} while it is {Status}. Expected {expected}.");
+        }
     }
 }
