@@ -41,5 +41,28 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(o => o.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalOrderStatus).HasMaxLength(64);
+        builder.Property(o => o.PayPalAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.PayPalAuthorizationStatus).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureStatus).HasMaxLength(64);
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PaymentInvoiceId).HasMaxLength(127);
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
     }
 }
