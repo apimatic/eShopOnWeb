@@ -1,0 +1,12 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.ContactNumberAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class ContactNumberByCanonicalSpecification : Specification<ContactNumber>
+{
+    public ContactNumberByCanonicalSpecification(string buyerId, string canonicalPhoneNumber)
+    {
+        Query.Where(c => c.BuyerId == buyerId && c.CanonicalPhoneNumber == canonicalPhoneNumber);
+    }
+}

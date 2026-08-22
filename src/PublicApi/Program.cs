@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -44,6 +45,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddHttpContextAccessor();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +89,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindTwilioEnvironment(builder.Configuration);
+builder.Services.AddTwilioClients(builder.Configuration);
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +168,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +187,22 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void BindTwilioEnvironment(ConfigurationManager configuration)
+    {
+        TrySet("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+        TrySet("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+        TrySet("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+        TrySet("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+
+        void TrySet(string environmentVariable, string configurationKey)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentVariable);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                configuration[configurationKey] = value;
+            }
+        }
+    }
+}
