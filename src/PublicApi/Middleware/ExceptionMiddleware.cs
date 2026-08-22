@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
@@ -32,6 +33,17 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        if (exception is CheckoutException checkoutException)
+        {
+            context.Response.StatusCode = checkoutException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = checkoutException.Message
+            }.ToString());
+            return;
+        }
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
@@ -40,15 +52,17 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+            return;
         }
-        else
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        var message = exception is JsonException
+            ? "The payment provider returned a response that could not be processed."
+            : exception.Message;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

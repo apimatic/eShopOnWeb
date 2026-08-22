@@ -6,12 +6,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +90,47 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+const string PayPalHttpClientName = "PayPal";
+var payPalOptions = BindPayPalOptions(builder.Configuration);
+builder.Services.AddSingleton(payPalOptions);
+builder.Services.AddTransient<PayPalRedactingHandler>();
+builder.Services.AddHttpClient(PayPalHttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    })
+    .AddHttpMessageHandler<PayPalRedactingHandler>();
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient(PayPalHttpClientName);
+    var configured = sp.GetRequiredService<PayPalOptions>();
+    var clientOptions = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = configured.ClientId,
+            ClientSecret = configured.ClientSecret
+        },
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+            MaxRetries = 1
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(configured.BaseUrl))
+    {
+        clientOptions.Server.Default.Sandbox.BaseUrl = configured.BaseUrl;
+    }
+
+    return new PayPalServerSdkClient(httpClient, clientOptions);
+});
+builder.Services.AddScoped<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +207,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -176,6 +224,36 @@ app.MapControllers();
 app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
+app.Logger.LogInformation(
+    "PayPal configuration loaded. ClientIdLength={ClientIdLength}, Currency={Currency}, Environment={Environment}, BaseUrlOverride={BaseUrlOverride}",
+    payPalOptions.ClientId.Length,
+    payPalOptions.Currency,
+    payPalOptions.Environment,
+    string.IsNullOrWhiteSpace(payPalOptions.BaseUrl) ? "false" : "true");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static PayPalOptions BindPayPalOptions(IConfiguration configuration)
+    {
+        var options = new PayPalOptions();
+        configuration.GetSection(PayPalOptions.SectionName).Bind(options);
+        options.ClientId = FirstNonEmpty(options.ClientId, configuration["PAYPAL_CLIENT_ID"]).Trim();
+        options.ClientSecret = FirstNonEmpty(options.ClientSecret, configuration["PAYPAL_CLIENT_SECRET"]).Trim();
+        options.Environment = FirstNonEmpty(options.Environment, configuration["PAYPAL_ENVIRONMENT"]).Trim();
+        options.Currency = FirstNonEmpty(options.Currency, configuration["PAYPAL_CURRENCY"]).Trim();
+        var baseUrl = FirstNonEmpty(options.BaseUrl, configuration["PAYPAL_BASE_URL"]).Trim();
+        options.BaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl;
+        return options;
+    }
+
+    private static string FirstNonEmpty(string? current, string? fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(current))
+        {
+            return current;
+        }
+
+        return fallback ?? string.Empty;
+    }
+}
