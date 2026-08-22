@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +31,7 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+AddPayPalEnvironmentOverrides(builder.Configuration);
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -44,6 +46,7 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +163,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +181,24 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddPayPalEnvironmentOverrides(ConfigurationManager configuration)
+{
+    var map = new Dictionary<string, string?>();
+    Copy("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Copy("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Copy("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Copy("PAYPAL_CURRENCY", "PayPal:Currency");
+    Copy("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+    if (map.Count > 0)
+        configuration.AddInMemoryCollection(map);
+
+    void Copy(string envName, string key)
+    {
+        var value = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(value))
+            map[key] = value;
+    }
+}
 
 public partial class Program { }

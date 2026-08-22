@@ -32,6 +32,20 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        if (exception is CheckoutException checkout)
+        {
+            context.Response.StatusCode = checkout.StatusCode;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = checkout.StatusCode,
+                message = checkout.Message,
+                providerName = checkout.ProviderName,
+                debugId = checkout.ProviderDebugId,
+                issues = checkout.Issues
+            });
+            return;
+        }
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
@@ -40,15 +54,14 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+            return;
         }
-        else
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = "An error occurred."
+        }.ToString());
     }
 }
