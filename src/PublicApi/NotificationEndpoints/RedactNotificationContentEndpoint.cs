@@ -1,0 +1,41 @@
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.NotificationEndpoints;
+
+public class RedactNotificationContentRequest : BaseRequest
+{
+    public int NotificationId { get; set; }
+
+    public RedactNotificationContentRequest(int notificationId)
+    {
+        NotificationId = notificationId;
+    }
+}
+
+public class RedactNotificationContentEndpoint : IEndpoint<IResult, RedactNotificationContentRequest, IOrderNotificationService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapDelete("api/notifications/{notificationId}/content",
+            [Authorize(Roles = BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+            async (int notificationId, IOrderNotificationService orders) =>
+            {
+                return await HandleAsync(new RedactNotificationContentRequest(notificationId), orders);
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .WithTags("NotificationEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(RedactNotificationContentRequest request, IOrderNotificationService orders)
+    {
+        await orders.RedactContentAsync(request.NotificationId);
+        return Results.NoContent();
+    }
+}
