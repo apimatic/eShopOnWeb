@@ -45,6 +45,24 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Configuration.AddEnvironmentVariables();
+Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalOptions.ApplyEnvironmentOverrides(builder.Configuration);
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalOptions.SectionName));
+builder.Services.AddSingleton<Microsoft.eShopWeb.ApplicationCore.Payments.PaymentOperationGate>();
+builder.Services.AddSingleton<IPaymentSettings, Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalPaymentSettings>();
+builder.Services.AddSingleton<Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalAccessTokenProvider>();
+builder.Services.AddHttpClient(Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalClient.HttpClientName, (sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalOptions>>().Value;
+    client.BaseAddress = new Uri(options.ResolveBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IPayPalClient, Microsoft.eShopWeb.Infrastructure.Payments.PayPal.PayPalClient>();
+builder.Services.AddScoped<ICheckoutPaymentService, CheckoutPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -83,7 +101,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +177,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
