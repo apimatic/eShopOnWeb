@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -32,23 +33,22 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            InvalidContactNumberException invalid => ((int)HttpStatusCode.BadRequest, invalid.Message),
+            OrderStateException state => ((int)HttpStatusCode.Conflict, state.Message),
+            NotificationException notification => ((int)HttpStatusCode.BadRequest, notification.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "The requested resource was not found."),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
