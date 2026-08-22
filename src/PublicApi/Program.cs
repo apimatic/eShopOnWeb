@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +85,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindPayPalSettingsFromEnvironment(builder.Configuration);
+
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddSingleton<OrderOperationGate>();
+builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +191,28 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void BindPayPalSettingsFromEnvironment(ConfigurationManager configuration)
+    {
+        var overrides = new Dictionary<string, string?>();
+        Copy("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+        Copy("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+        Copy("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+        Copy("PAYPAL_CURRENCY", "PayPal:Currency");
+
+        if (overrides.Count > 0)
+        {
+            configuration.AddInMemoryCollection(overrides);
+        }
+
+        void Copy(string environmentVariable, string configurationKey)
+        {
+            var value = Environment.GetEnvironmentVariable(environmentVariable);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                overrides[configurationKey] = value;
+            }
+        }
+    }
+}
