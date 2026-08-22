@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,8 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+BindPayPalEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +47,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<ICheckoutService, CheckoutService>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +168,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +186,24 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindPayPalEnvironmentVariables(ConfigurationManager configuration)
+{
+    var overrides = new Dictionary<string, string?>();
+    Bind("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Bind("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Bind("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Bind("PAYPAL_CURRENCY", "PayPal:Currency");
+    Bind("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+    if (overrides.Count > 0)
+        configuration.AddInMemoryCollection(overrides);
+
+    void Bind(string envName, string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(value))
+            overrides[configKey] = value;
+    }
+}
 
 public partial class Program { }
