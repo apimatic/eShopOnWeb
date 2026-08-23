@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,12 +15,17 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -50,6 +56,56 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => string.IsNullOrWhiteSpace(settings.BaseUrl) ||
+        Uri.TryCreate(settings.BaseUrl, UriKind.Absolute, out _),
+        "Maxio:BaseUrl must be an absolute URL when configured.")
+    .ValidateOnStart();
+
+const string MAXIO_HTTP_CLIENT = "MaxioAdvancedBilling";
+builder.Services.AddSingleton<MaxioHttpCallContext>();
+builder.Services.AddTransient<MaxioHttpHandler>();
+builder.Services.AddHttpClient(MAXIO_HTTP_CLIENT, httpClient =>
+    {
+        httpClient.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .AddHttpMessageHandler<MaxioHttpHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    var clientOptions = new MaxioAdvancedBilling.MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 3,
+            Timeout = TimeSpan.FromSeconds(10)
+        },
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        }
+    };
+    clientOptions.Server.Production.Us.Site = settings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        clientOptions.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(MAXIO_HTTP_CLIENT);
+    return new MaxioAdvancedBilling.MaxioAdvancedBillingClient(httpClient, clientOptions);
+});
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuthenticatedBillingUser, AuthenticatedBillingUser>();
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +216,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
