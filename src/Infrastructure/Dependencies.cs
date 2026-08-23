@@ -11,9 +11,11 @@ public static class Dependencies
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
         bool useOnlyInMemoryDatabase = false;
-        if (configuration["UseOnlyInMemoryDatabase"] != null)
+        var inMemoryFlag = configuration["UseOnlyInMemoryDatabase"]
+            ?? configuration["UseOnlyInMemoryDatabase"];
+        if (inMemoryFlag != null)
         {
-            useOnlyInMemoryDatabase = bool.Parse(configuration["UseOnlyInMemoryDatabase"]!);
+            useOnlyInMemoryDatabase = bool.Parse(inMemoryFlag);
         }
 
         if (useOnlyInMemoryDatabase)

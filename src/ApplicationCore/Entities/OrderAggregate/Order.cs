@@ -17,11 +17,13 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.Pending;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Pending;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,30 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new Exceptions.OrderTransitionException("A cancelled order cannot be dispatched.");
+        }
+
+        if (Status == OrderStatus.Dispatched)
+        {
+            throw new Exceptions.OrderTransitionException("The order has already been dispatched.");
+        }
+
+        Status = OrderStatus.Dispatched;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new Exceptions.OrderTransitionException("The order has already been cancelled.");
+        }
+
+        Status = OrderStatus.Cancelled;
     }
 }
