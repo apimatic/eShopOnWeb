@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +24,9 @@ public static class Dependencies
          
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
+
+            services.AddDbContext<SubscriptionBillingDbContext>(options =>
+                options.UseInMemoryDatabase("SubscriptionBilling"));
         }
         else
         {
@@ -35,6 +39,9 @@ public static class Dependencies
             // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
+
+            services.AddDbContext<SubscriptionBillingDbContext>(options =>
+                options.UseSqlServer(configuration.GetConnectionString("CatalogConnection")));
         }
     }
 }
