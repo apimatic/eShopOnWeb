@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is Maxio.MaxioApiException maxioException)
+        {
+            // Surface client-actionable Maxio errors (404, 422) as-is; anything else is an upstream failure.
+            context.Response.StatusCode = maxioException.StatusCode == HttpStatusCode.NotFound
+                || maxioException.StatusCode == HttpStatusCode.UnprocessableEntity
+                ? (int)maxioException.StatusCode
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
