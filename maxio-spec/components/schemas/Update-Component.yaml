@@ -1,0 +1,31 @@
+title: Update Component
+type: object
+properties:
+  handle:
+    type: string
+  name:
+    type: string
+    description: "The name of the Component, suitable for display on statements. i.e. Text Messages."
+  description:
+    type:
+      - string
+      - "null"
+    description: The description of the component.
+  accounting_code:
+    type:
+      - string
+      - "null"
+  taxable:
+    type: boolean
+    description: Boolean flag describing whether a component is taxable or not.
+  tax_code:
+    type:
+      - string
+      - "null"
+    description: A string representing the tax code related to the component type. This is especially important when using the Avalara service to tax based on locale. This attribute has a max length of 10 characters.
+  item_category:
+    $ref: "./Component-Item-Category-Type.yaml"
+  display_on_hosted_page:
+    type: boolean
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
