@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,12 +13,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,29 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Settings bind from the "Maxio" section (Maxio:ApiKey, Maxio:Subdomain,
+// Maxio:ProductFamilyHandle, optional Maxio:BaseUrl); secrets come from user-secrets/env vars.
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetSection(MaxioSettings.SectionName))
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ApiKey),
+        "Maxio:ApiKey is required (provide it via user-secrets or the MAXIO_API_KEY environment variable).")
+    .Validate(s => !string.IsNullOrWhiteSpace(s.BaseUrl) || !string.IsNullOrWhiteSpace(s.Subdomain),
+        "Maxio:Subdomain is required unless Maxio:BaseUrl is set.")
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ProductFamilyHandle),
+        "Maxio:ProductFamilyHandle is required.")
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<ISubscriptionBillingService, MaxioBillingService>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    client.BaseAddress = new Uri(settings.GetBaseAddress() + "/");
+    // Maxio uses HTTP Basic auth: API key as username, literal "x" as password.
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
