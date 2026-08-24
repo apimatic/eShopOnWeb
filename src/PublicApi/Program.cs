@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -25,6 +26,15 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var maxioEnvironmentSettings = new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")
+};
+builder.Configuration.AddInMemoryCollection(
+    maxioEnvironmentSettings.Where(entry => !string.IsNullOrWhiteSpace(entry.Value))!);
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -32,6 +42,7 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureMaxioBilling(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
