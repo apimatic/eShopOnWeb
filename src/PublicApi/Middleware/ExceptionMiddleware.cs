@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Preserve an actionable provider 4xx; anything else (provider 5xx, transport
+            // failure, unreadable response) is a bad gateway from the caller's perspective.
+            var status = billingException.ProviderStatusCode;
+            context.Response.StatusCode = status is >= 400 and < 500 and not 401 and not 403
+                ? status.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
