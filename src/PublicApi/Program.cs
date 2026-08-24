@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,7 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +53,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration. Values come from user-secrets/environment variables
+// (Maxio:ApiKey, Maxio:Subdomain, Maxio:ProductFamilyHandle, Maxio:BaseUrl) - never from files in the repo.
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.SectionName);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddHttpClient<MaxioClient>(client =>
+{
+    // Per the spec: HTTP Basic auth with the API key as username and "x" as password,
+    // against https://{site}.chargify.com (or the Maxio:BaseUrl override verbatim).
+    client.BaseAddress = maxioSettings.IsConfigured
+        ? maxioSettings.ResolveBaseAddress()
+        : new Uri("https://maxio-not-configured.invalid/");
+    if (!string.IsNullOrWhiteSpace(maxioSettings.ApiKey))
+    {
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    }
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<SubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
