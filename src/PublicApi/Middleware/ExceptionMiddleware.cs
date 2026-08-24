@@ -41,6 +41,16 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is Maxio.MaxioApiException maxioApiException)
+        {
+            // Surface Maxio validation failures (e.g. 422) instead of masking them as 500s.
+            context.Response.StatusCode = (int)maxioApiException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioApiException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

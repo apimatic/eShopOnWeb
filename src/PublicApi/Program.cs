@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,11 +15,14 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -30,6 +35,17 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+// Map the MAXIO_* environment variables onto the Maxio configuration section.
+// Values can also be supplied via user-secrets under the same "Maxio:*" keys;
+// environment variables take precedence when present.
+var maxioEnvOverrides = new Dictionary<string, string?>
+{
+    [$"{MaxioSettings.SectionName}:ApiKey"] = builder.Configuration["MAXIO_API_KEY"],
+    [$"{MaxioSettings.SectionName}:Subdomain"] = builder.Configuration["MAXIO_SITE_SUBDOMAIN"],
+    [$"{MaxioSettings.SectionName}:ProductFamilyHandle"] = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"],
+};
+builder.Configuration.AddInMemoryCollection(maxioEnvOverrides.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)));
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -50,6 +66,22 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<CurrentUserAccessor>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, httpClient) =>
+{
+    var maxioSettings = serviceProvider.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    maxioSettings.Validate();
+    httpClient.BaseAddress = maxioSettings.GetBaseAddress();
+    // Billing API authentication: HTTP Basic with the API key as username and "X" as password.
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:X"));
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
