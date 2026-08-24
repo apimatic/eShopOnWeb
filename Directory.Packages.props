@@ -9,6 +9,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
+    <!-- The SDK's netstandard2.0 binary references Bcl.AsyncInterfaces 10.0.0.8 but its nuspec
+         does not declare it; without this direct pin the graph resolves 7.0.0 and the app fails
+         at startup with FileNotFoundException. -->
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Result" Version="7.0.0" />

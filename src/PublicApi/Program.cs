@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -9,6 +14,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -50,6 +56,76 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Secrets come from user-secrets / environment variables — never from source-controlled files.
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.ConfigName);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+if (string.IsNullOrWhiteSpace(maxioSettings.Environment))
+{
+    maxioSettings.Environment = builder.Configuration["MAXIO_ENVIRONMENT"];
+}
+var maxioEnvironment = string.Equals(maxioSettings.Environment, "EU", StringComparison.OrdinalIgnoreCase)
+    ? ServerEnvironment.Eu
+    : ServerEnvironment.Us;
+
+builder.Services.AddHttpClient(MaxioSubscriptionBillingService.HttpClientName, client =>
+    {
+        // Per-attempt backstop against a hung provider (default 100s is an outage, not a timeout).
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        // The SDK client below is a singleton; keep DNS fresh behind it.
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    if (string.IsNullOrWhiteSpace(maxioSettings.ApiKey))
+    {
+        throw new InvalidOperationException(
+            "Maxio:ApiKey is not configured. Set it with 'dotnet user-secrets set \"Maxio:ApiKey\" ...' " +
+            "in src/PublicApi or via the MAXIO_API_KEY environment variable.");
+    }
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = maxioEnvironment,
+        BasicAuth = new BasicAuthCredentials { Username = maxioSettings.ApiKey, Password = "x" },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(10) }
+    };
+
+    if (maxioEnvironment == ServerEnvironment.Eu)
+    {
+        if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+        {
+            options.Server.Production.Eu.BaseUrl = maxioSettings.BaseUrl;
+        }
+        else
+        {
+            options.Server.Production.Eu.Site = maxioSettings.Subdomain;
+        }
+    }
+    else
+    {
+        if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+        {
+            options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+        }
+        else
+        {
+            options.Server.Production.Us.Site = maxioSettings.Subdomain;
+        }
+    }
+
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>()
+        .CreateClient(MaxioSubscriptionBillingService.HttpClientName);
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
