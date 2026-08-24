@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is Maxio.MaxioApiException maxioException)
+        {
+            // Client errors from Maxio (e.g. 422 validation) are forwarded; anything else
+            // means the upstream billing call failed, which is a Bad Gateway from our side.
+            var status = (int)maxioException.StatusCode;
+            context.Response.StatusCode = status is >= 400 and < 500 ? status : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
