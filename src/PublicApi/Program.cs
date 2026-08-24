@@ -25,6 +25,23 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Map the MAXIO_* environment variables into the Maxio: configuration section.
+// Values already present (e.g. from user-secrets) are overridden only when the
+// corresponding environment variable is actually set.
+var maxioOverrides = new Dictionary<string, string?>();
+void MapMaxioEnv(string environmentVariable, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+        maxioOverrides[configKey] = value;
+}
+MapMaxioEnv("MAXIO_API_KEY", "Maxio:ApiKey");
+MapMaxioEnv("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+MapMaxioEnv("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+MapMaxioEnv("MAXIO_BASE_URL", "Maxio:BaseUrl");
+if (maxioOverrides.Count > 0)
+    builder.Configuration.AddInMemoryCollection(maxioOverrides);
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -32,6 +49,7 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureMaxioServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

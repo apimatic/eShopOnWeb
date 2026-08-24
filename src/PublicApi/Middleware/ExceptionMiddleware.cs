@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingIntegrationException billingException)
+        {
+            // A 4xx from the billing system is a client-actionable failure (e.g. unknown plan);
+            // anything else means the billing system of record is unavailable or misconfigured.
+            var statusCode = billingException.StatusCode.HasValue && (int)billingException.StatusCode.Value >= 400 && (int)billingException.StatusCode.Value < 500
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
