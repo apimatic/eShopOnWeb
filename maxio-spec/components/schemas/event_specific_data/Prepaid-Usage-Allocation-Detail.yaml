@@ -1,0 +1,9 @@
+title: Prepaid Usage Allocation Detail
+type: object
+properties:
+  allocation_id:
+    type: integer
+  charge_id:
+    type: integer
+  usage_quantity:
+    type: integer
