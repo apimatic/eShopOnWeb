@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,40 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio recurring-billing integration. Settings bind from the "Maxio" configuration section;
+// the MAXIO_* environment variables are mapped onto that section so the same build can be
+// pointed at a different site/catalog purely through the environment.
+var maxioEnvOverrides = new Dictionary<string, string?>();
+void MapMaxioEnvVar(string envVar, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        maxioEnvOverrides[configKey] = value;
+    }
+}
+MapMaxioEnvVar("MAXIO_API_KEY", "Maxio:ApiKey");
+MapMaxioEnvVar("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+MapMaxioEnvVar("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+MapMaxioEnvVar("MAXIO_BASE_URL", "Maxio:BaseUrl");
+if (maxioEnvOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvOverrides);
+}
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddHttpClient<MaxioApiClient>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    settings.Validate();
+    client.BaseAddress = new Uri(settings.GetBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(30);
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:X"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
