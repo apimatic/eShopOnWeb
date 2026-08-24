@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,7 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +53,29 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Values come from user-secrets/environment variables; see the "Maxio" section in appsettings.json.
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetSection(MaxioSettings.SectionName))
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApiKey),
+        "Maxio:ApiKey is required. Load it from the MAXIO_API_KEY environment variable into .NET user-secrets.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.BaseUrl) || !string.IsNullOrWhiteSpace(settings.Subdomain),
+        "Maxio:Subdomain is required (from MAXIO_SITE_SUBDOMAIN) unless Maxio:BaseUrl is set.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ProductFamilyHandle),
+        "Maxio:ProductFamilyHandle is required (from MAXIO_DEFAULT_PRODUCT_FAMILY).")
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, client) =>
+{
+    var maxioSettings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    client.BaseAddress = new Uri(maxioSettings.ResolveBaseUrl());
+    // Per the spec's BasicAuth security scheme: username is the API key, password is "x".
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
