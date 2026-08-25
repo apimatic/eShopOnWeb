@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,36 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromItemsAsync(string buyerId, Address shippingAddress, IReadOnlyCollection<OrderItemQuantity> items)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(items, nameof(items));
+
+        foreach (var item in items)
+        {
+            Guard.Against.NegativeOrZero(item.Quantity, nameof(item.Quantity));
+        }
+
+        var catalogItemIds = items.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItemsSpecification = new CatalogItemsSpecification(catalogItemIds);
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        if (catalogItems.Count != catalogItemIds.Length)
+        {
+            var missingIds = catalogItemIds.Except(catalogItems.Select(c => c.Id));
+            throw new CatalogItemNotFoundException(missingIds.First());
+        }
+
+        var orderItems = items.Select(requestedItem =>
+        {
+            var catalogItem = catalogItems.First(c => c.Id == requestedItem.CatalogItemId);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, requestedItem.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
     }
 }
