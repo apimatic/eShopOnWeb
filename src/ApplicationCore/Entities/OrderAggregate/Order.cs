@@ -22,17 +22,11 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+    public PaymentInfo? Payment { get; private set; }
 
-    // DDD Patterns comment
-    // Using a private collection field, better for DDD Aggregate's encapsulation
-    // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
-    // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
 
-    // Using List<>.AsReadOnly() 
-    // This will create a read only wrapper around the private list so is protected against "external updates".
-    // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public decimal Total()
@@ -43,5 +37,49 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void SetPaymentAuthorized(string paypalOrderId, string authorizationId,
+        string authorizationStatus, string? expirationTime)
+    {
+        Status = OrderStatus.PaymentAuthorized;
+        Payment = new PaymentInfo(paypalOrderId, authorizationId, authorizationStatus, expirationTime);
+    }
+
+    public void SetFulfilled(string captureId, decimal capturedAmount, decimal fee, decimal net, string captureStatus)
+    {
+        Status = OrderStatus.Fulfilled;
+        Payment!.RecordCapture(captureId, capturedAmount, fee, net, captureStatus);
+    }
+
+    public void SetCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void UpdateAuthorization(string newAuthId, string newStatus, string? newExpiry)
+    {
+        Payment!.UpdateAuthorization(newAuthId, newStatus, newExpiry);
+    }
+
+    public string AddRefund(string idempotencyKey, string refundId, decimal amount, string currency, string status)
+    {
+        var refund = new OrderRefund
+        {
+            IdempotencyKey = idempotencyKey,
+            RefundId = refundId,
+            Amount = amount,
+            Currency = currency,
+            Status = status,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        Payment!.AddRefund(refund);
+
+        var totalRefunded = Payment.TotalRefunded();
+        Status = totalRefunded >= Payment.CapturedAmount
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
+
+        return refundId;
     }
 }

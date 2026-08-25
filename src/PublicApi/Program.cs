@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,14 +15,20 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +57,64 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// PayPal settings & client
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+
+const string PayPalHttpClientName = "PayPalServerSdkClient";
+builder.Services.AddHttpClient(PayPalHttpClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15); // per-attempt bound
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<PayPalSettings>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(PayPalHttpClientName);
+
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(15)
+        }
+    };
+
+    // Base URL: explicit override > environment mapping
+    string resolvedBaseUrl;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        resolvedBaseUrl = settings.BaseUrl;
+    }
+    else if (settings.Environment.Equals("production", StringComparison.OrdinalIgnoreCase))
+    {
+        resolvedBaseUrl = "https://api-m.paypal.com";
+    }
+    else
+    {
+        resolvedBaseUrl = "https://api-m.sandbox.paypal.com";
+    }
+    options.Server.Default.Sandbox.BaseUrl = resolvedBaseUrl;
+
+    return new PayPalServerSdkClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IPayPalService>(sp =>
+    new PayPalService(
+        sp.GetRequiredService<PayPalServerSdkClient>(),
+        sp.GetRequiredService<IOptions<PayPalSettings>>().Value,
+        sp.GetRequiredService<IAppLogger<PayPalService>>()));
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +225,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
