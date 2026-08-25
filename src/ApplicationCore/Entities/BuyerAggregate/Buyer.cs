@@ -20,4 +20,15 @@ public class Buyer : BaseEntity, IAggregateRoot
         Guard.Against.NullOrEmpty(identity, nameof(identity));
         IdentityGuid = identity;
     }
+
+    public void AddPaymentMethod(PaymentMethod paymentMethod)
+    {
+        Guard.Against.Null(paymentMethod, nameof(paymentMethod));
+        _paymentMethods.Add(paymentMethod);
+    }
+
+    public void RemovePaymentMethod(int paymentMethodId)
+    {
+        _paymentMethods.RemoveAll(pm => pm.Id == paymentMethodId);
+    }
 }
