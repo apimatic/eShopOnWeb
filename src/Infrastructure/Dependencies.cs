@@ -1,8 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Servers;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -20,7 +25,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +41,36 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        ConfigurePayPalServices(configuration, services);
+    }
+
+    private static void ConfigurePayPalServices(IConfiguration configuration, IServiceCollection services)
+    {
+        var settings = new PayPalSettings
+        {
+            ClientId = configuration["PayPal:ClientId"] ?? string.Empty,
+            ClientSecret = configuration["PayPal:ClientSecret"] ?? string.Empty,
+            Environment = configuration["PayPal:Environment"] ?? "sandbox",
+            Currency = configuration["PayPal:Currency"] ?? "USD",
+            BaseUrl = configuration["PayPal:BaseUrl"]
+        };
+
+        services.AddSingleton(settings);
+
+        services.AddPayPalServerSdkClient(o =>
+        {
+            o.Environment = ServerEnvironment.Sandbox;
+            o.Oauth2 = new OAuth2ClientCredentials
+            {
+                ClientId = settings.ClientId,
+                ClientSecret = settings.ClientSecret
+            };
+
+            if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+                o.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+        });
+
+        services.AddScoped<IPayPalPaymentService, PayPalPaymentService>();
     }
 }
