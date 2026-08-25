@@ -1,0 +1,14 @@
+using System;
+
+namespace Microsoft.eShopWeb.PublicApi.Billing;
+
+public class SubscriptionDto
+{
+    public int? Id { get; set; }
+    public string? Reference { get; set; }
+    public string? State { get; set; }
+    public string? ProductHandle { get; set; }
+    public string? ProductName { get; set; }
+    public long? PriceInCents { get; set; }
+    public DateTimeOffset? NextBillingDate { get; set; }
+}
