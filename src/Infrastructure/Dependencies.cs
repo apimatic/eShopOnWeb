@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,21 +22,28 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
         else
         {
-            // use real database
-            // Requires LocalDB which can be installed with SQL Server Express 2016
-            // https://www.microsoft.com/en-us/download/details.aspx?id=54284
             services.AddDbContext<CatalogContext>(c =>
                 c.UseSqlServer(configuration.GetConnectionString("CatalogConnection")));
 
-            // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // PayPal settings
+        var payPalSettings = new PayPalSettings();
+        configuration.GetSection("PayPal").Bind(payPalSettings);
+        services.AddSingleton(payPalSettings);
+
+        // PayPalClient as typed HTTP client; PayPalSettings resolved from DI
+        services.AddHttpClient<PayPalClient>();
+
+        services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+        services.AddScoped<ISavedCardService, SavedCardService>();
     }
 }

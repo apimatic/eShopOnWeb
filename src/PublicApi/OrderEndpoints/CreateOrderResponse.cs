@@ -1,0 +1,6 @@
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class CreateOrderResponse : BaseResponse
+{
+    public int OrderId { get; set; }
+}
