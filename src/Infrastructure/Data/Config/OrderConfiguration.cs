@@ -41,5 +41,18 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+            p.Property(x => x.PayPalOrderId).HasMaxLength(100);
+            p.Property(x => x.AuthorizationId).HasMaxLength(100);
+            p.Property(x => x.CaptureId).HasMaxLength(100);
+            p.Property(x => x.CapturedAmountValue).HasMaxLength(20);
+            p.Property(x => x.CapturedAmountCurrency).HasMaxLength(3);
+            p.Property(x => x.PayPalFeeValue).HasMaxLength(20);
+            p.Property(x => x.NetAmountValue).HasMaxLength(20);
+            p.Property(x => x.TotalRefunded).HasPrecision(18, 2);
+        });
     }
 }

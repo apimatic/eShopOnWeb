@@ -35,6 +35,10 @@ public class Order : BaseEntity, IAggregateRoot
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+
+    public PaymentRecord? Payment { get; private set; }
+
     public decimal Total()
     {
         var total = 0m;
@@ -43,5 +47,42 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AuthorizePayment(string payPalOrderId, string authorizationId)
+    {
+        if (Status != OrderStatus.PendingPayment)
+            throw new InvalidOperationException($"Cannot authorize payment for order in status {Status}.");
+        Payment = new PaymentRecord(payPalOrderId, authorizationId);
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void UpdateAuthorizationId(string newAuthorizationId)
+    {
+        Payment!.UpdateAuthorizationId(newAuthorizationId);
+    }
+
+    public void Fulfil(string captureId, string capturedAmountValue, string currency, string? feeValue, string? netValue)
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Cannot fulfil order in status {Status}.");
+        Payment!.RecordCapture(captureId, capturedAmountValue, currency, feeValue, netValue);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void Cancel()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Cannot cancel order in status {Status}.");
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void RecordRefund(decimal refundedAmount)
+    {
+        if (Status != OrderStatus.Fulfilled)
+            throw new InvalidOperationException($"Cannot refund order in status {Status}.");
+        Payment!.AddRefund(refundedAmount);
+        if (decimal.TryParse(Payment.CapturedAmountValue, out var captured) && Payment.TotalRefunded >= captured)
+            Status = OrderStatus.Refunded;
     }
 }

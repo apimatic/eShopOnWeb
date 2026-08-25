@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentMethodAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +54,26 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+builder.Services.AddScoped(typeof(IRepository<SavedPaymentMethod>), typeof(EfRepository<SavedPaymentMethod>));
+builder.Services.AddScoped(typeof(IReadRepository<SavedPaymentMethod>), typeof(EfRepository<SavedPaymentMethod>));
+
+// PayPal SDK registration
+var payPalSection = builder.Configuration.GetSection("PayPal");
+builder.Services.Configure<PayPalSettings>(payPalSection);
+var payPalClientId = payPalSection["ClientId"] ?? string.Empty;
+var payPalClientSecret = payPalSection["ClientSecret"] ?? string.Empty;
+var payPalBaseUrl = payPalSection["BaseUrl"];
+
+builder.Services.AddPayPalServerSdkClient(o =>
+{
+    o.Environment = ServerEnvironment.Sandbox;
+    o.Oauth2 = new OAuth2ClientCredentials { ClientId = payPalClientId, ClientSecret = payPalClientSecret };
+    if (!string.IsNullOrEmpty(payPalBaseUrl))
+        o.Server.Default.Sandbox.BaseUrl = payPalBaseUrl;
+    o.Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(30) };
+});
+builder.Services.AddScoped<PayPalPaymentService>();
 
 builder.Services.AddMemoryCache();
 
