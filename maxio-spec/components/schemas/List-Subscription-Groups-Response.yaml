@@ -1,0 +1,9 @@
+title: List Subscription Groups Response
+type: object
+properties:
+  subscription_groups:
+    type: array
+    items:
+      $ref: "List-Subscription-Groups-Item.yaml"
+  meta:
+    $ref: "./List-Subscription-Groups-Meta.yaml"
