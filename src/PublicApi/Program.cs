@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,45 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration. Settings bind from the "Maxio" configuration section
+// (user-secrets / environment); when section values are absent they fall back to the
+// MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN and MAXIO_DEFAULT_PRODUCT_FAMILY environment variables.
+builder.Services.AddOptions<MaxioSettings>()
+    .Configure<IConfiguration>((settings, configuration) =>
+    {
+        configuration.GetSection(MaxioSettings.SectionName).Bind(settings);
+        if (string.IsNullOrWhiteSpace(settings.ApiKey))
+        {
+            settings.ApiKey = configuration["MAXIO_API_KEY"] ?? string.Empty;
+        }
+        if (string.IsNullOrWhiteSpace(settings.Subdomain))
+        {
+            settings.Subdomain = configuration["MAXIO_SITE_SUBDOMAIN"] ?? string.Empty;
+        }
+        if (string.IsNullOrWhiteSpace(settings.ProductFamilyHandle))
+        {
+            settings.ProductFamilyHandle = configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? string.Empty;
+        }
+    })
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApiKey),
+        "Maxio:ApiKey is required. Provide it via user-secrets or the MAXIO_API_KEY environment variable.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.BaseUrl) || !string.IsNullOrWhiteSpace(settings.Subdomain),
+        "Maxio:Subdomain is required unless Maxio:BaseUrl is set. Provide it via user-secrets or the MAXIO_SITE_SUBDOMAIN environment variable.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ProductFamilyHandle),
+        "Maxio:ProductFamilyHandle is required. Provide it via user-secrets or the MAXIO_DEFAULT_PRODUCT_FAMILY environment variable.")
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    client.BaseAddress = settings.GetBaseAddress();
+    // Maxio Billing API uses HTTP Basic auth with the API key as username and "x" as password.
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<SubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
