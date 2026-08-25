@@ -8,6 +8,13 @@
     <VSCodeGeneratorVersion>8.0.0</VSCodeGeneratorVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="AsadAli.Checkout.Sdk" Version="1.0.1" />
+    <!-- AsadAli.Checkout.Sdk (PayPal) transitively requires these at 10.0.8+; pinned explicitly here
+         and referenced directly by PublicApi so its net8.0 Web SDK build resolves the same version
+         instead of the framework-provided 8.x copies, which is what CS1705 flags otherwise. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />
