@@ -15,5 +15,7 @@ public class MappingProfile : Profile
             .ForMember(dto => dto.Name, options => options.MapFrom(src => src.Type));
         CreateMap<CatalogBrand, CatalogBrandDto>()
             .ForMember(dto => dto.Name, options => options.MapFrom(src => src.Brand));
+        CreateMap<ApplicationCore.Models.Billing.SubscriptionPlanDto, SubscriptionPlanEndpoints.SubscriptionPlanDto>();
+        CreateMap<ApplicationCore.Models.Billing.SubscriptionDto, SubscriptionEndpoints.SubscriptionDto>();
     }
 }
