@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -9,8 +9,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
-
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        var refundNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
@@ -41,5 +43,20 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,4)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,4)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,4)");
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
