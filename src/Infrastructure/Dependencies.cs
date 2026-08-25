@@ -1,8 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Servers;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -20,7 +25,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +41,48 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        ConfigurePayPal(configuration, services);
+    }
+
+    private static void ConfigurePayPal(IConfiguration configuration, IServiceCollection services)
+    {
+        var settings = new PayPalSettings();
+        configuration.GetSection("PayPal").Bind(settings);
+        services.AddSingleton(settings);
+
+        const string httpClientName = "PayPalSdk";
+
+        services.AddHttpClient(httpClientName, c =>
+        {
+            c.Timeout = System.TimeSpan.FromSeconds(30);
+        }).ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+        {
+            PooledConnectionLifetime = System.TimeSpan.FromMinutes(5)
+        });
+
+        services.AddSingleton(sp =>
+        {
+            var s = sp.GetRequiredService<PayPalSettings>();
+            var factory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+            var httpClient = factory.CreateClient(httpClientName);
+
+            var options = new PayPalServerSdkClientOptions
+            {
+                Oauth2 = new OAuth2ClientCredentials
+                {
+                    ClientId = s.ClientId,
+                    ClientSecret = s.ClientSecret
+                },
+                Environment = ServerEnvironment.Sandbox
+            };
+
+            if (!string.IsNullOrWhiteSpace(s.BaseUrl))
+                options.Server.Default.Sandbox.BaseUrl = s.BaseUrl;
+
+            return new PayPalServerSdkClient(httpClient, options);
+        });
+
+        services.AddScoped<IPayPalService, PayPalService>();
     }
 }
