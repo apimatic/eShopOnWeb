@@ -8,13 +8,36 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
     public void Configure(EntityTypeBuilder<Order> builder)
     {
-        var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
+        builder.Metadata.FindNavigation(nameof(Order.OrderItems))
+            ?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
-        navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(Order.Refunds))
+            ?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(b => b.Status)
+            .IsRequired();
+
+        builder.Property(b => b.PayPalOrderId)
+            .HasMaxLength(128);
+
+        builder.Property(b => b.AuthorizationId)
+            .HasMaxLength(128);
+
+        builder.Property(b => b.CaptureId)
+            .HasMaxLength(128);
+
+        builder.Property(b => b.CapturedAmount)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(b => b.PayPalFee)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(b => b.NetAmount)
+            .HasColumnType("decimal(18,2)");
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
@@ -41,5 +64,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .IsRequired();
     }
 }
