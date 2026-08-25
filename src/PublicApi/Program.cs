@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities.Payment;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Payment repositories
+builder.Services.AddScoped<IRepository<OrderPayment>>(sp =>
+    new EfRepository<OrderPayment>(sp.GetRequiredService<CatalogContext>()));
+builder.Services.AddScoped<IReadRepository<OrderPayment>>(sp =>
+    new EfRepository<OrderPayment>(sp.GetRequiredService<CatalogContext>()));
+builder.Services.AddScoped<IRepository<UserPaymentMethod>>(sp =>
+    new EfRepository<UserPaymentMethod>(sp.GetRequiredService<CatalogContext>()));
+builder.Services.AddScoped<IReadRepository<UserPaymentMethod>>(sp =>
+    new EfRepository<UserPaymentMethod>(sp.GetRequiredService<CatalogContext>()));
+
+// PayPal settings and client
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IPayPalClient, PayPalClient>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
