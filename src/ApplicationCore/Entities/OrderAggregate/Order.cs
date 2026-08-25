@@ -23,17 +23,21 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
-    // DDD Patterns comment
-    // Using a private collection field, better for DDD Aggregate's encapsulation
-    // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
-    // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
 
-    // Using List<>.AsReadOnly() 
-    // This will create a read only wrapper around the private list so is protected against "external updates".
-    // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
+
+    // Payment state
+    public PaymentStatus PaymentStatus { get; private set; } = PaymentStatus.AwaitingPayment;
+    public string? PayPalOrderId { get; private set; }
+    public string? PayPalAuthorizationId { get; private set; }
+    public DateTimeOffset? AuthorizationExpiresAt { get; private set; }
+    public string? PayPalCaptureId { get; private set; }
+    public decimal? CapturedAmount { get; private set; }
+    public decimal? PayPalFeeAmount { get; private set; }
+    public decimal? NetAmount { get; private set; }
+    public string? Currency { get; private set; }
+    public decimal TotalRefundedAmount { get; private set; }
 
     public decimal Total()
     {
@@ -43,5 +47,42 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkAuthorized(string payPalOrderId, string authorizationId, DateTimeOffset expiresAt, string currency)
+    {
+        PayPalOrderId = payPalOrderId;
+        PayPalAuthorizationId = authorizationId;
+        AuthorizationExpiresAt = expiresAt;
+        Currency = currency;
+        PaymentStatus = PaymentStatus.Authorized;
+    }
+
+    public void UpdateAuthorization(string newAuthorizationId, DateTimeOffset newExpiresAt)
+    {
+        PayPalAuthorizationId = newAuthorizationId;
+        AuthorizationExpiresAt = newExpiresAt;
+    }
+
+    public void MarkFulfilled(string captureId, decimal capturedAmount, decimal? paypalFee, decimal? netAmount)
+    {
+        PayPalCaptureId = captureId;
+        CapturedAmount = capturedAmount;
+        PayPalFeeAmount = paypalFee;
+        NetAmount = netAmount;
+        PaymentStatus = PaymentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        PaymentStatus = PaymentStatus.Cancelled;
+    }
+
+    public void AddRefundAmount(decimal amount)
+    {
+        TotalRefundedAmount += amount;
+        PaymentStatus = TotalRefundedAmount >= (CapturedAmount ?? 0m)
+            ? PaymentStatus.FullyRefunded
+            : PaymentStatus.PartiallyRefunded;
     }
 }
