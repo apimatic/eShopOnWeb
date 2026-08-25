@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PayPalService;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +56,31 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// PayPal settings and client
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+var paypalSettings = builder.Configuration.GetSection("PayPal").Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = paypalSettings.ClientId,
+            ClientSecret = paypalSettings.ClientSecret
+        },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(20) }
+    };
+    if (!string.IsNullOrEmpty(paypalSettings.BaseUrl))
+        options.Server.Default.Sandbox.BaseUrl = paypalSettings.BaseUrl;
+    return new PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddScoped<IPayPalService, PayPalService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +191,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
