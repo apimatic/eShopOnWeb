@@ -1,0 +1,77 @@
+title: ApplePay Payment Profile
+type: object
+properties:
+  id:
+    type: integer
+    description: "The Chargify-assigned ID of the Apple Pay payment profile."
+  first_name:
+    type: string
+    description: The first name of the Apple Pay account holder
+  last_name:
+    type: string
+    description: The last name of the Apple Pay account holder
+  customer_id:
+    type: integer
+    description: The Chargify-assigned id for the customer record to which the Apple Pay account belongs
+  current_vault:
+    $ref: "./Apple-Pay-Vault.yaml"
+  vault_token:
+    type: string
+    description: The “token” provided by your vault storage for an already stored payment profile
+  billing_address:
+    type:
+      - string
+      - "null"
+    description: The current billing street address for the Apple Pay account
+  billing_city:
+    type:
+      - string
+      - "null"
+    description: The current billing address city for the Apple Pay account
+  billing_state:
+    type:
+      - string
+      - "null"
+    description: The current billing address state for the Apple Pay account
+  billing_zip:
+    type:
+      - string
+      - "null"
+    description: The current billing address zip code for the Apple Pay account
+  billing_country:
+    type:
+      - string
+      - "null"
+    description: The current billing address country for the Apple Pay account
+  customer_vault_token:
+    type:
+      - string
+      - "null"
+  billing_address_2:
+    type:
+      - string
+      - "null"
+    description: The current billing street address, second line, for the Apple Pay account
+  payment_type:
+    allOf:
+      - $ref: "./Payment-Type.yaml"
+    default: apple_pay
+    example: apple_pay
+  site_gateway_setting_id:
+    type:
+      - integer
+      - "null"
+  gateway_handle:
+    type:
+      - string
+      - "null"
+  created_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was created
+  updated_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was last updated
+required:
+  - payment_type
