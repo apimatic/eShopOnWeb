@@ -41,5 +41,33 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Currency)
+            .HasMaxLength(3)
+            .IsRequired();
+
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+
+            p.Property(x => x.AuthorizedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFeeAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.RefundedAmount).HasColumnType("decimal(18,2)");
+        });
+
+        var paymentNavigation = builder.Metadata.FindNavigation(nameof(Order.Payment));
+        paymentNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.OwnsMany(o => o.Refunds, r =>
+        {
+            r.WithOwner().HasForeignKey("OrderId");
+            r.HasKey(x => x.Id);
+            r.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        });
+
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

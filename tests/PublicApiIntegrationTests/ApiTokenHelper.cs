@@ -26,6 +26,20 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        /// <summary>
+        /// A second buyer identity, distinct from <see cref="GetNormalUserToken"/>, for tests that need
+        /// to prove one shopper can't see or act on another's orders/saved cards. Buyer identity comes
+        /// purely from the JWT's ClaimTypes.Name claim (see IdentityTokenClaimService), not a DB lookup,
+        /// so this username doesn't need to exist in the seeded Identity store.
+        /// </summary>
+        public static string GetOtherUserToken()
+        {
+            string userName = "otherbuyer@example.com";
+            string[] roles = { };
+
+            return CreateToken(userName, roles);
+        }
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };

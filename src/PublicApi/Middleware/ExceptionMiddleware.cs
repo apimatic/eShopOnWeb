@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            OrderPaymentException => (HttpStatusCode.Conflict, exception.Message),
+            PaymentAuthorizationNotRenewableException => (HttpStatusCode.Conflict, exception.Message),
+            PaymentApprovalRequiredException => (HttpStatusCode.Conflict, exception.Message),
+            // A provider-side failure with no meaningful client status: the request itself may have
+            // been fine, but PayPal could not complete it. 502 signals "upstream failed", not "you erred".
+            PaymentProviderException => (HttpStatusCode.BadGateway, exception.Message),
+            ArgumentException => (HttpStatusCode.BadRequest, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
