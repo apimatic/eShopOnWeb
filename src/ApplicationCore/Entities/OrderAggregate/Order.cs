@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,41 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new OrderStateException($"Cannot authorize payment for order {Id} because it is in status {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new OrderStateException($"Cannot fulfil order {Id} because it is in status {Status}; payment must be authorized first.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new OrderStateException($"Cannot cancel order {Id} because it is in status {Status}; only an order awaiting payment or with an authorized payment can be cancelled.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool isPartial)
+    {
+        if (Status != OrderStatus.Fulfilled && Status != OrderStatus.PartiallyRefunded)
+        {
+            throw new OrderStateException($"Cannot refund order {Id} because it is in status {Status}; the order must be fulfilled first.");
+        }
+        Status = isPartial ? OrderStatus.PartiallyRefunded : OrderStatus.Refunded;
     }
 }

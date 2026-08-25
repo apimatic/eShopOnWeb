@@ -31,24 +31,26 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = StatusCodeFor(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    private static int StatusCodeFor(Exception exception) => exception switch
+    {
+        DuplicateException => (int)HttpStatusCode.Conflict,
+        CatalogItemNotFoundException => (int)HttpStatusCode.BadRequest,
+        OrderStateException => (int)HttpStatusCode.Conflict,
+        RefundExceedsCapturedAmountException => (int)HttpStatusCode.UnprocessableEntity,
+        PaymentActionRequiredException => (int)HttpStatusCode.UnprocessableEntity,
+        PaymentAuthorizationNotRenewableException => (int)HttpStatusCode.UnprocessableEntity,
+        PaymentGatewayException gatewayException => gatewayException.IsProviderRejection
+            ? (int)HttpStatusCode.UnprocessableEntity
+            : (int)HttpStatusCode.BadGateway,
+        _ => (int)HttpStatusCode.InternalServerError
+    };
 }
