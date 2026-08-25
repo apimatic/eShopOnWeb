@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +46,47 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AuthorizePayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOrderStateException($"Order {Id} cannot be paid: current status is {Status}.");
+        }
+
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOrderStateException($"Order {Id} cannot be fulfilled: current status is {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOrderStateException($"Order {Id} cannot be cancelled: current status is {Status}.");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool isFullRefund)
+    {
+        if (Status != OrderStatus.Fulfilled && Status != OrderStatus.PartiallyRefunded)
+        {
+            throw new InvalidOrderStateException($"Order {Id} cannot be refunded: current status is {Status}.");
+        }
+
+        Status = isFullRefund ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
     }
 }
