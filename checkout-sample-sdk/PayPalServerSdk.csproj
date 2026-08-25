@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>AsadAli.Checkout.Sdk</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>Asad Ali</Authors>
+        <Description>A sample .NET client SDK for a Checkout REST API, generated with APIMatic. Published for demonstration purposes.</Description>
+        <PackageTags>sdk;rest;api-client;checkout;payments;apimatic</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/asadali214/checkout-sample-sdk</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
+        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.8" />
+        <PackageReference Include="Polly" Version="8.6.5" />
+        <PackageReference Include="PolySharp" Version="1.15.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="System.Net.Http.Json" Version="10.0.8" />
+        <PackageReference Include="System.Net.ServerSentEvents" Version="10.0.8" />
+    </ItemGroup>
+
+</Project>

@@ -4,24 +4,34 @@ using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
+using EShopOrder = Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.Order;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using System.Net.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +60,57 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// PayPal SDK registration
+const string PayPalClientName = "PayPal";
+builder.Services.AddHttpClient(PayPalClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var clientId = cfg["PayPal:ClientId"] ?? throw new InvalidOperationException("PayPal:ClientId not configured");
+    var clientSecret = cfg["PayPal:ClientSecret"] ?? throw new InvalidOperationException("PayPal:ClientSecret not configured");
+    var environment = cfg["PayPal:Environment"] ?? "sandbox";
+    var baseUrl = cfg["PayPal:BaseUrl"];
+
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret
+        }
+    };
+
+    options.Server.Default.Sandbox.BaseUrl =
+        !string.IsNullOrEmpty(baseUrl) ? baseUrl
+        : environment == "production" ? "https://api-m.paypal.com"
+        : "https://api-m.sandbox.paypal.com";
+
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(PayPalClientName);
+    return new PayPalServerSdkClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IPaymentService>(sp =>
+{
+    var paypalClient = sp.GetRequiredService<PayPalServerSdkClient>();
+    var orderRepo = sp.GetRequiredService<IRepository<EShopOrder>>();
+    var paymentRepo = sp.GetRequiredService<IRepository<Payment>>();
+    var refundRepo = sp.GetRequiredService<IRepository<OrderRefund>>();
+    var cardRepo = sp.GetRequiredService<IRepository<SavedCard>>();
+    var catalogRepo = sp.GetRequiredService<IReadRepository<CatalogItem>>();
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var currency = cfg["PayPal:Currency"] ?? "USD";
+    return new PayPalPaymentService(paypalClient, orderRepo, paymentRepo, refundRepo, cardRepo, catalogRepo, currency);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +221,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
