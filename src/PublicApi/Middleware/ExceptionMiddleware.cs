@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // Surface the billing system's client errors (e.g. unknown plan handle) as 422;
+            // anything else from Maxio is an upstream failure (502).
+            context.Response.StatusCode = maxioException.StatusCode == HttpStatusCode.UnprocessableEntity
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
