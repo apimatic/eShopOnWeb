@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,28 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio Advanced Billing integration. The ApiKey comes from user-secrets/environment
+// (Maxio:ApiKey), never from appsettings files. BaseUrl is an optional verbatim override;
+// otherwise the API base address is derived from the site subdomain.
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddHttpClient<MaxioClient>(client =>
+{
+    if (!string.IsNullOrWhiteSpace(maxioSettings.EffectiveBaseUrl))
+    {
+        client.BaseAddress = new Uri($"{maxioSettings.EffectiveBaseUrl}/");
+    }
+    if (!string.IsNullOrWhiteSpace(maxioSettings.ApiKey))
+    {
+        // Maxio Billing API uses HTTP Basic auth: API key as username, "X" as password.
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:X")));
+    }
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
