@@ -9,12 +9,28 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
-
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(b => b.PayPalOrderId).HasMaxLength(100);
+        builder.Property(b => b.PayPalAuthorizationId).HasMaxLength(100);
+        builder.Property(b => b.AuthorizationStatus).HasMaxLength(50);
+        builder.Property(b => b.PayPalCaptureId).HasMaxLength(100);
+        builder.Property(b => b.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(b => b.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(b => b.NetAmount).HasColumnType("decimal(18,2)");
+        builder.Property(b => b.PaymentMethodId).HasMaxLength(200);
+        builder.Property(b => b.TotalRefunded).HasColumnType("decimal(18,2)");
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {

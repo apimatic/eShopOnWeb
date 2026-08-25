@@ -17,23 +17,30 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
 
-    // DDD Patterns comment
-    // Using a private collection field, better for DDD Aggregate's encapsulation
-    // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
-    // but only through the method Order.AddOrderItem() which includes behavior.
+    // PayPal payment state
+    public string? PayPalOrderId { get; private set; }
+    public string? PayPalAuthorizationId { get; private set; }
+    public string? AuthorizationStatus { get; private set; }
+    public string? PayPalCaptureId { get; private set; }
+    public decimal CapturedAmount { get; private set; }
+    public decimal PayPalFee { get; private set; }
+    public decimal NetAmount { get; private set; }
+    public string? PaymentMethodId { get; private set; }
+    public decimal TotalRefunded { get; private set; }
+
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
-
-    // Using List<>.AsReadOnly() 
-    // This will create a read only wrapper around the private list so is protected against "external updates".
-    // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
+
+    private List<OrderRefund> _refunds = new List<OrderRefund>();
+    public IReadOnlyCollection<OrderRefund> Refunds => _refunds.AsReadOnly();
 
     public decimal Total()
     {
@@ -43,5 +50,38 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void SetPayPalOrderId(string paypalOrderId) => PayPalOrderId = paypalOrderId;
+
+    public void Authorize(string authorizationId, string status, string? paymentMethodId = null)
+    {
+        Status = OrderStatus.PaymentAuthorized;
+        PayPalAuthorizationId = authorizationId;
+        AuthorizationStatus = status;
+        PaymentMethodId = paymentMethodId;
+    }
+
+    public void UpdateAuthorization(string newAuthorizationId, string status)
+    {
+        PayPalAuthorizationId = newAuthorizationId;
+        AuthorizationStatus = status;
+    }
+
+    public void Fulfill(string captureId, decimal capturedAmount, decimal paypalFee, decimal netAmount)
+    {
+        Status = OrderStatus.Fulfilled;
+        PayPalCaptureId = captureId;
+        CapturedAmount = capturedAmount;
+        PayPalFee = paypalFee;
+        NetAmount = netAmount;
+    }
+
+    public void Cancel() => Status = OrderStatus.Cancelled;
+
+    public void AddRefund(OrderRefund refund)
+    {
+        _refunds.Add(refund);
+        TotalRefunded += refund.Amount;
     }
 }
