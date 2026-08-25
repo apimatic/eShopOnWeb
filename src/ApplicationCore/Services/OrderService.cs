@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,39 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromCatalogItemsAsync(string buyerId, IReadOnlyList<(int CatalogItemId, int Quantity)> items, Address shipToAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(items, nameof(items));
+
+        foreach (var line in items)
+        {
+            Guard.Against.NegativeOrZero(line.Quantity, nameof(line.Quantity));
+        }
+
+        var catalogItemIds = items.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItemsSpecification = new CatalogItemsSpecification(catalogItemIds);
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        foreach (var id in catalogItemIds)
+        {
+            if (catalogItems.All(c => c.Id != id))
+            {
+                throw new CatalogItemNotFoundException(id);
+            }
+        }
+
+        var orderItems = items.Select(line =>
+        {
+            var catalogItem = catalogItems.First(c => c.Id == line.CatalogItemId);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, line.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shipToAddress, orderItems);
+
+        return await _orderRepository.AddAsync(order);
     }
 }

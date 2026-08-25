@@ -31,24 +31,23 @@ public class ExceptionMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = StatusCodeFor(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    private static int StatusCodeFor(Exception exception) => exception switch
+    {
+        DuplicateException => (int)HttpStatusCode.Conflict,
+        NotFoundException => (int)HttpStatusCode.NotFound,
+        InvalidOrderStateException => (int)HttpStatusCode.Conflict,
+        PayPalGatewayException { IsProviderRejection: true } => (int)HttpStatusCode.UnprocessableEntity,
+        PayPalGatewayException => (int)HttpStatusCode.BadGateway,
+        ArgumentException => (int)HttpStatusCode.BadRequest,
+        _ => (int)HttpStatusCode.InternalServerError
+    };
 }
