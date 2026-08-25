@@ -44,4 +44,45 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+    public string? PayPalOrderId { get; private set; }
+    public string? PayPalAuthorizationId { get; private set; }
+    public string? PayPalCaptureId { get; private set; }
+    public decimal? CapturedAmount { get; private set; }
+    public decimal? PayPalFee { get; private set; }
+    public decimal? NetAmount { get; private set; }
+    public decimal TotalRefunded { get; private set; }
+
+    public void SetAuthorized(string payPalOrderId, string authorizationId)
+    {
+        PayPalOrderId = payPalOrderId;
+        PayPalAuthorizationId = authorizationId;
+        Status = OrderStatus.Authorized;
+    }
+
+    public void UpdateAuthorizationId(string newAuthorizationId)
+    {
+        PayPalAuthorizationId = newAuthorizationId;
+    }
+
+    public void SetFulfilled(string captureId, decimal capturedAmount, decimal payPalFee, decimal netAmount)
+    {
+        PayPalCaptureId = captureId;
+        CapturedAmount = capturedAmount;
+        PayPalFee = payPalFee;
+        NetAmount = netAmount;
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void SetCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void AddRefund(decimal amount)
+    {
+        TotalRefunded += amount;
+        Status = TotalRefunded >= CapturedAmount ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
 }
