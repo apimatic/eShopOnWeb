@@ -41,5 +41,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        var refundsNav = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNav?.SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

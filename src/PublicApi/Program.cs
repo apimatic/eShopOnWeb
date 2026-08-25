@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PaypalServerSdk.Standard.Authentication;
+using PaypalServerSdk.Standard;
+using PaypalEnv = PaypalServerSdk.Standard.Environment;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +55,41 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Register PayPal SDK client as singleton
+builder.Services.AddSingleton(sp =>
+{
+    var cfg = sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+    var clientId = cfg["PayPal:ClientId"]
+        ?? throw new InvalidOperationException("PayPal:ClientId is not configured. Set it via user-secrets or environment variable PAYPAL_CLIENT_ID.");
+    var clientSecret = cfg["PayPal:ClientSecret"]
+        ?? throw new InvalidOperationException("PayPal:ClientSecret is not configured. Set it via user-secrets or environment variable PAYPAL_CLIENT_SECRET.");
+    var envValue = cfg["PayPal:Environment"] ?? "Sandbox";
+    var isProd = envValue.Equals("Production", StringComparison.OrdinalIgnoreCase)
+              || envValue.Equals("Live", StringComparison.OrdinalIgnoreCase);
+    var paypalEnv = isProd ? PaypalServerSdk.Standard.Environment.Production
+                           : PaypalServerSdk.Standard.Environment.Sandbox;
+
+    var baseUrl = cfg["PayPal:BaseUrl"];
+    var sdkBuilder = new PaypalServerSdkClient.Builder()
+        .Environment(paypalEnv)
+        .ClientCredentialsAuth(
+            new ClientCredentialsAuthModel.Builder(clientId, clientSecret).Build())
+        .HttpClientConfig(c => c.Timeout(TimeSpan.FromSeconds(30)));
+
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+    {
+        var httpClient = new HttpClient(
+            new BaseUrlRewritingHandler(baseUrl) { InnerHandler = new HttpClientHandler() });
+        sdkBuilder = sdkBuilder.HttpClientConfig(
+            c => c.HttpClientInstance(httpClient, overrideHttpClientConfiguration: true));
+    }
+
+    return sdkBuilder.Build();
+});
+
+builder.Services.AddScoped<IPayPalPaymentService, PayPalPaymentService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +200,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
