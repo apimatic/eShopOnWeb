@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,16 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map PayPal env vars → PayPal: config section (single-underscore naming convention)
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"]     = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"]  = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"]     = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY"),
+    ["PayPal:BaseUrl"]      = Environment.GetEnvironmentVariable("PAYPAL_BASE_URL"),
+}.Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value));
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +61,11 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// PayPal integration
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+builder.Services.AddHttpClient<PayPalHttpClient>();
+builder.Services.AddScoped<IPayPalService, PayPalService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>

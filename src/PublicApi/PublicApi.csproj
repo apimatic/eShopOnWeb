@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup> 
+  <PropertyGroup>
     <RootNamespace>Microsoft.eShopWeb.PublicApi</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>904c021a-ffcd-41f5-a96b-50b49476c8a5</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
