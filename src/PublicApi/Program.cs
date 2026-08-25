@@ -45,6 +45,20 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddOptions<Microsoft.eShopWeb.PublicApi.Maxio.MaxioSettings>()
+    .Bind(builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Maxio.MaxioSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.BaseUrl) || !string.IsNullOrWhiteSpace(settings.Subdomain),
+        "Either Maxio:BaseUrl or Maxio:Subdomain must be configured.");
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Maxio.IMaxioClient, Microsoft.eShopWeb.PublicApi.Maxio.MaxioClient>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.PublicApi.Maxio.MaxioSettings>>().Value;
+    client.BaseAddress = new Uri(settings.GetBaseUrl() + "/");
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
