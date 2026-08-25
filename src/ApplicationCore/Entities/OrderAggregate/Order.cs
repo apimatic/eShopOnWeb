@@ -22,6 +22,10 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+    public PaymentInfo? Payment { get; private set; }
+
+    public void UpdateStatus(OrderStatus newStatus) => Status = newStatus;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
