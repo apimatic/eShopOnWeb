@@ -11,6 +11,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -84,6 +85,28 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Services.AddHttpContextAccessor();
+
+// Bridge the MAXIO_* environment variables into the Maxio: configuration section
+// (values stay in memory, never on disk). User-secrets take precedence when set.
+var maxioEnvBridge = new Dictionary<string, string?>();
+void BridgeMaxioEnvVar(string configKey, string envVar)
+{
+    if (string.IsNullOrEmpty(builder.Configuration[configKey]) &&
+        Environment.GetEnvironmentVariable(envVar) is { } value)
+    {
+        maxioEnvBridge[configKey] = value;
+    }
+}
+BridgeMaxioEnvVar("Maxio:ApiKey", "MAXIO_API_KEY");
+BridgeMaxioEnvVar("Maxio:Subdomain", "MAXIO_SITE_SUBDOMAIN");
+BridgeMaxioEnvVar("Maxio:ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY");
+if (maxioEnvBridge.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvBridge);
+}
+
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
