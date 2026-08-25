@@ -12,12 +12,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +52,24 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Values come from user-secrets / environment variables; never from committed files.
+// Settings are validated lazily, when the typed client is first resolved.
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.ConfigName));
+builder.Services.AddHttpClient<MaxioHttpClient>((serviceProvider, client) =>
+{
+    var maxioSettings = serviceProvider.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    maxioSettings.Validate();
+    client.BaseAddress = maxioSettings.ResolveBaseAddress();
+    // Spec security scheme: HTTP Basic, username = API key, password = "x".
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
