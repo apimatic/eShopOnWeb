@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
@@ -19,5 +20,18 @@ public class Buyer : BaseEntity, IAggregateRoot
     {
         Guard.Against.NullOrEmpty(identity, nameof(identity));
         IdentityGuid = identity;
+    }
+
+    public void AddPaymentMethod(PaymentMethod paymentMethod)
+    {
+        Guard.Against.Null(paymentMethod, nameof(paymentMethod));
+        _paymentMethods.Add(paymentMethod);
+    }
+
+    public bool RemovePaymentMethod(int paymentMethodId)
+    {
+        var existing = _paymentMethods.FirstOrDefault(p => p.Id == paymentMethodId);
+        if (existing is null) return false;
+        return _paymentMethods.Remove(existing);
     }
 }

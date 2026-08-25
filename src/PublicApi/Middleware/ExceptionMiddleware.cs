@@ -41,6 +41,42 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is ResourceNotFoundException notFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notFoundException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentOperationNotAllowedException notAllowedException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notAllowedException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentActionRequiredException actionRequiredException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = actionRequiredException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException gatewayException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = gatewayException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

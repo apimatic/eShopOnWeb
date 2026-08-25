@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -49,5 +50,41 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromCatalogItemsAsync(string buyerId, Address shippingAddress,
+        IReadOnlyList<OrderItemQuantity> items)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(items, nameof(items));
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(items.Select(i => i.CatalogItemId).ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var orderItems = items.Select(requested =>
+        {
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == requested.CatalogItemId);
+            Guard.Against.Null(catalogItem, nameof(catalogItem));
+            Guard.Against.NegativeOrZero(requested.Quantity, nameof(requested.Quantity));
+
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, requested.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<IReadOnlyList<Order>> GetOrdersForBuyerAsync(string buyerId)
+    {
+        var spec = new CustomerOrdersWithPaymentSpecification(buyerId);
+        return await _orderRepository.ListAsync(spec);
+    }
+
+    public async Task<Order?> GetOrderForBuyerAsync(string buyerId, int orderId)
+    {
+        var spec = new OrderWithPaymentByIdSpec(orderId);
+        var order = await _orderRepository.FirstOrDefaultAsync(spec);
+        return order is not null && order.BuyerId == buyerId ? order : null;
     }
 }

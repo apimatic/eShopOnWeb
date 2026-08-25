@@ -17,11 +17,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +46,37 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AttachPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} is not awaiting payment (status: {Status}).");
+        }
+
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        }
+
+        Status = OrderStatus.Cancelled;
     }
 }
