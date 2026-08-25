@@ -7,11 +7,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Entities.SavedPaymentMethodAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -81,9 +84,32 @@ builder.Services.AddCors(options =>
         });
 });
 
+builder.Services.AddScoped(typeof(IRepository<Payment>), typeof(EfRepository<Payment>));
+builder.Services.AddScoped(typeof(IReadRepository<Payment>), typeof(EfRepository<Payment>));
+builder.Services.AddScoped(typeof(IRepository<SavedPaymentMethod>), typeof(EfRepository<SavedPaymentMethod>));
+builder.Services.AddScoped(typeof(IReadRepository<SavedPaymentMethod>), typeof(EfRepository<SavedPaymentMethod>));
+
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map PAYPAL_* env vars into the PayPal: config section
+var payPalMappings = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = builder.Configuration["PAYPAL_CLIENT_ID"],
+    ["PayPal:ClientSecret"] = builder.Configuration["PAYPAL_CLIENT_SECRET"],
+    ["PayPal:Environment"] = builder.Configuration["PAYPAL_ENVIRONMENT"],
+    ["PayPal:Currency"] = builder.Configuration["PAYPAL_CURRENCY"]
+};
+var nonNull = new Dictionary<string, string?>();
+foreach (var kv in payPalMappings)
+    if (!string.IsNullOrEmpty(kv.Value)) nonNull[kv.Key] = kv.Value;
+if (nonNull.Count > 0)
+    builder.Configuration.AddInMemoryCollection(nonNull);
+
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<PayPalClient>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
