@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,7 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +53,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Credentials come from the "Maxio" configuration section (user-secrets / environment
+// variables); no secret values are stored in this repository.
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>(client =>
+{
+    client.BaseAddress = new Uri(maxioSettings.GetBaseUrl());
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -125,6 +145,11 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+if (!maxioSettings.IsConfigured)
+{
+    app.Logger.LogWarning("Maxio integration is not configured. Set 'Maxio:ApiKey', 'Maxio:Subdomain' and 'Maxio:ProductFamilyHandle' (e.g. via user-secrets) to enable the subscription billing endpoints.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
