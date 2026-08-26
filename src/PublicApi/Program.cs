@@ -1,17 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -50,6 +57,59 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Credentials come from the "Maxio" configuration section (user-secrets / environment
+// variables) — never from values committed to the repo.
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME).Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+
+builder.Services.AddHttpClient(MaxioSubscriptionBillingService.HttpClientName, client =>
+    {
+        // Per-attempt backstop; the billing service bounds the whole call with a linked token.
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    if (string.IsNullOrWhiteSpace(maxioSettings.ApiKey))
+    {
+        throw new InvalidOperationException(
+            "Maxio:ApiKey is not configured. Provide it via user-secrets or the MAXIO_API_KEY environment variable.");
+    }
+    if (string.IsNullOrWhiteSpace(maxioSettings.BaseUrl) && string.IsNullOrWhiteSpace(maxioSettings.Subdomain))
+    {
+        throw new InvalidOperationException(
+            "Maxio:Subdomain is not configured. Provide it via user-secrets or the MAXIO_SITE_SUBDOMAIN environment variable (or set Maxio:BaseUrl).");
+    }
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey,
+            Password = "x"
+        },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(10) }
+    };
+    if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.Site = maxioSettings.Subdomain;
+    }
+
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioSubscriptionBillingService.HttpClientName);
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
