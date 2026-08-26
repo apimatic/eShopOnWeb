@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,46 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration. Secrets come from user-secrets
+// (Maxio:ApiKey etc.) or the MAXIO_* environment variables, mapped here onto
+// the Maxio: configuration section without ever writing values to disk.
+var maxioEnvMapping = new Dictionary<string, string>
+{
+    ["MAXIO_API_KEY"] = "Maxio:ApiKey",
+    ["MAXIO_SITE_SUBDOMAIN"] = "Maxio:Subdomain",
+    ["MAXIO_DEFAULT_PRODUCT_FAMILY"] = "Maxio:ProductFamilyHandle",
+    ["MAXIO_BASE_URL"] = "Maxio:BaseUrl",
+};
+var maxioEnvValues = new Dictionary<string, string?>();
+foreach (var (envVar, configKey) in maxioEnvMapping)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        maxioEnvValues[configKey] = value;
+    }
+}
+if (maxioEnvValues.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvValues);
+}
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddScoped<SubscriptionBillingService>();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, httpClient) =>
+{
+    var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    options.Validate();
+    httpClient.BaseAddress = options.ResolveBaseAddress();
+    // Per the spec's BasicAuth security scheme: username is the API key, password is "x".
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+    httpClient.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    httpClient.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
