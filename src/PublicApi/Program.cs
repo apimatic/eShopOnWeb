@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,21 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration (subscription billing).
+// Values come from user-secrets/environment variables; see the "Maxio" configuration section.
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SectionName).Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>(client =>
+{
+    // When unconfigured (e.g. integration tests), defer failure to first use via MaxioSettings.ThrowIfNotConfigured.
+    client.BaseAddress = maxioSettings.IsConfigured ? maxioSettings.GetBaseAddress() : new Uri("https://localhost/");
+    // Maxio uses HTTP Basic auth: API key as username, literal "x" as password.
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -125,6 +142,13 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+if (!maxioSettings.IsConfigured)
+{
+    app.Logger.LogWarning(
+        "Maxio integration is not configured; subscription endpoints will fail until Maxio:ApiKey and " +
+        "Maxio:Subdomain (or Maxio:BaseUrl) are provided via user-secrets or environment variables.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
