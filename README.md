@@ -143,6 +143,22 @@ You can also run the samples in Docker (see below).
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
 
+## Subscription billing with Maxio Advanced Billing
+
+In addition to one-time commerce (Catalog → Basket → Order), the PublicApi project exposes recurring-subscription billing backed by [Maxio Advanced Billing](https://docs.maxio.com) as the billing system of record. All endpoints are JWT-authenticated (get a token from `POST /api/authenticate` first):
+
+- `GET /api/subscription-plans` — lists the plans offered in the configured Maxio product family.
+- `POST /api/subscriptions` — subscribes the authenticated user to a plan (send `{"planHandle": "..."}` in the body). Ensures a Maxio customer exists for the user and is idempotent: repeated calls for the same user and plan return the existing subscription instead of creating duplicates.
+- `GET /api/my-subscriptions` — lists the authenticated user's subscriptions with plan, price, state, and next billing date.
+
+Configuration is bound from the `Maxio` section using these keys: `Maxio:ApiKey`, `Maxio:Subdomain`, `Maxio:ProductFamilyHandle`, and `Maxio:BaseUrl` (optional override for the API base address; when unset it is derived from the subdomain). Never commit credential values — supply them through [.NET user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) or environment variables, e.g. from the environment variables `MAXIO_API_KEY`, `MAXIO_SITE_SUBDOMAIN`, and `MAXIO_DEFAULT_PRODUCT_FAMILY`:
+
+```
+dotnet user-secrets set "Maxio:ApiKey" "$env:MAXIO_API_KEY" --project src/PublicApi
+dotnet user-secrets set "Maxio:Subdomain" "$env:MAXIO_SITE_SUBDOMAIN" --project src/PublicApi
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "$env:MAXIO_DEFAULT_PRODUCT_FAMILY" --project src/PublicApi
+```
+
 ## Running the sample in the dev container
 
 This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
