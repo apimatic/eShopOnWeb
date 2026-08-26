@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,29 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Map the Maxio environment variables into the Maxio: configuration section (values never
+// hard-coded; user-secrets or appsettings can supply the same keys when the env vars are absent).
+var maxioConfig = new Dictionary<string, string?>();
+void MapMaxioEnv(string envName, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrEmpty(value))
+    {
+        maxioConfig[configKey] = value;
+    }
+}
+MapMaxioEnv("MAXIO_API_KEY", "Maxio:ApiKey");
+MapMaxioEnv("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+MapMaxioEnv("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+MapMaxioEnv("MAXIO_ENVIRONMENT", "Maxio:Environment");
+if (maxioConfig.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioConfig);
+}
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
