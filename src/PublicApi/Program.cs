@@ -37,9 +37,30 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
 
+// Map the mandated PAYPAL_* environment variables onto the PayPal: configuration section.
+// Values are only ever read from the environment / user-secrets — never written to the repo.
+var payPalConfig = new Dictionary<string, string?>();
+foreach (var (envVar, configKey) in new (string, string)[]
+{
+    ("PAYPAL_CLIENT_ID", "PayPal:ClientId"),
+    ("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret"),
+    ("PAYPAL_ENVIRONMENT", "PayPal:Environment"),
+    ("PAYPAL_CURRENCY", "PayPal:Currency"),
+    ("PAYPAL_BASE_URL", "PayPal:BaseUrl"),
+})
+{
+    var value = builder.Configuration[envVar];
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalConfig[configKey] = value;
+    }
+}
+builder.Configuration.AddInMemoryCollection(payPalConfig);
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
+Microsoft.eShopWeb.Infrastructure.Dependencies.AddPayPalPayments(builder.Configuration, builder.Services);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
