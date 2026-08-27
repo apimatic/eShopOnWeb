@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,8 +13,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.OrderNotificationEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +25,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.Extensions.Options;
+using TwilioSdk.Core.Authentication.Basic;
+using TwilioSdk.Core.Configuration;
+using TwilioSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +37,7 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+builder.Logging.AddFilter("System.Net.Http.HttpClient.TwilioMessaging", LogLevel.None);
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -50,6 +58,52 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.AccountSid), "Twilio:AccountSid is not configured.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.AuthToken), "Twilio:AuthToken is not configured.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.FromNumber), "Twilio:FromNumber is not configured.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.MessagingServiceSid), "Twilio:MessagingServiceSid is not configured.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<TwilioWriteGuard>();
+builder.Services.AddTransient<TwilioWriteGuardHandler>();
+builder.Services.AddHttpClient("TwilioMessaging", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    })
+    .AddHttpMessageHandler<TwilioWriteGuardHandler>();
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<TwilioSettings>>().Value;
+    var options = new TwilioSdk.TwilioSdkClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        AccountSidAuthToken = new BasicAuthCredentials
+        {
+            Username = settings.AccountSid,
+            Password = settings.AuthToken
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(8)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Default.Production.BaseUrl = settings.BaseUrl;
+    }
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("TwilioMessaging");
+    return new TwilioSdk.TwilioSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<ITwilioMessagingGateway, TwilioMessagingGateway>();
+builder.Services.AddSingleton<NotificationLockRegistry>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<OrderNotificationService>();
+builder.Services.AddHostedService<ScheduledCancellationWorker>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +214,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
