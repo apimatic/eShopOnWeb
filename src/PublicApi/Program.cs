@@ -1,17 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,51 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal settings bind from the "PayPal" configuration section (PayPal:ClientId,
+// PayPal:ClientSecret, PayPal:Environment, PayPal:Currency, PayPal:BaseUrl), typically
+// supplied via user-secrets. When the section is empty, fall back to the PAYPAL_*
+// environment variables so the same build runs against any PayPal account.
+var paypalSection = builder.Configuration.GetSection(PayPalSettings.SectionName);
+if (string.IsNullOrEmpty(paypalSection[nameof(PayPalSettings.ClientId)]))
+{
+    var envFallback = new Dictionary<string, string?>();
+    void MapEnv(string envName, string configKey)
+    {
+        var value = builder.Configuration[envName];
+        if (!string.IsNullOrEmpty(value))
+        {
+            envFallback[configKey] = value;
+        }
+    }
+    MapEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    MapEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    MapEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    MapEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+    if (envFallback.Count > 0)
+    {
+        builder.Configuration.AddInMemoryCollection(envFallback);
+    }
+}
+builder.Services.Configure<PayPalSettings>(paypalSection);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>().Value);
+builder.Services.AddSingleton(sp => new PayPalAccessTokenProvider(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("paypal"),
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>(),
+    sp.GetRequiredService<ILogger<PayPalAccessTokenProvider>>()));
+builder.Services.AddHttpClient("paypal")
+    .ConfigureHttpClient(c =>
+    {
+        c.DefaultRequestVersion = System.Net.HttpVersion.Version11;
+        c.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+    });
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>()
+    .ConfigureHttpClient(c =>
+    {
+        c.DefaultRequestVersion = System.Net.HttpVersion.Version11;
+        c.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+    });
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
