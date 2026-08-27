@@ -20,7 +20,8 @@ public class Order : BaseEntity, IAggregateRoot
     }
 
     public string BuyerId { get; private set; }
-    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.UtcNow;
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
     public Address ShipToAddress { get; private set; }
 
     // DDD Patterns comment
@@ -43,5 +44,20 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void Dispatch()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException("A cancelled order cannot be dispatched.");
+        }
+
+        Status = OrderStatus.Dispatched;
+    }
+
+    public void Cancel()
+    {
+        Status = OrderStatus.Cancelled;
     }
 }
