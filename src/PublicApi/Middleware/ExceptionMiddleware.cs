@@ -32,23 +32,35 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException duplicate => ((int)HttpStatusCode.Conflict, duplicate.Message),
+        EntityNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+        BadRequestException badRequest => ((int)HttpStatusCode.BadRequest, badRequest.Message),
+        OrderStateException orderState => ((int)HttpStatusCode.Conflict, orderState.Message),
+
+        // Our credentials or our quota — the caller did nothing wrong and cannot fix it.
+        SmsProviderException provider when (int?)provider.ProviderStatusCode is 401 or 403 =>
+            ((int)HttpStatusCode.BadGateway, "The messaging provider is unavailable."),
+        SmsProviderException provider when (int?)provider.ProviderStatusCode is 429 =>
+            ((int)HttpStatusCode.ServiceUnavailable, "The messaging provider is temporarily unavailable."),
+
+        // The provider rejected the caller's request — hand back the same status so they can act on it.
+        SmsProviderException provider when (int?)provider.ProviderStatusCode is >= 400 and < 500 =>
+            ((int)provider.ProviderStatusCode!, provider.Message),
+
+        // Transport, timeout, provider 5xx — no meaningful caller status.
+        SmsProviderException provider => ((int)HttpStatusCode.BadGateway, provider.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
