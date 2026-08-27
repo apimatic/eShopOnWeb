@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Billing;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +33,27 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingRequestException billingRequestException)
+        {
+            context.Response.StatusCode = billingRequestException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingRequestException.Message
+            }.ToString());
+        }
+        else if (exception is BillingProviderException billingProviderException)
+        {
+            context.Response.StatusCode = billingProviderException.ProviderStatusCode is >= 400 and < 500
+                ? billingProviderException.ProviderStatusCode.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingProviderException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
