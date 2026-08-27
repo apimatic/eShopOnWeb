@@ -149,6 +149,149 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.ToTable("CatalogTypes");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate.ContactNumber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("BuyerId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("CanonicalNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId", "CanonicalNumber")
+                        .IsUnique()
+                        .HasFilter("[RemovedAt] IS NULL");
+
+                    b.ToTable("ContactNumbers");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate.NotificationResend", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("NewNotificationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OriginalNotificationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("NotificationResends");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate.OrderNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(1600)
+                        .HasColumnType("nvarchar(1600)");
+
+                    b.Property<string>("BuyerId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("ContactNumberId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ContentDisposedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsScheduled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset?>("LastProviderCheckAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ProviderDateCreated")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProviderDateSent")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProviderDateUpdated")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ProviderErrorCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProviderSid")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset?>("ScheduledFor")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("SourceNotificationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ProviderSid")
+                        .IsUnique()
+                        .HasFilter("[ProviderSid] IS NOT NULL");
+
+                    b.ToTable("OrderNotifications");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -162,8 +305,19 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DispatchedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<DateTimeOffset>("OrderDate")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.HasKey("Id");
 
