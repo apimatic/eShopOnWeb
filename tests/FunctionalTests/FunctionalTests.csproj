@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="PublicApi\**" />
     <Compile Remove="WebRazorPages\**" />
     <EmbeddedResource Remove="WebRazorPages\**" />
     <None Remove="WebRazorPages\**" />
@@ -24,7 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationCore\ApplicationCore.csproj" />
-    <ProjectReference Include="..\..\src\PublicApi\PublicApi.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
   </ItemGroup>
 
