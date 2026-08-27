@@ -23,6 +23,14 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+
+    /// <summary>
+    /// Payment state for this order. Null until the order has been paid (authorized).
+    /// Owned by the order; carries the PayPal-owned identifiers and statuses.
+    /// </summary>
+    public OrderPayment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +51,43 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkAuthorized(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.PendingPayment)
+        {
+            throw new Exceptions.PaymentConflictException($"Order {Id} is not awaiting payment (status: {Status}).");
+        }
+        Payment = payment;
+        Status = OrderStatus.AwaitingFulfilment;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            return; // idempotent
+        }
+        if (Status != OrderStatus.AwaitingFulfilment)
+        {
+            throw new Exceptions.PaymentConflictException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void Cancel()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return; // idempotent
+        }
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new Exceptions.PaymentConflictException(
+                $"Order {Id} has already been fulfilled and its payment captured; issue a refund instead of cancelling.");
+        }
+        Status = OrderStatus.Cancelled;
     }
 }

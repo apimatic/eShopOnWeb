@@ -41,5 +41,45 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+
+            p.Property(x => x.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            p.Property(x => x.PayPalOrderId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.InvoiceId).HasMaxLength(128).IsRequired();
+            p.Property(x => x.AuthorizationId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.AuthorizationStatus).HasMaxLength(30).IsRequired();
+            p.Property(x => x.AuthorizedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            p.Property(x => x.CardBrand).HasMaxLength(30);
+            p.Property(x => x.CardLastDigits).HasMaxLength(4);
+            p.Property(x => x.CaptureId).HasMaxLength(64);
+            p.Property(x => x.CaptureStatus).HasMaxLength(30);
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+
+            p.OwnsMany(x => x.Refunds, r =>
+            {
+                r.WithOwner();
+                r.Metadata.DeclaringEntityType.FindNavigation(nameof(OrderPayment.Refunds))?
+                    .SetPropertyAccessMode(PropertyAccessMode.Field);
+                r.Property(x => x.IdempotencyKey).HasMaxLength(128).IsRequired();
+                r.Property(x => x.PayPalRefundId).HasMaxLength(64).IsRequired();
+                r.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+                r.Property(x => x.Status).HasMaxLength(30).IsRequired();
+                r.Property(x => x.Note).HasMaxLength(500);
+                r.HasIndex(x => x.IdempotencyKey);
+            });
+        });
     }
 }
