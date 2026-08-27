@@ -85,6 +85,19 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Order SMS notifications (Twilio). Settings bind from the "Twilio" configuration section
+// (Twilio:AccountSid, Twilio:AuthToken, Twilio:FromNumber, Twilio:MessagingServiceSid,
+// Twilio:BaseUrl) supplied via user-secrets/environment — never hard-coded.
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Messaging.TwilioSettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Messaging.TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ISmsGateway, Microsoft.eShopWeb.Infrastructure.Messaging.TwilioMessagingClient>();
+builder.Services.AddHttpClient<IPhoneNumberLookup, Microsoft.eShopWeb.Infrastructure.Messaging.TwilioLookupsClient>();
+builder.Services.AddSingleton(builder.Configuration
+    .GetSection(Microsoft.eShopWeb.ApplicationCore.Services.NotificationSettings.SectionName)
+    .Get<Microsoft.eShopWeb.ApplicationCore.Services.NotificationSettings>()
+    ?? new Microsoft.eShopWeb.ApplicationCore.Services.NotificationSettings());
+builder.Services.AddScoped<IOrderNotificationService, Microsoft.eShopWeb.ApplicationCore.Services.OrderNotificationService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
