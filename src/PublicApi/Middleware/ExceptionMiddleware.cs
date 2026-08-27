@@ -24,31 +24,33 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException ex => (HttpStatusCode.Conflict, ex.Message),
+            InvalidOperationException ex => (HttpStatusCode.Conflict, ex.Message),
+            InvalidContactNumberException ex => (HttpStatusCode.BadRequest, ex.Message),
+            ArgumentException ex => (HttpStatusCode.BadRequest, ex.Message),
+            ContactNumberNotFoundException ex => (HttpStatusCode.NotFound, ex.Message),
+            OrderNotFoundException ex => (HttpStatusCode.NotFound, ex.Message),
+            NotificationNotFoundException ex => (HttpStatusCode.NotFound, ex.Message),
+            ProviderUnavailableException ex when (int?)ex.StatusCode == 429 => (HttpStatusCode.ServiceUnavailable, "Temporarily unavailable."),
+            ProviderUnavailableException => (HttpStatusCode.BadGateway, "Provider unavailable."),
+            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = (int)status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
