@@ -45,6 +45,11 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioSettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioSettings.ConfigSection));
+builder.Services.AddHttpClient<IMessageProvider, Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioMessageProvider>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
