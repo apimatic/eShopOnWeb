@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +34,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            InvalidContactNumberException invalid => ((int)HttpStatusCode.BadRequest, invalid.Message),
+            OrderStateException state => ((int)HttpStatusCode.Conflict, state.Message),
+            CatalogItemNotFoundException notFoundItem => ((int)HttpStatusCode.BadRequest, notFoundItem.Message),
+            EmptyBasketOnCheckoutException empty => ((int)HttpStatusCode.BadRequest, empty.Message),
+            KeyNotFoundException keyNotFound => ((int)HttpStatusCode.NotFound, keyNotFound.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, PhoneNumberSanitizer.Sanitize(exception.Message) ?? "An error occurred.")
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = PhoneNumberSanitizer.Sanitize(message) ?? message
+        }.ToString());
     }
 }

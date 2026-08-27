@@ -84,6 +84,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+builder.Configuration.AddTwilioEnvironmentOverrides();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioOptions.SectionName));
+builder.Services.AddHttpClient<ITwilioLookupClient, Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioLookupClient>();
+builder.Services.AddHttpClient<ITwilioMessagingClient, Microsoft.eShopWeb.Infrastructure.Services.Twilio.TwilioMessagingClient>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
