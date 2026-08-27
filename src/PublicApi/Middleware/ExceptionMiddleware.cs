@@ -41,6 +41,55 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is EntityNotFoundException notFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notFoundException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentConflictException conflictException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = conflictException.Message
+            }.ToString());
+        }
+        else if (exception is PayerActionRequiredException payerActionException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payerActionException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException gatewayException)
+        {
+            // A provider 4xx is client-actionable and surfaces as-is; anything else is a bad gateway.
+            var status = gatewayException.ProviderStatusCode is >= 400 and < 500
+                ? gatewayException.ProviderStatusCode.Value
+                : (int)HttpStatusCode.BadGateway;
+            context.Response.StatusCode = status;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = status,
+                Message = gatewayException.Message
+            }.ToString());
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = argumentException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

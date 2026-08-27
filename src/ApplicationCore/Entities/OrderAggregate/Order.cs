@@ -22,6 +22,34 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.PendingPayment)
+        {
+            throw new Exceptions.PaymentConflictException($"Order {Id} cannot be marked as paid while in status {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new Exceptions.PaymentConflictException($"Order {Id} cannot be fulfilled while in status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled || Status == OrderStatus.Cancelled)
+        {
+            throw new Exceptions.PaymentConflictException($"Order {Id} cannot be cancelled while in status {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
