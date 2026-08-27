@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.eShopWeb.ApplicationCore.Billing;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
@@ -41,13 +42,33 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingValidationException billingValidationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingValidationException.Message
+            }.ToString());
+        }
+        else if (exception is BillingProviderException providerException)
+        {
+            context.Response.StatusCode = providerException.ProviderStatusCode is >= 400 and < 500
+                ? providerException.ProviderStatusCode.Value
+                : StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = providerException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }
