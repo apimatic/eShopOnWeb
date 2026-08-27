@@ -1,8 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -10,6 +17,8 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        ConfigureTwilio(configuration, services);
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
@@ -36,5 +45,34 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    private static void ConfigureTwilio(IConfiguration configuration, IServiceCollection services)
+    {
+        services.Configure<TwilioOptions>(configuration.GetSection(TwilioOptions.SectionName));
+
+        static AuthenticationHeaderValue BasicAuth(IServiceProvider sp)
+        {
+            var options = sp.GetRequiredService<IOptions<TwilioOptions>>().Value;
+            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.AccountSid}:{options.AuthToken}"));
+            return new AuthenticationHeaderValue("Basic", credentials);
+        }
+
+        // Messaging API: honors the optional Twilio:BaseUrl override, used verbatim.
+        services.AddHttpClient<IMessagingClient, TwilioMessagingClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<TwilioOptions>>().Value;
+            client.BaseAddress = new Uri(options.MessagingBaseUrl);
+            client.DefaultRequestHeaders.Authorization = BasicAuth(sp);
+        });
+
+        // Lookups API: always served from lookups.twilio.com per its spec; Twilio:BaseUrl does not govern it.
+        services.AddHttpClient<IPhoneNumberValidator, TwilioPhoneNumberValidator>((sp, client) =>
+        {
+            client.BaseAddress = new Uri(TwilioOptions.LookupsBaseUrl);
+            client.DefaultRequestHeaders.Authorization = BasicAuth(sp);
+        });
+
+        services.AddScoped<IOrderNotificationService, OrderNotificationService>();
     }
 }
