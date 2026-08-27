@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Notifications;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +12,16 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        services.Configure<TwilioOptions>(options =>
+        {
+            var section = configuration.GetSection(TwilioOptions.SectionName);
+            options.AccountSid = section[nameof(TwilioOptions.AccountSid)] ?? string.Empty;
+            options.AuthToken = section[nameof(TwilioOptions.AuthToken)] ?? string.Empty;
+            options.FromNumber = section[nameof(TwilioOptions.FromNumber)] ?? string.Empty;
+            options.MessagingServiceSid = section[nameof(TwilioOptions.MessagingServiceSid)] ?? string.Empty;
+            options.BaseUrl = section[nameof(TwilioOptions.BaseUrl)];
+        });
+        services.AddSingleton<ISmsProvider, TwilioSmsProvider>();
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
