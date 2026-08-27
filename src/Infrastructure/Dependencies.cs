@@ -1,6 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +12,22 @@ namespace Microsoft.eShopWeb.Infrastructure;
 
 public static class Dependencies
 {
+    /// <summary>
+    /// Binds the Twilio: configuration section and registers the SMS provider,
+    /// phone-number validator and the order notification orchestration service.
+    /// </summary>
+    public static void ConfigureTwilioServices(IConfiguration configuration, IServiceCollection services)
+    {
+        var settings = configuration.GetSection(TwilioSettings.CONFIG_NAME).Get<TwilioSettings>() ?? new TwilioSettings();
+        services.AddSingleton(settings);
+
+        services.AddHttpClient<TwilioSmsProvider>();
+        services.AddTransient<ISmsProvider>(sp => sp.GetRequiredService<TwilioSmsProvider>());
+        services.AddTransient<IPhoneNumberValidator>(sp => sp.GetRequiredService<TwilioSmsProvider>());
+
+        services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+    }
+
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
         bool useOnlyInMemoryDatabase = false;
