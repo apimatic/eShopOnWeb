@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -44,6 +45,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payment integration. Values come from environment variables / user-secrets
+// (PayPal:ClientId, PayPal:ClientSecret, PayPal:Environment, PayPal:Currency, PayPal:BaseUrl).
+var payPalSection = builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME);
+builder.Services.Configure<PayPalSettings>(payPalSection);
+var payPalSettings = payPalSection.Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<IPayPalClient, Microsoft.eShopWeb.Infrastructure.Services.PayPal.PayPalClient>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+if (string.IsNullOrEmpty(payPalSettings.ClientId) || string.IsNullOrEmpty(payPalSettings.ClientSecret)
+    || string.IsNullOrEmpty(payPalSettings.Currency))
+{
+    Console.WriteLine("WARNING: PayPal settings are incomplete. Set PayPal:ClientId, PayPal:ClientSecret, " +
+        "PayPal:Environment and PayPal:Currency via environment variables or user-secrets.");
+}
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

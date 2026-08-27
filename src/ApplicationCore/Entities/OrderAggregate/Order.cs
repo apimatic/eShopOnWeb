@@ -22,6 +22,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +44,31 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status), s => s == OrderStatus.AwaitingPayment);
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status), s => s == OrderStatus.PaymentAuthorized);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status),
+            s => s == OrderStatus.AwaitingPayment || s == OrderStatus.PaymentAuthorized);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status),
+            s => s == OrderStatus.Fulfilled || s == OrderStatus.PartiallyRefunded);
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
     }
 }
