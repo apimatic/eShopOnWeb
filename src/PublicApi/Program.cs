@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,20 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Twilio SMS integration. Settings bind from the "Twilio" configuration
+// section (user-secrets / environment); no values are stored in the repo.
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ISmsService, TwilioSmsService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+
+var twilioSettings = builder.Configuration.GetSection(TwilioSettings.SectionName).Get<TwilioSettings>() ?? new TwilioSettings();
+if (string.IsNullOrEmpty(twilioSettings.AccountSid) || string.IsNullOrEmpty(twilioSettings.AuthToken)
+    || string.IsNullOrEmpty(twilioSettings.FromNumber) || string.IsNullOrEmpty(twilioSettings.MessagingServiceSid))
+{
+    Console.WriteLine("WARNING: Twilio settings are incomplete. SMS notifications will fail until " +
+        "Twilio:AccountSid, Twilio:AuthToken, Twilio:FromNumber and Twilio:MessagingServiceSid are configured.");
+}
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
