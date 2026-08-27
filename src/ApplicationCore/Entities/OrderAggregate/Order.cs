@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -23,6 +24,13 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// The payment associated with this order, once a payment attempt has started.
+    /// </summary>
+    public OrderPayment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +51,50 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void SetPayment(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new OrderPaymentStateException($"Order {Id} cannot be marked as paid while in state {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new OrderPaymentStateException($"Order {Id} cannot be fulfilled while in state {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new OrderPaymentStateException($"Order {Id} cannot be cancelled while in state {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void UpdateRefundState()
+    {
+        if (Payment?.CapturedAmount is null)
+        {
+            return;
+        }
+
+        Status = Payment.TotalRefunded >= Payment.CapturedAmount.Value
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }

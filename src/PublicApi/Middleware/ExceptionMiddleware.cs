@@ -41,6 +41,56 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is Ardalis.GuardClauses.NotFoundException notFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notFoundException.Message
+            }.ToString());
+        }
+        else if (exception is OrderPaymentStateException stateException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = stateException.Message
+            }.ToString());
+        }
+        else if (exception is PayerActionRequiredException payerActionException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payerActionException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException gatewayException)
+        {
+            context.Response.StatusCode = gatewayException.IsClientError
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            var message = gatewayException.DebugId is not null
+                ? $"{gatewayException.Message} [PayPal debug id: {gatewayException.DebugId}]"
+                : gatewayException.Message;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = argumentException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

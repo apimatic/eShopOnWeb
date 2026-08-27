@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -48,6 +50,31 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// PayPal settings. Values arrive via user-secrets or the PAYPAL_* environment variables;
+// map the latter onto the PayPal: section keys. No values are ever written to the repo.
+var payPalEnvOverrides = new Dictionary<string, string?>();
+void MapPayPalEnvVar(string envVar, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalEnvOverrides[configKey] = value;
+    }
+}
+MapPayPalEnvVar("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnvVar("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnvVar("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnvVar("PAYPAL_CURRENCY", "PayPal:Currency");
+if (payPalEnvOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalEnvOverrides);
+}
+
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME).Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<IPaymentGateway, PayPalGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 builder.Services.AddMemoryCache();
 
