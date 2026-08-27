@@ -1,6 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -14,6 +19,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +30,18 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the deployment-provided secret names onto the stable Maxio configuration section.
+// User-secrets and standard Maxio__* environment keys remain valid configuration sources.
+builder.Configuration.AddEnvironmentVariables();
+var maxioEnvironment = new Dictionary<string, string?>();
+if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MAXIO_API_KEY")))
+    maxioEnvironment["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN")))
+    maxioEnvironment["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")))
+    maxioEnvironment["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+builder.Configuration.AddInMemoryCollection(maxioEnvironment);
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +68,51 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+var maxioOptionsBuilder = builder.Services.AddOptions<MaxioOptions>()
+    .Bind(maxioSection)
+    .ValidateDataAnnotations()
+    .Validate(options => MaxioOptions.IsBaseUrlValid(options.BaseUrl), "Maxio:BaseUrl must be an absolute HTTP(S) URL when set.");
+if (maxioSection.Exists())
+{
+    maxioOptionsBuilder.ValidateOnStart();
+}
+builder.Services.AddSingleton<MaxioWriteGuard>();
+builder.Services.AddTransient<MaxioSingleWriteHandler>();
+builder.Services.AddSingleton<SubscriptionKeyLock>();
+builder.Services.AddHttpClient("MaxioAdvancedBilling", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<MaxioSingleWriteHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var sdkOptions = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 2,
+            Timeout = TimeSpan.FromSeconds(8)
+        },
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        }
+    };
+    sdkOptions.Server.Production.Us.Site = settings.Subdomain;
+    if (!string.IsNullOrEmpty(settings.BaseUrl))
+    {
+        sdkOptions.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("MaxioAdvancedBilling");
+    return new MaxioAdvancedBillingClient(httpClient, sdkOptions);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -83,8 +146,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +221,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
