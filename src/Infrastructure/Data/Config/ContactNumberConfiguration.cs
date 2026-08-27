@@ -1,0 +1,18 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class ContactNumberConfiguration : IEntityTypeConfiguration<ContactNumber>
+{
+    public void Configure(EntityTypeBuilder<ContactNumber> builder)
+    {
+        builder.Property(x => x.BuyerId).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.PhoneNumber).IsRequired().HasMaxLength(32);
+        builder.Ignore(x => x.IsActive);
+        builder.HasIndex(x => new { x.BuyerId, x.PhoneNumber })
+            .IsUnique()
+            .HasFilter("[DeletedAt] IS NULL");
+    }
+}
