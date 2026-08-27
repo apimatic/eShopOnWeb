@@ -15,15 +15,15 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "https://localhost:5099;http://localhost:5098"
+      "applicationUrl": "https://localhost:17503;http://localhost:17504"
     },
     "WSL": {
       "commandName": "WSL2",
       "launchBrowser": true,
-      "launchUrl": "https://localhost:5099/swagger",
+      "launchUrl": "https://localhost:17503/swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "https://localhost:5099;http://localhost:5098"
+        "ASPNETCORE_URLS": "https://localhost:17503;http://localhost:17504"
       },
       "distributionName": ""
     },
@@ -40,7 +40,7 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:52023",
+      "applicationUrl": "http://localhost:17505",
       "sslPort": 44339
     }
   }
