@@ -16,8 +16,23 @@ public class LoggerAdapter<T> : IAppLogger<T>
         _logger.LogWarning(message, args);
     }
 
+    public void LogWarning(System.Exception exception, string message, params object[] args)
+    {
+        _logger.LogWarning(exception, message, args);
+    }
+
     public void LogInformation(string message, params object[] args)
     {
         _logger.LogInformation(message, args);
+    }
+
+    public void LogError(string message, params object[] args)
+    {
+        _logger.LogError(message, args);
+    }
+
+    public void LogError(System.Exception exception, string message, params object[] args)
+    {
+        _logger.LogError(exception, message, args);
     }
 }
