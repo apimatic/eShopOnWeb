@@ -16,6 +16,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.Status).HasConversion<string>().HasMaxLength(24)
+            .HasDefaultValue(OrderStatus.Placed);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
@@ -29,7 +32,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
                 .IsRequired();
 
             a.Property(a => a.State)
-                .HasMaxLength(60);
+                .HasMaxLength(60)
+                .IsRequired(false);
 
             a.Property(a => a.Country)
                 .HasMaxLength(90)
