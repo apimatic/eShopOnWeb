@@ -22,6 +22,19 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Submitted;
+
+    public void MarkDispatched()
+    {
+        Guard.Against.OutOfRange((int)Status, nameof(Status), (int)OrderStatus.Submitted, (int)OrderStatus.Submitted);
+        Status = OrderStatus.Dispatched;
+    }
+
+    public void MarkCancelled()
+    {
+        Guard.Against.OutOfRange((int)Status, nameof(Status), (int)OrderStatus.Submitted, (int)OrderStatus.Dispatched);
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
