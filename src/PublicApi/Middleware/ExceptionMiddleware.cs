@@ -41,6 +41,25 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            // An unexpected PayPal failure the flow did not translate; surface as 502.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"PayPal rejected the request: {payPalException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
