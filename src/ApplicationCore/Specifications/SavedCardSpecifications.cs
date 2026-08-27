@@ -1,0 +1,22 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class SavedCardsByBuyerSpec : Specification<SavedCard>
+{
+    public SavedCardsByBuyerSpec(string buyerId)
+    {
+        Query
+            .Where(c => c.BuyerId == buyerId)
+            .OrderByDescending(c => c.CreatedAt);
+    }
+}
+
+public class SavedCardByIdAndBuyerSpec : Specification<SavedCard>
+{
+    public SavedCardByIdAndBuyerSpec(int savedCardId, string buyerId)
+    {
+        Query.Where(c => c.Id == savedCardId && c.BuyerId == buyerId);
+    }
+}
