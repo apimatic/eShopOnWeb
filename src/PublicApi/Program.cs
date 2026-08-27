@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -31,7 +32,28 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Map the PAYPAL_* environment variables onto the PayPal: configuration section when present
+// (user-secrets remain the primary source; only variable names are referenced, never values).
+var payPalEnv = new Dictionary<string, string?>();
+void MapPayPalEnv(string envName, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalEnv[configKey] = value;
+    }
+}
+MapPayPalEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+if (payPalEnv.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalEnv);
+}
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
