@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,30 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            UnusableContactNumberException e => ((int)HttpStatusCode.BadRequest, e.Message),
+            CatalogItemNotFoundException e => ((int)HttpStatusCode.BadRequest, e.Message),
+            ArgumentException e => ((int)HttpStatusCode.BadRequest, e.Message),
+            DuplicateException e => ((int)HttpStatusCode.Conflict, e.Message),
+            OrderTransitionException e => ((int)HttpStatusCode.Conflict, e.Message),
+            ContactNumberNotFoundException e => ((int)HttpStatusCode.NotFound, e.Message),
+            OrderNotFoundException e => ((int)HttpStatusCode.NotFound, e.Message),
+            NotificationNotFoundException e => ((int)HttpStatusCode.NotFound, e.Message),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "The caller is not authenticated."),
+            SmsProviderException e when e.Kind == SmsProviderFailureKind.CallerRejected
+                => ((int)HttpStatusCode.BadRequest, e.Message),
+            SmsProviderException e when e.Kind == SmsProviderFailureKind.RateLimited
+                => ((int)HttpStatusCode.ServiceUnavailable, "Temporarily unavailable."),
+            SmsProviderException => ((int)HttpStatusCode.BadGateway, "Provider unavailable."),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = status,
+            Message = message
+        }.ToString());
     }
 }
