@@ -10,6 +10,16 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        var payPalSection = configuration.GetSection(PayPalSettings.CONFIG_NAME);
+        services.AddSingleton(new PayPalSettings
+        {
+            ClientId = payPalSection["ClientId"],
+            ClientSecret = payPalSection["ClientSecret"],
+            Environment = payPalSection["Environment"],
+            Currency = payPalSection["Currency"],
+            BaseUrl = payPalSection["BaseUrl"]
+        });
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
