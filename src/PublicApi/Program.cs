@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,8 +13,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +27,17 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Deployment supplies conventional environment variables; expose them under the exact
+// Twilio:* configuration keys consumed below. User-secrets can provide the same keys locally.
+var twilioEnvironment = new Dictionary<string, string?>
+{
+    ["Twilio:AccountSid"] = Environment.GetEnvironmentVariable("TWILIO_ACCOUNT_SID"),
+    ["Twilio:AuthToken"] = Environment.GetEnvironmentVariable("TWILIO_AUTH_TOKEN"),
+    ["Twilio:FromNumber"] = Environment.GetEnvironmentVariable("TWILIO_FROM_NUMBER"),
+    ["Twilio:MessagingServiceSid"] = Environment.GetEnvironmentVariable("TWILIO_MESSAGING_SERVICE_SID")
+};
+builder.Configuration.AddInMemoryCollection(twilioEnvironment.Where(x => !string.IsNullOrWhiteSpace(x.Value))!);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +58,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<TwilioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(TwilioOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.AccountSid), "Twilio:AccountSid is required")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.AuthToken), "Twilio:AuthToken is required")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.FromNumber), "Twilio:FromNumber is required")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.MessagingServiceSid), "Twilio:MessagingServiceSid is required")
+    .ValidateOnStart();
+builder.Services.AddSingleton<ITwilioGateway, TwilioGateway>();
+builder.Services.AddScoped<NotificationCoordinator>();
+builder.Services.AddHostedService<ScheduledMessageCancellationWorker>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,8 +107,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +182,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
