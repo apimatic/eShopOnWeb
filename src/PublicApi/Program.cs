@@ -6,11 +6,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -37,8 +39,32 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
 
+// PayPal settings: bound from the PayPal: configuration section. When the
+// PAYPAL_* environment variables are present they feed that section, so the
+// same build runs against any PayPal account without code changes.
+var paypalEnvOverrides = new Dictionary<string, string?>();
+void MapPayPalEnv(string envName, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrEmpty(value))
+    {
+        paypalEnvOverrides[configKey] = value;
+    }
+}
+MapPayPalEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+if (paypalEnvOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(paypalEnvOverrides);
+}
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME));
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
