@@ -45,6 +45,14 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Twilio SMS notifications. Settings bind from the "Twilio" configuration section
+// (user-secrets/environment); no credential values live in source.
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Messaging.TwilioSettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Messaging.TwilioSettings.SectionName));
+builder.Services.AddHttpClient<ISmsGateway, Microsoft.eShopWeb.Infrastructure.Messaging.TwilioSmsGateway>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<INotificationStatusService, NotificationStatusService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
