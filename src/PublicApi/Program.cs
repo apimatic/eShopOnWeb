@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME).Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<IPaymentGateway, PayPalPaymentGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +133,11 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+if (string.IsNullOrEmpty(payPalSettings.ClientId) || string.IsNullOrEmpty(payPalSettings.ClientSecret))
+{
+    app.Logger.LogWarning("PayPal credentials (PayPal:ClientId / PayPal:ClientSecret) are not configured; payment endpoints will fail until they are set via user-secrets or environment configuration.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
