@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Twilio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,15 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Order notifications by SMS (Twilio). Settings bind from the "Twilio" configuration
+// section (user-secrets / environment variables); no values are hard-coded.
+var twilioSettings = builder.Configuration.GetSection(TwilioSettings.CONFIG_NAME).Get<TwilioSettings>() ?? new TwilioSettings();
+builder.Services.AddSingleton(twilioSettings);
+builder.Services.AddSingleton(builder.Configuration.GetSection(NotificationSettings.CONFIG_NAME).Get<NotificationSettings>() ?? new NotificationSettings());
+builder.Services.AddHttpClient<IMessageProvider, TwilioMessageProvider>();
+builder.Services.AddHttpClient<IPhoneNumberLookupService, TwilioPhoneNumberLookupService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
