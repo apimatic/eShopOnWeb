@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +52,35 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromItemsAsync(string buyerId, Address shippingAddress,
+        IReadOnlyDictionary<int, int> itemQuantities, CancellationToken ct = default)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+        if (itemQuantities.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException("An order must contain at least one item.");
+        }
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(itemQuantities.Keys.ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification, ct);
+
+        var missingIds = itemQuantities.Keys.Except(catalogItems.Select(c => c.Id)).ToList();
+        if (missingIds.Count > 0)
+        {
+            throw new Exceptions.NotFoundException($"Unknown catalog item id(s): {string.Join(", ", missingIds)}");
+        }
+
+        var items = catalogItems.Select(catalogItem =>
+        {
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, itemQuantities[catalogItem.Id]);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, items);
+
+        return await _orderRepository.AddAsync(order, ct);
     }
 }
