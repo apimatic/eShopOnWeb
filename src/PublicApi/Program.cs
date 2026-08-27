@@ -32,6 +32,8 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigurePayPalServices(builder.Configuration, builder.Services);
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

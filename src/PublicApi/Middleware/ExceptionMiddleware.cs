@@ -41,6 +41,27 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentDomainException paymentDomainException)
+        {
+            context.Response.StatusCode = paymentDomainException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentDomainException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException paymentGatewayException)
+        {
+            // Carry a provider 4xx through; anything else is a provider-side failure.
+            context.Response.StatusCode = paymentGatewayException.ProviderStatusCode is >= 400 and < 500
+                ? paymentGatewayException.ProviderStatusCode.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentGatewayException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

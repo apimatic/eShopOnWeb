@@ -22,6 +22,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,35 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AttachPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Returns the order to AwaitingPayment (e.g. its authorization died and the
+    /// shopper must pay again).
+    /// </summary>
+    public void ResetToAwaitingPayment()
+    {
+        Status = OrderStatus.AwaitingPayment;
     }
 }
