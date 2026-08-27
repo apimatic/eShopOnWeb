@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
-using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Billing;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -24,31 +26,34 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
+            if (ex is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+            {
+                throw;
+            }
             await HandleExceptionAsync(httpContext, ex);        
         }
     }
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, title, detail, code) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            BillingException billing => ((int)billing.StatusCode, "Subscription billing request failed", billing.SafeMessage, billing.Code),
+            DuplicateException duplicate => ((int)HttpStatusCode.Conflict, "Conflict", duplicate.Message, "duplicate"),
+            _ => ((int)HttpStatusCode.InternalServerError, "Unexpected server error", "An unexpected error occurred.", "unexpected_error")
+        };
+        context.Response.StatusCode = status;
+        var problem = new ProblemDetails
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            Status = status,
+            Title = title,
+            Detail = detail,
+            Instance = context.Request.Path
+        };
+        problem.Extensions["code"] = code;
+        problem.Extensions["traceId"] = context.TraceIdentifier;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
     }
 }

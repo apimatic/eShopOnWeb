@@ -215,6 +215,33 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity.Migrations
                     b.ToTable("AspNetUsers");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.SubscriptionEnrollment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .UseIdentityColumn();
+
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("datetimeoffset");
+                    b.Property<string>("CustomerReference").IsRequired().HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt").HasColumnType("datetimeoffset");
+                    b.Property<string>("LeaseOwner").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("LastFailureCode").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<int?>("MaxioCustomerId").HasColumnType("int");
+                    b.Property<int?>("MaxioSubscriptionId").HasColumnType("int");
+                    b.Property<string>("ProductHandle").IsRequired().HasMaxLength(255).HasColumnType("nvarchar(255)");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(32).HasColumnType("nvarchar(32)");
+                    b.Property<string>("SubscriptionReference").IsRequired().HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("datetimeoffset");
+                    b.Property<string>("UserId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+                    b.Property<int>("Version").IsConcurrencyToken().HasColumnType("int");
+
+                    b.HasKey("Id");
+                    b.HasIndex("SubscriptionReference").IsUnique();
+                    b.HasIndex("UserId", "ProductHandle").IsUnique();
+                    b.ToTable("SubscriptionEnrollments");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
