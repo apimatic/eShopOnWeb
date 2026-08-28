@@ -20,8 +20,10 @@ public class Order : BaseEntity, IAggregateRoot
     }
 
     public string BuyerId { get; private set; }
-    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.UtcNow;
     public Address ShipToAddress { get; private set; }
+    public OrderPaymentStatus PaymentStatus { get; private set; } = OrderPaymentStatus.AwaitingPayment;
+    public OrderFulfillmentStatus FulfillmentStatus { get; private set; } = OrderFulfillmentStatus.Pending;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,44 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (PaymentStatus != OrderPaymentStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"An order in payment state {PaymentStatus} cannot be authorized.");
+        }
+
+        PaymentStatus = OrderPaymentStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Canceled)
+        {
+            throw new InvalidOperationException("A canceled order cannot be fulfilled.");
+        }
+
+        PaymentStatus = OrderPaymentStatus.Captured;
+        FulfillmentStatus = OrderFulfillmentStatus.Fulfilled;
+    }
+
+    public void MarkCanceled(bool authorizationVoided)
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Fulfilled)
+        {
+            throw new InvalidOperationException("A fulfilled order cannot be canceled.");
+        }
+
+        FulfillmentStatus = OrderFulfillmentStatus.Canceled;
+        PaymentStatus = authorizationVoided ? OrderPaymentStatus.Voided : OrderPaymentStatus.Canceled;
+    }
+
+    public void MarkRefunded(decimal refundedAmount, decimal capturedAmount)
+    {
+        PaymentStatus = refundedAmount >= capturedAmount
+            ? OrderPaymentStatus.Refunded
+            : OrderPaymentStatus.PartiallyRefunded;
     }
 }

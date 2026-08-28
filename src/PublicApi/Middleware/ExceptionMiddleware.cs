@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
@@ -40,6 +41,25 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+        }
+        else if (exception is PaymentOperationException paymentException)
+        {
+            context.Response.StatusCode = paymentException.Kind switch
+            {
+                PaymentErrorKind.Validation => StatusCodes.Status400BadRequest,
+                PaymentErrorKind.NotFound => StatusCodes.Status404NotFound,
+                PaymentErrorKind.Conflict => StatusCodes.Status409Conflict,
+                PaymentErrorKind.ProcessorRejected => StatusCodes.Status422UnprocessableEntity,
+                PaymentErrorKind.PayerActionRequired => StatusCodes.Status422UnprocessableEntity,
+                PaymentErrorKind.ProcessorUnavailable => StatusCodes.Status503ServiceUnavailable,
+                _ => StatusCodes.Status500InternalServerError
+            };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                statusCode = context.Response.StatusCode,
+                code = paymentException.Code,
+                message = paymentException.Message
+            }));
         }
         else
         {
