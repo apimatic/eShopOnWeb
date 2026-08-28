@@ -18,11 +18,12 @@ public static class Dependencies
 
         if (useOnlyInMemoryDatabase)
         {
+            var databaseSuffix = configuration["InMemoryDatabaseName"] ?? string.Empty;
             services.AddDbContext<CatalogContext>(c =>
-               c.UseInMemoryDatabase("Catalog"));
+               c.UseInMemoryDatabase("Catalog" + databaseSuffix));
          
             services.AddDbContext<AppIdentityDbContext>(options =>
-                options.UseInMemoryDatabase("Identity"));
+                options.UseInMemoryDatabase("Identity" + databaseSuffix));
         }
         else
         {
