@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Http;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -14,14 +15,20 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +57,51 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var payPalSection = builder.Configuration.GetRequiredSection(PayPalSettings.SectionName);
+builder.Services.AddOptions<PayPalSettings>()
+    .Bind(payPalSection)
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => string.Equals(x.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be Sandbox for this application build.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.Currency) && x.Currency.Length == 3,
+        "PayPal:Currency must be a three-letter currency code.")
+    .Validate(x => string.IsNullOrWhiteSpace(x.BaseUrl) ||
+                   Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out _),
+        "PayPal:BaseUrl must be an absolute URI when supplied.");
+
+const string PAYPAL_HTTP_CLIENT = "PayPal";
+builder.Services.AddHttpClient(PAYPAL_HTTP_CLIENT, client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<PayPalSettings>>().Value;
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret,
+            Scope = null
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+        options.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(PAYPAL_HTTP_CLIENT);
+    return new PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<PaymentApplicationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +212,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
