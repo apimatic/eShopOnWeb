@@ -1,0 +1,7 @@
+<Project>
+  <!-- Vendored, generated SDK sources pin their package versions inline.
+       Stop the solution's central package management from applying to this tree. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
