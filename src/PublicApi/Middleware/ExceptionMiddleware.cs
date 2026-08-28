@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +41,38 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is ApiOperationException operationException)
+        {
+            context.Response.StatusCode = operationException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = operationException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalPayerActionRequiredException payerActionException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payerActionException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = payPalException.StatusCode is 400 or 404 or 422
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            var diagnostic = $"PayPal request failed ({payPalException.ErrorName})." +
+                (payPalException.Issues.Count > 0 ? $" Issues: {string.Join(", ", payPalException.Issues)}." : string.Empty) +
+                $" Debug ID: {payPalException.DebugId ?? "not supplied"}.";
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = diagnostic
             }.ToString());
         }
         else

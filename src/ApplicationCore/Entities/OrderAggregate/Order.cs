@@ -21,7 +21,10 @@ public class Order : BaseEntity, IAggregateRoot
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public Guid ExternalId { get; private set; } = Guid.NewGuid();
     public Address ShipToAddress { get; private set; }
+    public FulfilmentStatus FulfilmentStatus { get; private set; } = FulfilmentStatus.Pending;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +47,29 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public void InitializePayment(string currency)
+    {
+        if (Payment is not null) throw new InvalidOperationException("Payment has already been initialized.");
+        Payment = new OrderPayment(currency, decimal.Round(Total(), 2, MidpointRounding.AwayFromZero));
+    }
+
+    public void MarkFulfilled()
+    {
+        if (FulfilmentStatus != FulfilmentStatus.Pending) throw new InvalidOperationException("Only a pending order can be fulfilled.");
+        FulfilmentStatus = FulfilmentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfilmentStatus != FulfilmentStatus.Pending) throw new InvalidOperationException("Only a pending order can be cancelled.");
+        FulfilmentStatus = FulfilmentStatus.Cancelled;
+    }
+}
+
+public enum FulfilmentStatus
+{
+    Pending,
+    Fulfilled,
+    Cancelled
 }
