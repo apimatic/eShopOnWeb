@@ -22,6 +22,34 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderProgress Progress { get; private set; } = OrderProgress.Placed;
+
+    public bool MarkDispatched()
+    {
+        if (Progress == OrderProgress.Cancelled)
+        {
+            throw new InvalidOperationException("A cancelled order cannot be dispatched.");
+        }
+
+        if (Progress == OrderProgress.Dispatched)
+        {
+            return false;
+        }
+
+        Progress = OrderProgress.Dispatched;
+        return true;
+    }
+
+    public bool Cancel()
+    {
+        if (Progress == OrderProgress.Cancelled)
+        {
+            return false;
+        }
+
+        Progress = OrderProgress.Cancelled;
+        return true;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
