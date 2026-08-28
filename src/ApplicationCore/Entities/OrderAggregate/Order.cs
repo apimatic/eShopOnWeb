@@ -22,6 +22,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Created;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +46,18 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public void InitializePayment(string currency)
+    {
+        if (Payment != null) throw new InvalidOperationException("Payment has already been initialized.");
+        Payment = new OrderPayment(currency);
+        Status = OrderStatus.AwaitingPayment;
+    }
+
+    public void MarkAuthorized() => Status = OrderStatus.Authorized;
+    public void MarkAuthorizationExpired() => Status = OrderStatus.AuthorizationExpired;
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
+    public void MarkPartiallyRefunded() => Status = OrderStatus.PartiallyRefunded;
+    public void MarkRefunded() => Status = OrderStatus.Refunded;
 }

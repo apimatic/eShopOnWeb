@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +12,11 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        services.Configure<PayPalOptions>(configuration.GetSection(PayPalOptions.SectionName));
+        services.AddHttpClient("PayPal");
+        services.AddSingleton<PayPalAccessTokenProvider>();
+        services.AddTransient<IPayPalClient, PayPalClient>();
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {

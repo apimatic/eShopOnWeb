@@ -31,6 +31,20 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Normalize the deployment environment variable names into the strongly-bound PayPal section.
+// Existing PayPal:* configuration (including user-secrets and an optional BaseUrl) remains valid.
+var paypalEnvironmentValues = new Dictionary<string, string?>();
+void MapPayPalEnvironmentValue(string environmentName, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrWhiteSpace(value)) paypalEnvironmentValues[configurationKey] = value;
+}
+MapPayPalEnvironmentValue("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnvironmentValue("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnvironmentValue("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnvironmentValue("PAYPAL_CURRENCY", "PayPal:Currency");
+builder.Configuration.AddInMemoryCollection(paypalEnvironmentValues);
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()

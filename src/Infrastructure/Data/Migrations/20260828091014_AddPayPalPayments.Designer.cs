@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.eShopWeb.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(CatalogContext))]
-    partial class CatalogContextModelSnapshot : ModelSnapshot
+    [Migration("20260828091014_AddPayPalPayments")]
+    partial class AddPayPalPayments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -168,10 +171,9 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)")
-                        .HasDefaultValue("Created");
+                        .HasDefaultValue("Created")
+                        .HasColumnType("nvarchar(32)");
 
                     b.HasKey("Id");
 
@@ -252,11 +254,6 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.Property<decimal>("RefundedAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
 
                     b.Property<string>("VoidRequestId")
                         .IsRequired()
@@ -352,6 +349,8 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.HasIndex("ExternalReference")
                         .IsUnique();
 
+                    b.HasIndex("OrderPaymentId");
+
                     b.HasIndex("PayPalAuthorizationId")
                         .IsUnique()
                         .HasFilter("[PayPalAuthorizationId] IS NOT NULL");
@@ -359,10 +358,6 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.HasIndex("PayPalOrderId")
                         .IsUnique()
                         .HasFilter("[PayPalOrderId] IS NOT NULL");
-
-                    b.HasIndex("OrderPaymentId", "IsCurrent")
-                        .IsUnique()
-                        .HasFilter("[IsCurrent] = 1");
 
                     b.ToTable("PaymentAuthorizations", (string)null);
                 });
