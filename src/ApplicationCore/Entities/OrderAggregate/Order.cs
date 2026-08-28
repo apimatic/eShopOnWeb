@@ -22,6 +22,9 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public FulfilmentStatus FulfilmentStatus { get; private set; } = FulfilmentStatus.Unfulfilled;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +46,65 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void InitializePayment(string currency)
+    {
+        Payment ??= new OrderPayment(currency);
+    }
+
+    public void MarkAuthorized()
+    {
+        if (FulfilmentStatus != FulfilmentStatus.Unfulfilled)
+        {
+            throw new InvalidOperationException("Only an unfulfilled order can be authorized.");
+        }
+
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException("Only an authorized order can be fulfilled.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+        FulfilmentStatus = FulfilmentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfilmentStatus == FulfilmentStatus.Fulfilled)
+        {
+            throw new InvalidOperationException("A fulfilled order cannot be cancelled.");
+        }
+
+        Status = OrderStatus.Cancelled;
+        FulfilmentStatus = FulfilmentStatus.Cancelled;
+    }
+
+    public void RequireNewPayment()
+    {
+        if (FulfilmentStatus != FulfilmentStatus.Unfulfilled)
+        {
+            throw new InvalidOperationException("This order cannot accept another payment.");
+        }
+
+        Status = OrderStatus.AwaitingPayment;
+        Payment?.BeginNewAuthorizationAttempt();
+    }
+
+    public void UpdateRefundStatus(decimal completedRefundAmount)
+    {
+        if (Payment?.CapturedAmount is null || completedRefundAmount <= 0)
+        {
+            return;
+        }
+
+        Status = completedRefundAmount >= Payment.CapturedAmount.Value
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }
