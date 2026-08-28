@@ -10,18 +10,24 @@ public class Order : BaseEntity, IAggregateRoot
     #pragma warning disable CS8618 // Required by Entity Framework
     private Order() {}
 
-    public Order(string buyerId, Address shipToAddress, List<OrderItem> items)
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, bool awaitingPayment = false)
     {
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
 
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = awaitingPayment ? OrderStatus.AwaitingPayment : OrderStatus.Placed;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    public void MarkAuthorized() => Status = OrderStatus.Authorized;
+    public void MarkFulfilled() => Status = OrderStatus.Fulfilled;
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

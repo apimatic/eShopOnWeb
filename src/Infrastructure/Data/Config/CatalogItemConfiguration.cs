@@ -25,6 +25,10 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
 
+        // Preserve the nullable legacy schema represented by the existing EF 6 snapshot.
+        builder.Property(ci => ci.Description)
+            .IsRequired(false);
+
         builder.HasOne(ci => ci.CatalogBrand)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogBrandId);
