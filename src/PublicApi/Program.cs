@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.Configure<TwilioOptions>(builder.Configuration.GetSection(TwilioOptions.SectionName));
+builder.Services.AddSingleton<ITwilioMessagingClient, TwilioMessagingClient>();
+builder.Services.AddSingleton<NotificationIdempotencyLock>();
+builder.Services.AddScoped<OrderNotificationService>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Twilio:AccountSid"]) &&
+    !string.IsNullOrWhiteSpace(builder.Configuration["Twilio:AuthToken"]) &&
+    !string.IsNullOrWhiteSpace(builder.Configuration["Twilio:FromNumber"]) &&
+    !string.IsNullOrWhiteSpace(builder.Configuration["Twilio:MessagingServiceSid"]))
+{
+    builder.Services.AddHostedService<ScheduledMessageCancellationWorker>();
+}
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
