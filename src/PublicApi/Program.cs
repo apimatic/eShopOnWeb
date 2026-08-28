@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,8 +13,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +47,44 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddTransient<SingleProviderWriteHandler>();
+builder.Services.AddHttpClient("TwilioMessaging", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<SingleProviderWriteHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TwilioSettings>>().Value;
+    var options = new TwilioSdk.TwilioSdkClientOptions
+    {
+        Environment = TwilioSdk.Servers.ServerEnvironment.Production,
+        AccountSidAuthToken = new TwilioSdk.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = settings.AccountSid,
+            Password = settings.AuthToken
+        },
+        Retry = TwilioSdk.Core.Configuration.RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    if (!string.IsNullOrEmpty(settings.BaseUrl))
+        options.Server.Default.Production.BaseUrl = settings.BaseUrl;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TwilioMessaging");
+    return new TwilioSdk.TwilioSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<IMessageProvider, TwilioMessageProvider>();
+builder.Services.AddSingleton<ResendCoordinator>();
+builder.Services.AddScoped<CommerceNotificationService>();
+builder.Services.AddHostedService<ScheduledMessageCancellationWorker>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +201,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
