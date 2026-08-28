@@ -1,5 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net.Http;
 
 namespace PublicApiIntegrationTests;
@@ -8,6 +12,7 @@ namespace PublicApiIntegrationTests;
 public class ProgramTest
 {
     private static WebApplicationFactory<Program> _application = new();
+    public static FakeSmsProvider SmsProvider { get; private set; } = new();
 
     public static HttpClient NewClient
     {
@@ -20,7 +25,13 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
-        _application = new WebApplicationFactory<Program>();
+        SmsProvider = new FakeSmsProvider();
+        _application = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISmsProvider>();
+                services.AddSingleton<ISmsProvider>(SmsProvider);
+            }));
 
     }
 }

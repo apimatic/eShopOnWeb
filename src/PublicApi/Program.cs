@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +33,19 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+var twilioSection = builder.Configuration.GetSection(TwilioOptions.SectionName);
+builder.Services.Configure<TwilioOptions>(twilioSection);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ISmsProvider, TwilioSmsProvider>();
+builder.Services.AddScoped<OrderNotificationService>();
+if (!string.IsNullOrWhiteSpace(twilioSection[nameof(TwilioOptions.AccountSid)]) &&
+    !string.IsNullOrWhiteSpace(twilioSection[nameof(TwilioOptions.AuthToken)]) &&
+    !string.IsNullOrWhiteSpace(twilioSection[nameof(TwilioOptions.FromNumber)]) &&
+    !string.IsNullOrWhiteSpace(twilioSection[nameof(TwilioOptions.MessagingServiceSid)]))
+{
+    builder.Services.AddHostedService<ScheduledNotificationCancellationWorker>();
+}
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -160,6 +174,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
