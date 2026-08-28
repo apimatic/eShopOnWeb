@@ -10,18 +10,25 @@ public class Order : BaseEntity, IAggregateRoot
     #pragma warning disable CS8618 // Required by Entity Framework
     private Order() {}
 
-    public Order(string buyerId, Address shipToAddress, List<OrderItem> items)
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, string? paymentCurrency = null)
     {
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
 
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+
+        if (paymentCurrency is not null)
+        {
+            Payment = new OrderPayment(paymentCurrency, Total());
+        }
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public FulfillmentStatus FulfillmentStatus { get; private set; } = FulfillmentStatus.Pending;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +50,25 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (FulfillmentStatus != FulfillmentStatus.Pending)
+        {
+            throw new InvalidOperationException("Only a pending order can be fulfilled.");
+        }
+
+        FulfillmentStatus = FulfillmentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfillmentStatus != FulfillmentStatus.Pending)
+        {
+            throw new InvalidOperationException("Only a pending order can be cancelled.");
+        }
+
+        FulfillmentStatus = FulfillmentStatus.Cancelled;
     }
 }
