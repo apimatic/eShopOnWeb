@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,10 +16,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -30,6 +34,48 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+var payPalSection = builder.Configuration.GetRequiredSection(PayPalOptions.SectionName);
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(payPalSection)
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => string.Equals(x.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be Sandbox for this build.")
+    .Validate(x => x.Currency.Length == 3 && x.Currency.All(char.IsAsciiLetterUpper),
+        "PayPal:Currency must be a three-letter uppercase currency code.")
+    .ValidateOnStart();
+
+const string PAYPAL_HTTP_CLIENT = "PayPal";
+builder.Services.AddHttpClient(PAYPAL_HTTP_CLIENT, client => client.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<PayPalOptions>>().Value;
+    var options = new PayPalServerSdk.PayPalServerSdkClientOptions
+    {
+        Environment = PayPalServerSdk.Servers.ServerEnvironment.Sandbox,
+        Oauth2 = new PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials.OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret
+        },
+        Retry = PayPalServerSdk.Core.Configuration.RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(20)
+        }
+    };
+    if (!string.IsNullOrEmpty(settings.BaseUrl))
+        options.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(PAYPAL_HTTP_CLIENT);
+    return new PayPalServerSdk.PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddScoped<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<PaymentApplicationService>();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -160,6 +206,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

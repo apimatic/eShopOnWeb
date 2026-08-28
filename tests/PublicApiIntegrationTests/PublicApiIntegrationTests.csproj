@@ -20,6 +20,20 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- PayPalServerSdk 1.0.1 is compiled against the 10.0.8 Microsoft.Extensions stack.
+         Make these conflict winners explicit in the test host so WebApplicationFactory
+         does not select the net8 shared-framework assemblies and omit the SDK's runtime dependencies. -->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Http" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Options" VersionOverride="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" VersionOverride="10.0.8" />
+    <PackageReference Include="System.Net.Http.Json" VersionOverride="10.0.8" />
+    <PackageReference Include="System.Text.Json" VersionOverride="10.0.8" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
