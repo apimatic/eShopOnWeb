@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -43,11 +44,20 @@ public class ExceptionMiddleware
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = exception switch
+            {
+                RequestValidationException => (int)HttpStatusCode.BadRequest,
+                ResourceNotFoundException => (int)HttpStatusCode.NotFound,
+                ResourceConflictException => (int)HttpStatusCode.Conflict,
+                SmsProviderException => (int)HttpStatusCode.BadGateway,
+                _ => (int)HttpStatusCode.InternalServerError
+            };
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = exception is RequestValidationException or ResourceNotFoundException or ResourceConflictException or SmsProviderException
+                    ? exception.Message
+                    : "An unexpected error occurred."
             }.ToString());
         }
     }
