@@ -4,16 +4,20 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -32,7 +36,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is PaymentOperationException paymentException)
+        {
+            context.Response.StatusCode = paymentException.Kind switch
+            {
+                PaymentErrorKind.InvalidRequest => StatusCodes.Status400BadRequest,
+                PaymentErrorKind.NotFound => StatusCodes.Status404NotFound,
+                PaymentErrorKind.Conflict or PaymentErrorKind.ShopperActionRequired => StatusCodes.Status409Conflict,
+                PaymentErrorKind.PayPalUnavailable => StatusCodes.Status502BadGateway,
+                _ => StatusCodes.Status500InternalServerError
+            };
+            _logger.LogWarning(paymentException, "Payment operation failed with {Kind}; PayPal debug_id={DebugId}",
+                paymentException.Kind, paymentException.DebugId);
+            await context.Response.WriteAsync(new ErrorDetails
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -43,6 +65,7 @@ public class ExceptionMiddleware
         }
         else
         {
+            _logger.LogError(exception, "Unhandled PublicApi exception");
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
