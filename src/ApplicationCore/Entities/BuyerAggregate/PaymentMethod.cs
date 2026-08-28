@@ -2,7 +2,21 @@
 
 public class PaymentMethod : BaseEntity
 {
-    public string? Alias { get; private set; }
-    public string? CardId { get; private set; } // actual card data must be stored in a PCI compliant system, like Stripe
-    public string? Last4 { get; private set; }
+    private PaymentMethod() { }
+
+    public PaymentMethod(int buyerId, string cardId, string brand, string last4, string expiry)
+    {
+        BuyerId = buyerId;
+        CardId = cardId;
+        Brand = brand;
+        Last4 = last4;
+        Expiry = expiry;
+    }
+
+    public int BuyerId { get; private set; }
+    public Buyer Buyer { get; private set; } = null!;
+    public string CardId { get; private set; } = null!;
+    public string Brand { get; private set; } = null!;
+    public string Last4 { get; private set; } = null!;
+    public string Expiry { get; private set; } = null!;
 }
