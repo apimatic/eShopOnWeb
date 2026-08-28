@@ -16,6 +16,22 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(x => x.PayPalOrderId).HasMaxLength(64);
+        builder.Property(x => x.PaymentRequestId).IsRequired().HasMaxLength(32);
+        builder.HasIndex(x => x.PaymentRequestId).IsUnique();
+        builder.Property(x => x.AuthorizationId).HasMaxLength(64);
+        builder.Property(x => x.AuthorizationStatus).HasMaxLength(32);
+        builder.Property(x => x.CaptureId).HasMaxLength(64);
+        builder.Property(x => x.CaptureStatus).HasMaxLength(32);
+        builder.Property(x => x.Currency).HasMaxLength(3);
+        builder.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.NetProceeds).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.RefundedAmount).HasColumnType("decimal(18,2)");
+        builder.HasIndex(x => x.PayPalOrderId).IsUnique().HasFilter("[PayPalOrderId] IS NOT NULL");
+        builder.HasIndex(x => x.AuthorizationId).IsUnique().HasFilter("[AuthorizationId] IS NOT NULL");
+        builder.HasIndex(x => x.CaptureId).IsUnique().HasFilter("[CaptureId] IS NOT NULL");
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
