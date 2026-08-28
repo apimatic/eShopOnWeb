@@ -17,11 +17,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +46,58 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public Payment StartPayment(string currency)
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid while it is {Status}.");
+        }
+
+        Payment ??= new Payment(Total(), currency);
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Payment?.Status != PaymentStatus.Authorized)
+        {
+            throw new InvalidOperationException("The payment has not been authorized.");
+        }
+
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Payment?.Status != PaymentStatus.Captured)
+        {
+            throw new InvalidOperationException("The payment has not completed capture.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException("A fulfilled order cannot be cancelled; refund it instead.");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void ApplyRefundState()
+    {
+        if (Payment is null)
+        {
+            throw new InvalidOperationException("The order has no payment.");
+        }
+
+        Status = Payment.Status == PaymentStatus.Refunded
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }
