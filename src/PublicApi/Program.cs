@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,19 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var payPalEnvironmentKeys = new Dictionary<string, string>
+{
+    ["PAYPAL_CLIENT_ID"] = "PayPal:ClientId",
+    ["PAYPAL_CLIENT_SECRET"] = "PayPal:ClientSecret",
+    ["PAYPAL_ENVIRONMENT"] = "PayPal:Environment",
+    ["PAYPAL_CURRENCY"] = "PayPal:Currency"
+};
+foreach (var setting in payPalEnvironmentKeys)
+{
+    var value = Environment.GetEnvironmentVariable(setting.Key);
+    if (!string.IsNullOrWhiteSpace(value)) builder.Configuration[setting.Value] = value;
+}
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +59,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddHttpClient(PayPalClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(45));
+builder.Services.AddSingleton<IPayPalClient, PayPalClient>();
+builder.Services.AddSingleton<OrderOperationLock>();
+builder.Services.AddScoped<CommercePaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +180,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

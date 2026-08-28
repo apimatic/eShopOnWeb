@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.PublicApi.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -41,13 +43,41 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentApiException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                type = $"https://httpstatuses.com/{paymentException.StatusCode}",
+                title = paymentException.Code,
+                status = paymentException.StatusCode,
+                detail = paymentException.Message
+            });
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = payPalException.RequiresPayerAction
+                ? StatusCodes.Status422UnprocessableEntity
+                : (int)payPalException.StatusCode is >= 400 and < 500
+                    ? StatusCodes.Status422UnprocessableEntity
+                    : StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                type = $"https://httpstatuses.com/{context.Response.StatusCode}",
+                title = payPalException.RequiresPayerAction ? "PAYER_ACTION_REQUIRED" : "PAYPAL_REQUEST_FAILED",
+                status = context.Response.StatusCode,
+                detail = payPalException.Message,
+                payPalIssue = payPalException.Issue,
+                payPalDebugId = payPalException.DebugId
+            });
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected server error occurred."
             }.ToString());
         }
     }
