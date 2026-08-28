@@ -25,6 +25,10 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
 
+        // Preserve the existing nullable schema when using EF Core's nullable-reference conventions.
+        builder.Property(ci => ci.Description)
+            .IsRequired(false);
+
         builder.HasOne(ci => ci.CatalogBrand)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogBrandId);
