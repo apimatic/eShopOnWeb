@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,18 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// The deployment-facing environment variable names are deliberately mapped to the
+// configuration section consumed by the integration. Values remain in memory only.
+var payPalEnvironmentSettings = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY")
+}.Where(x => !string.IsNullOrWhiteSpace(x.Value))
+ .ToDictionary(x => x.Key, x => x.Value);
+builder.Configuration.AddInMemoryCollection(payPalEnvironmentSettings);
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +64,18 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => x.Currency?.Length == 3, "PayPal:Currency must be a three-letter ISO-4217 code.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.BaseUrl) ||
+        string.Equals(x.Environment, "sandbox", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(x.Environment, "live", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be sandbox or live when PayPal:BaseUrl is not set.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>();
+builder.Services.AddScoped<PaymentService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +186,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
