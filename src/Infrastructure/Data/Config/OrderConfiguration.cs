@@ -12,9 +12,28 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Property(o => o.PaymentReference).HasDefaultValueSql("NEWID()");
+        builder.HasIndex(o => o.PaymentReference).IsUnique();
+        builder.HasIndex(o => o.PayPalOrderId).IsUnique().HasFilter("[PayPalOrderId] IS NOT NULL");
+        builder.HasIndex(o => o.PayPalCaptureId).IsUnique().HasFilter("[PayPalCaptureId] IS NOT NULL");
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.PayPalAuthorizationStatus).HasMaxLength(32);
+        builder.Property(o => o.AuthorizationRequestId).HasMaxLength(36);
+        builder.Property(o => o.ReauthorizationRequestId).HasMaxLength(36);
+        builder.Property(o => o.CaptureRequestId).HasMaxLength(36);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureStatus).HasMaxLength(32);
+        builder.Property(o => o.VoidRequestId).HasMaxLength(36);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
@@ -41,5 +60,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetProceeds).HasColumnType("decimal(18,2)");
     }
 }

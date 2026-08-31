@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,24 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the deployment environment variable names into the required PayPal: configuration section.
+// User-secrets and standard PayPal__* configuration remain supported and take normal precedence.
+var payPalEnvironmentSettings = new Dictionary<string, string?>();
+void MapPayPalSetting(string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        payPalEnvironmentSettings[configurationKey] = value;
+    }
+}
+MapPayPalSetting("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalSetting("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalSetting("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalSetting("PAYPAL_CURRENCY", "PayPal:Currency");
+MapPayPalSetting("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+builder.Configuration.AddInMemoryCollection(payPalEnvironmentSettings);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +64,9 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>();
+builder.Services.AddScoped<PaymentApplicationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +183,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
