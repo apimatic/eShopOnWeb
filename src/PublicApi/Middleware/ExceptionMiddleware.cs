@@ -41,6 +41,17 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is VisaInvoiceProviderException providerException)
+        {
+            // A fault reaching or from the invoicing provider (bad gateway), as opposed to a
+            // legitimately refused transition, which the service already turns into a 409.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = providerException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

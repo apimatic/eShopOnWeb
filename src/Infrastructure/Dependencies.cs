@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Invoicing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +12,11 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        // Visa (CyberSource) invoicing integration. Credentials are supplied from the
+        // environment via user-secrets and bound here; BaseUrl comes from configuration.
+        services.Configure<VisaSettings>(configuration.GetSection(VisaSettings.CONFIG_SECTION));
+        services.AddSingleton<IVisaInvoiceGateway, VisaCyberSourceInvoiceGateway>();
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
