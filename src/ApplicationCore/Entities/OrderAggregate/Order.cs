@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,36 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new PaymentStateConflictException($"Order {Id} in state {Status} cannot be marked as payment authorized.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new PaymentStateConflictException($"Order {Id} in state {Status} cannot be fulfilled; it must be paid first.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new PaymentStateConflictException($"Order {Id} has already been fulfilled and cannot be cancelled; issue a refund instead.");
+        }
+        if (Status == OrderStatus.Cancelled)
+        {
+            return;
+        }
+        Status = OrderStatus.Cancelled;
     }
 }

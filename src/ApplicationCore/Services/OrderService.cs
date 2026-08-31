@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +52,35 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderFromItemsAsync(string buyerId, IReadOnlyList<OrderItemRequest> items, Address shipToAddress, CancellationToken ct = default)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+        Guard.Against.Null(shipToAddress, nameof(shipToAddress));
+        if (items.Count == 0)
+        {
+            throw new PaymentStateConflictException("An order must contain at least one item.");
+        }
+        foreach (var item in items)
+        {
+            Guard.Against.NegativeOrZero(item.Quantity, nameof(item.Quantity));
+        }
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(items.Select(i => i.CatalogItemId).ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification, ct);
+
+        var orderItems = items.Select(item =>
+        {
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == item.CatalogItemId)
+                ?? throw new ResourceNotFoundException($"Catalog item {item.CatalogItemId} was not found.");
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, item.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shipToAddress, orderItems);
+        await _orderRepository.AddAsync(order, ct);
+        return order;
     }
 }

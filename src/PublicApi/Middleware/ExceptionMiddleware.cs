@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (int)HttpStatusCode.Conflict,
+            ResourceNotFoundException => (int)HttpStatusCode.NotFound,
+            PaymentStateConflictException => (int)HttpStatusCode.Conflict,
+            PaymentDeclinedException => (int)HttpStatusCode.UnprocessableEntity,
+            PaymentGatewayException gatewayException =>
+                gatewayException.ProviderStatusCode is >= 400 and < 500
+                    ? gatewayException.ProviderStatusCode.Value
+                    : (int)HttpStatusCode.BadGateway,
+            _ => (int)HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
