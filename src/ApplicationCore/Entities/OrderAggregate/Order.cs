@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Guards;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,31 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        Guard.Against.InvalidOrderStatus(Status, OrderStatus.AwaitingPayment, nameof(MarkPaymentAuthorized));
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkCancelled()
+    {
+        Guard.Against.InvalidOrderStatus(Status, OrderStatus.AwaitingPayment, nameof(MarkCancelled), OrderStatus.PaymentAuthorized);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkFulfilled()
+    {
+        Guard.Against.InvalidOrderStatus(Status, OrderStatus.PaymentAuthorized, nameof(MarkFulfilled));
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkRefunded(bool inFull)
+    {
+        Guard.Against.InvalidOrderStatus(Status, OrderStatus.Fulfilled, nameof(MarkRefunded), OrderStatus.PartiallyRefunded);
+        Status = inFull ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
