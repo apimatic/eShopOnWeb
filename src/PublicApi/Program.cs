@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Notifications;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,18 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddTwilioNotifications(builder.Configuration);
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService>(sp => new OrderNotificationService(
+    sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.Order>>(),
+    sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate.OrderNotification>>(),
+    sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.ContactNumber>>(),
+    sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.CatalogItem>>(),
+    sp.GetRequiredService<INotificationGateway>(),
+    sp.GetRequiredService<IAppLogger<OrderNotificationService>>(),
+    sp.GetRequiredService<IUriComposer>(),
+    TimeSpan.FromDays(builder.Configuration.GetValue<int?>("Twilio:FollowUpDelayDays") ?? 3)));
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
