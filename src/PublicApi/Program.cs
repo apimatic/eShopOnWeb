@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,20 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// PAYPAL_* variables are deliberately mapped to the exact PayPal:* option keys.
+// Values remain in environment/user-secrets and never enter repository files.
+builder.Configuration.AddEnvironmentVariables();
+var payPalEnvironmentSettings = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY"),
+    ["PayPal:BaseUrl"] = Environment.GetEnvironmentVariable("PAYPAL_BASE_URL")
+};
+builder.Configuration.AddInMemoryCollection(
+    payPalEnvironmentSettings.Where(setting => !string.IsNullOrWhiteSpace(setting.Value))!);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +60,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ClientId), "PayPal:ClientId is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(options => options.Environment is not null &&
+        (options.Environment.Equals("sandbox", StringComparison.OrdinalIgnoreCase) ||
+         options.Environment.Equals("live", StringComparison.OrdinalIgnoreCase) ||
+         options.Environment.Equals("production", StringComparison.OrdinalIgnoreCase)),
+        "PayPal:Environment must be sandbox, live, or production.")
+    .Validate(options => options.Currency?.Length == 3, "PayPal:Currency must be a three-letter currency code.")
+    .Validate(options => string.IsNullOrWhiteSpace(options.BaseUrl) ||
+        Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _), "PayPal:BaseUrl must be an absolute URI when set.");
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<CommercePaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,8 +114,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +189,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

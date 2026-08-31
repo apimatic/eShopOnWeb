@@ -1,0 +1,19 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class PaymentRefundConfiguration : IEntityTypeConfiguration<PaymentRefund>
+{
+    public void Configure(EntityTypeBuilder<PaymentRefund> builder)
+    {
+        builder.HasIndex(r => r.PayPalRefundId).IsUnique();
+        builder.HasIndex(r => new { r.OrderPaymentId, r.IdempotencyKey }).IsUnique();
+        builder.Property(r => r.IdempotencyKey).HasMaxLength(100).IsRequired();
+        builder.Property(r => r.PayPalRefundId).HasMaxLength(64).IsRequired();
+        builder.Property(r => r.PayPalStatus).HasMaxLength(32).IsRequired();
+        builder.Property(r => r.Amount).HasColumnType("decimal(18,2)");
+        builder.Property(r => r.Currency).HasMaxLength(3).IsRequired();
+    }
+}
