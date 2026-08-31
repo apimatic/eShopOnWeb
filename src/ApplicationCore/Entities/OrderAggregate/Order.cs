@@ -22,6 +22,47 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+
+    public void MarkPaid()
+    {
+        if (Status != OrderStatus.PendingPayment)
+        {
+            throw new InvalidOperationException($"Only an order awaiting payment can be marked paid (current status: {Status}).");
+        }
+
+        Status = OrderStatus.AwaitingFulfilment;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.AwaitingFulfilment)
+        {
+            throw new InvalidOperationException($"Only a paid order can be fulfilled (current status: {Status}).");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException($"A fulfilled order cannot be cancelled; refund it instead (current status: {Status}).");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool refundedInFull)
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded))
+        {
+            throw new InvalidOperationException($"Only a fulfilled order can be refunded (current status: {Status}).");
+        }
+
+        Status = refundedInFull ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
