@@ -45,6 +45,10 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// PayPal payment gateway + order payment / saved card / reconciliation services.
+// Binds the PayPal: configuration section (credentials come from user-secrets / env vars).
+Microsoft.eShopWeb.Infrastructure.PayPal.Dependencies.ConfigurePayPalServices(builder.Configuration, builder.Services);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

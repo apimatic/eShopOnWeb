@@ -32,23 +32,48 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            case DuplicateException duplicationException:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                await WriteError(context, duplicationException.Message);
+                break;
+            case OrderNotFoundException orderNotFound:
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                await WriteError(context, orderNotFound.Message);
+                break;
+            case SavedPaymentMethodNotFoundException paymentMethodNotFound:
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                await WriteError(context, paymentMethodNotFound.Message);
+                break;
+            case PaymentStateException paymentState:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                await WriteError(context, paymentState.Message);
+                break;
+            case AuthorizationRenewalException renewal:
+                // Unprocessable here, but worded so an operator can act on it.
+                context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+                await WriteError(context, renewal.Message);
+                break;
+            case PaymentGatewayException gateway:
+                context.Response.StatusCode = gateway.IsDecline
+                    ? (int)HttpStatusCode.UnprocessableEntity
+                    : (int)HttpStatusCode.BadGateway;
+                await WriteError(context, gateway.Message);
+                break;
+            default:
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteError(context, exception.Message);
+                break;
         }
-        else
+    }
+
+    private static async Task WriteError(HttpContext context, string message)
+    {
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

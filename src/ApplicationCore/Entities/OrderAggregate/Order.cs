@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -17,11 +18,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +47,46 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AttachPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Payment is not null)
+        {
+            throw new PaymentStateException($"Order {Id} already has a payment.");
+        }
+        Payment = payment;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new PaymentStateException($"Order {Id} cannot be marked paid while {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new PaymentStateException($"Order {Id} cannot be fulfilled while {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new PaymentStateException($"Order {Id} is already fulfilled; refund it instead of cancelling.");
+        }
+        if (Status == OrderStatus.Cancelled)
+        {
+            return;
+        }
+        Status = OrderStatus.Cancelled;
     }
 }
