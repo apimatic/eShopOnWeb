@@ -25,6 +25,27 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Bridge the PAYPAL_* environment variables into the PayPal: configuration section.
+// Values are never written to any file in the repository; user-secrets provide the
+// same keys when the variables are absent (Development only).
+var payPalBridge = new Dictionary<string, string?>();
+void BridgePayPalSetting(string envVar, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalBridge[configKey] = value;
+    }
+}
+BridgePayPalSetting("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+BridgePayPalSetting("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+BridgePayPalSetting("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+BridgePayPalSetting("PAYPAL_CURRENCY", "PayPal:Currency");
+if (payPalBridge.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalBridge);
+}
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project

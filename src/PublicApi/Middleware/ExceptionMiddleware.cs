@@ -41,6 +41,47 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is OrderNotFoundException orderNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = orderNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentStateException or AuthorizationRenewalException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is PaymentDeclinedException paymentDeclinedException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentDeclinedException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException paymentGatewayException)
+        {
+            // A 4xx from PayPal means the request itself was rejected (e.g. invalid card);
+            // anything else is an upstream failure.
+            var processorStatus = paymentGatewayException.ProcessorStatusCode;
+            context.Response.StatusCode = processorStatus is >= 400 and < 500
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentGatewayException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
