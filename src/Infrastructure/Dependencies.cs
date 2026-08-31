@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +38,10 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        services.Configure<TwilioSettings>(configuration.GetSection(TwilioSettings.ConfigName));
+        services.AddHttpClient<TwilioClient>();
+        services.AddScoped<IMessageProvider>(sp => sp.GetRequiredService<TwilioClient>());
+        services.AddScoped<IPhoneNumberValidator>(sp => sp.GetRequiredService<TwilioClient>());
     }
 }
