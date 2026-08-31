@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,12 +15,18 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using TwilioSdk;
+using TwilioSdk.Core.Authentication.Basic;
+using TwilioSdk.Core.Configuration;
+using TwilioSdk.Servers;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -50,6 +57,52 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Twilio SMS notifications. Credentials come from the "Twilio" configuration section
+// (user-secrets / environment variables); missing credentials stop the app at startup.
+builder.Services.AddOptions<TwilioOptions>()
+    .Bind(builder.Configuration.GetSection(TwilioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+const string twilioHttpClientName = "Twilio";
+builder.Services.AddHttpClient(twilioHttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var twilioOptions = sp.GetRequiredService<IOptions<TwilioOptions>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(twilioHttpClientName);
+    var clientOptions = new TwilioSdkClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        AccountSidAuthToken = new BasicAuthCredentials
+        {
+            Username = twilioOptions.AccountSid,
+            Password = twilioOptions.AuthToken
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(twilioOptions.BaseUrl))
+    {
+        // Messaging-API host override only; Lookup keeps its own default host.
+        clientOptions.Server.Default.Production.BaseUrl = twilioOptions.BaseUrl;
+    }
+    return new TwilioSdkClient(httpClient, clientOptions);
+});
+builder.Services.AddScoped<TwilioMessagingService>();
+builder.Services.AddScoped<NotificationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
