@@ -1,0 +1,14 @@
+using System;
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class NotificationsCreatedBetweenSpecification : Specification<OrderNotification>
+{
+    public NotificationsCreatedBetweenSpecification(DateTimeOffset from, DateTimeOffset to)
+    {
+        Query.Where(n => n.CreatedOn >= from && n.CreatedOn <= to)
+            .OrderBy(n => n.Id);
+    }
+}
