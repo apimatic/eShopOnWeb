@@ -8,9 +8,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -44,6 +46,36 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Bridge the PAYPAL_* environment variables into the PayPal: configuration section
+// (values are never written to any file in this repository).
+var paypalBridge = new Dictionary<string, string?>();
+void BridgePayPalEnvVar(string envVar, string configKey)
+{
+    if (string.IsNullOrEmpty(builder.Configuration[configKey]))
+    {
+        var value = Environment.GetEnvironmentVariable(envVar);
+        if (!string.IsNullOrEmpty(value))
+        {
+            paypalBridge[configKey] = value;
+        }
+    }
+}
+BridgePayPalEnvVar("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+BridgePayPalEnvVar("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+BridgePayPalEnvVar("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+BridgePayPalEnvVar("PAYPAL_CURRENCY", "PayPal:Currency");
+if (paypalBridge.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(paypalBridge);
+}
+
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.Configure<PaymentSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.AddHttpClient<IPaymentGateway, PayPalGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

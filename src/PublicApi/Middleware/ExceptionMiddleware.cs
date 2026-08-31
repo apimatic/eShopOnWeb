@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,44 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is OrderNotFoundException or SavedCardNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is ArgumentException argumentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = argumentException.Message
+            }.ToString());
+        }
+        else if (exception is OrderStateException or PaymentException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = payPalException.StatusCode >= 400 && payPalException.StatusCode < 500
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payPalException.Message
             }.ToString());
         }
         else
