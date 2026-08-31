@@ -11,6 +11,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Invoicing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -44,6 +45,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Visa (CyberSource) invoicing integration. BaseUrl is bound from configuration and every provider
+// call is routed through it; the credentials come from user-secrets and are never written to a file.
+builder.Services.Configure<VisaSettings>(builder.Configuration.GetSection(VisaSettings.ConfigSection));
+builder.Services.AddScoped<IInvoiceProvider, CyberSourceInvoiceProvider>();
+builder.Services.AddScoped<IInvoicingService, InvoicingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -159,6 +166,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

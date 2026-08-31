@@ -20,6 +20,7 @@
     <PackageVersion Include="BlazorInputFile" Version="0.2.0" />
     <PackageVersion Include="Blazored.LocalStorage" Version="4.5.0" />
     <PackageVersion Include="BuildBundlerMinifier" Version="3.2.449" PrivateAssets="All" />
+    <PackageVersion Include="CyberSource.Rest.Client" Version="1.0.1" />
     <PackageVersion Include="FluentValidation" Version="11.9.0" />
     <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="$(AspNetVersion)" />
@@ -49,7 +50,10 @@
     <PackageVersion Include="System.Net.Http.Json" Version="$(SystemExtensionVersion)" />
     <PackageVersion Include="System.Security.Claims" Version="4.3.0" />
     <PackageVersion Include="System.Text.Json" Version="8.0.3" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="7.3.1" />
+    <!-- Aligned with Microsoft.IdentityModel.Tokens 8.14.0 pulled transitively by CyberSource.Authentication,
+         so the ASP.NET JWT bearer handler and the token family load a single consistent version. -->
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
