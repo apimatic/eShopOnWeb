@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<PayPalSettings>()
+    .Bind(builder.Configuration.GetSection(PayPalSettings.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => x.Environment.Equals("sandbox", StringComparison.OrdinalIgnoreCase) ||
+        x.Environment.Equals("live", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be sandbox or live.")
+    .Validate(x => x.Currency.Length == 3, "PayPal:Currency must be a three-letter currency code.")
+    .Validate(x => string.IsNullOrWhiteSpace(x.BaseUrl) ||
+        Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out _), "PayPal:BaseUrl must be an absolute URL.");
+builder.Services.AddHttpClient<IPayPalPaymentGateway, PayPalPaymentGateway>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddSingleton<PaymentOperationLock>();
+builder.Services.AddScoped<PaymentWorkflowService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +179,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

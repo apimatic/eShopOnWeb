@@ -17,11 +17,16 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        PaymentReference = Guid.NewGuid();
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public Guid PaymentReference { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+    public DateTimeOffset? FulfilledAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +49,58 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public void MarkAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be authorized from {Status}.");
+        }
+
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled(DateTimeOffset occurredAt)
+    {
+        if (Status == OrderStatus.Fulfilled) return;
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+        FulfilledAt = occurredAt;
+    }
+
+    public void MarkCancelled(DateTimeOffset occurredAt)
+    {
+        if (Status == OrderStatus.Cancelled) return;
+        if (Status is not (OrderStatus.AwaitingPayment or OrderStatus.Authorized))
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from {Status}.");
+        }
+
+        Status = OrderStatus.Cancelled;
+        CancelledAt = occurredAt;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded))
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be refunded from {Status}.");
+        }
+
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
+}
+
+public enum OrderStatus
+{
+    AwaitingPayment,
+    Authorized,
+    Fulfilled,
+    Cancelled,
+    PartiallyRefunded,
+    Refunded
 }
