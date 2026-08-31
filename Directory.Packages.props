@@ -8,6 +8,11 @@
     <VSCodeGeneratorVersion>8.0.0</VSCodeGeneratorVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="AsadAli.Checkout.Sdk" Version="1.0.0" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />
