@@ -45,6 +45,23 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddHttpContextAccessor();
+
+// PayPal integration. Settings bind from the "PayPal" section (PayPal:ClientId,
+// PayPal:ClientSecret, PayPal:Environment, PayPal:Currency, PayPal:BaseUrl), supplied
+// via user-secrets/environment - never hard-coded.
+builder.Services.AddOptions<Microsoft.eShopWeb.ApplicationCore.PayPalSettings>()
+    .Bind(builder.Configuration.GetSection(Microsoft.eShopWeb.ApplicationCore.PayPalSettings.SectionName))
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ClientId), "PayPal:ClientId is required (load it into user-secrets from the PAYPAL_CLIENT_ID environment variable).")
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ClientSecret), "PayPal:ClientSecret is required (load it into user-secrets from the PAYPAL_CLIENT_SECRET environment variable).")
+    .Validate(s => !string.IsNullOrWhiteSpace(s.Currency), "PayPal:Currency is required (load it into user-secrets from the PAYPAL_CURRENCY environment variable).")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<Microsoft.eShopWeb.Infrastructure.PayPal.PayPalHttpClient>();
+builder.Services.AddScoped<IPaymentGateway, Microsoft.eShopWeb.Infrastructure.PayPal.PayPalGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
