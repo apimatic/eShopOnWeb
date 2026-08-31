@@ -1,8 +1,32 @@
-﻿namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+using System;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
-public class PaymentMethod : BaseEntity
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+
+public class PaymentMethod : BaseEntity, IAggregateRoot
 {
-    public string? Alias { get; private set; }
-    public string? CardId { get; private set; } // actual card data must be stored in a PCI compliant system, like Stripe
-    public string? Last4 { get; private set; }
+    private PaymentMethod() { }
+    public PaymentMethod(string buyerId, string vaultId, string payPalCustomerId, string brand,
+        string last4, string expiry, string? cardholderName)
+    {
+        BuyerId = buyerId;
+        VaultId = vaultId;
+        PayPalCustomerId = payPalCustomerId;
+        Brand = brand;
+        Last4 = last4;
+        Expiry = expiry;
+        CardholderName = cardholderName;
+        CreatedAt = DateTimeOffset.UtcNow;
+        IsActive = true;
+    }
+    public string BuyerId { get; private set; } = string.Empty;
+    public string VaultId { get; private set; } = string.Empty;
+    public string PayPalCustomerId { get; private set; } = string.Empty;
+    public string Brand { get; private set; } = string.Empty;
+    public string Last4 { get; private set; } = string.Empty;
+    public string Expiry { get; private set; } = string.Empty;
+    public string? CardholderName { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public bool IsActive { get; private set; }
+    public void Deactivate() => IsActive = false;
 }

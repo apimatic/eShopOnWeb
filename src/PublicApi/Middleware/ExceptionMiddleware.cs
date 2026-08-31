@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +34,45 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is CommerceException commerceException)
+        {
+            context.Response.StatusCode = commerceException.Kind switch
+            {
+                CommerceErrorKind.Validation => StatusCodes.Status400BadRequest,
+                CommerceErrorKind.NotFound => StatusCodes.Status404NotFound,
+                CommerceErrorKind.Forbidden => StatusCodes.Status403Forbidden,
+                CommerceErrorKind.Conflict => StatusCodes.Status409Conflict,
+                _ => StatusCodes.Status502BadGateway
+            };
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = context.Response.StatusCode,
+                code = commerceException.Code,
+                message = commerceException.Message
+            });
+        }
+        else if (exception is PayPalChallengeRequiredException)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = context.Response.StatusCode,
+                code = "paypal_payer_action_required",
+                message = exception.Message
+            });
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = context.Response.StatusCode,
+                code = payPalException.Issue ?? "paypal_error",
+                message = payPalException.Message,
+                paypalDebugId = payPalException.DebugId
+            });
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
