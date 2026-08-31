@@ -32,23 +32,45 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = MapException(exception);
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (HttpStatusCode statusCode, string message) MapException(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+            case InvalidInvoiceOperationException:
+                // A conflicting request against the current state of the resource.
+                return (HttpStatusCode.Conflict, exception.Message);
+
+            case InvoiceNotFoundException:
+            case OrderNotFoundException:
+                return (HttpStatusCode.NotFound, exception.Message);
+
+            case InvoiceProviderException providerException:
+                // Translate a provider-side refusal into the caller's terms: a state refusal (4xx) is a
+                // conflict for the caller, a missing resource stays a 404, and a genuine provider fault
+                // surfaces as a bad gateway.
+                var status = providerException.ProviderStatusCode switch
+                {
+                    404 => HttpStatusCode.NotFound,
+                    >= 400 and < 500 => HttpStatusCode.Conflict,
+                    _ => HttpStatusCode.BadGateway
+                };
+                return (status, providerException.Message);
+
+            case ArgumentException:
+                return (HttpStatusCode.BadRequest, exception.Message);
+
+            default:
+                return (HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }

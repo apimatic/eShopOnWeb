@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -49,5 +50,32 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderAsync(string buyerId, IReadOnlyCollection<OrderLineRequest> lines, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(lines, nameof(lines));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+        if (lines.Count == 0)
+        {
+            throw new System.ArgumentException("An order must contain at least one line.", nameof(lines));
+        }
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(lines.Select(l => l.CatalogItemId).Distinct().ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var items = lines.Select(line =>
+        {
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == line.CatalogItemId)
+                ?? throw new System.ArgumentException($"Catalog item {line.CatalogItemId} does not exist.", nameof(lines));
+            Guard.Against.NegativeOrZero(line.Quantity, nameof(line.Quantity));
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, line.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, items);
+
+        return await _orderRepository.AddAsync(order);
     }
 }
