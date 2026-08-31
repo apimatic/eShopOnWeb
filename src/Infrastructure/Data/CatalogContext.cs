@@ -3,12 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
 
 namespace Microsoft.eShopWeb.Infrastructure.Data;
 
 public class CatalogContext : DbContext
 {
-    #pragma warning disable CS8618 // Required by Entity Framework
+#pragma warning disable CS8618 // Required by Entity Framework
     public CatalogContext(DbContextOptions<CatalogContext> options) : base(options) {}
 
     public DbSet<Basket> Baskets { get; set; }
@@ -18,6 +19,8 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<Payment> Payments { get; set; }
+    public DbSet<SavedPaymentMethod> SavedPaymentMethods { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
