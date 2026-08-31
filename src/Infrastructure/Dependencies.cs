@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.Infrastructure.Payments.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +39,13 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        services.Configure<PayPalSettings>(configuration.GetSection(PayPalSettings.SectionName));
+        services.AddHttpClient<PayPalClient>((sp, client) =>
+        {
+            var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>().Value;
+            client.BaseAddress = new System.Uri(settings.ResolveBaseUrl());
+        });
+        services.AddScoped<IPaymentGateway, PayPalPaymentGateway>();
     }
 }

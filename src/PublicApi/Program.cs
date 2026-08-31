@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -85,6 +87,17 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Map the PAYPAL_* environment variables onto the PayPal: configuration section.
+// Values are never stored in the repository; user-secrets or the environment supply them.
+var paypalEnvMappings = new Dictionary<string, string?>
+{
+    [$"{PayPalSettings.SectionName}:ClientId"] = builder.Configuration["PAYPAL_CLIENT_ID"],
+    [$"{PayPalSettings.SectionName}:ClientSecret"] = builder.Configuration["PAYPAL_CLIENT_SECRET"],
+    [$"{PayPalSettings.SectionName}:Environment"] = builder.Configuration["PAYPAL_ENVIRONMENT"],
+    [$"{PayPalSettings.SectionName}:Currency"] = builder.Configuration["PAYPAL_CURRENCY"],
+};
+builder.Configuration.AddInMemoryCollection(paypalEnvMappings.Where(kv => kv.Value is not null));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +138,17 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var payPalSettings = app.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>() ?? new PayPalSettings();
+if (string.IsNullOrEmpty(payPalSettings.ClientId) || string.IsNullOrEmpty(payPalSettings.ClientSecret))
+{
+    app.Logger.LogWarning("PayPal credentials are not configured. Set the PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET environment variables or the PayPal:ClientId/PayPal:ClientSecret user-secrets.");
+}
+else
+{
+    app.Logger.LogInformation("PayPal integration configured for environment {Environment} (base {BaseUrl}, currency {Currency}).",
+        payPalSettings.Environment, payPalSettings.ResolveBaseUrl(), payPalSettings.Currency);
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
