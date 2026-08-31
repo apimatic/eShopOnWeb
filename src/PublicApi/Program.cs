@@ -11,6 +11,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Invoicing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -29,6 +30,11 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Visa/CyberSource billing credentials are loaded from user-secrets (never from a repo file).
+// Load them explicitly so they resolve in any environment, not only Development.
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +50,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+
+// Customer invoicing via Visa/CyberSource.
+builder.Services.AddVisaInvoicing(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
