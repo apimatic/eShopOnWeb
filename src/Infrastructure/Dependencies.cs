@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Invoicing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +13,8 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        ConfigureInvoicingServices(configuration, services);
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
@@ -36,5 +41,18 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    /// <summary>
+    /// Registers the Visa (CyberSource) invoicing integration: the <c>Visa</c> configuration section,
+    /// the provider that talks to Visa, and the application services that orchestrate billing.
+    /// </summary>
+    private static void ConfigureInvoicingServices(IConfiguration configuration, IServiceCollection services)
+    {
+        services.Configure<VisaSettings>(configuration.GetSection(VisaSettings.SectionName));
+
+        services.AddScoped<IInvoiceProvider, VisaInvoiceProvider>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IOrderPlacementService, OrderPlacementService>();
     }
 }

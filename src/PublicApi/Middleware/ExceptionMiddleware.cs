@@ -41,6 +41,36 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is InvoiceStateConflictException stateConflictException)
+        {
+            // The provider legitimately refused a transition given the bill's state. This is an
+            // expected outcome, surfaced to the caller as a conflict rather than a server error.
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = stateConflictException.Message
+            }.ToString());
+        }
+        else if (exception is InvoiceNotFoundAtProviderException notFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notFoundException.Message
+            }.ToString());
+        }
+        else if (exception is InvoiceProviderException providerException)
+        {
+            // The provider could not be reached or failed unexpectedly.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = providerException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
