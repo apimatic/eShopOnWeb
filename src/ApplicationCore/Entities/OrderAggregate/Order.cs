@@ -22,6 +22,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +44,41 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.PendingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be marked as paid while in state {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled while in state {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been fulfilled and cannot be cancelled; refund it instead.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded))
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be refunded while in state {Status}.");
+        }
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
     }
 }

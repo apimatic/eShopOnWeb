@@ -85,6 +85,23 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Map the PAYPAL_* environment variables into the PayPal: configuration section.
+// Values come from the environment (or user-secrets) only - never from this repository.
+var payPalConfig = new Dictionary<string, string?>();
+void MapPayPalEnvVar(string envVar, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        payPalConfig[configKey] = value;
+    }
+}
+MapPayPalEnvVar("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnvVar("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnvVar("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnvVar("PAYPAL_CURRENCY", "PayPal:Currency");
+builder.Configuration.AddInMemoryCollection(payPalConfig);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +177,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
