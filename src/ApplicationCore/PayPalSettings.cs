@@ -1,0 +1,55 @@
+using System;
+
+namespace Microsoft.eShopWeb.ApplicationCore;
+
+/// <summary>
+/// Settings bound from the "PayPal" configuration section. Values are supplied
+/// via environment variables / user-secrets (PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET,
+/// PAYPAL_ENVIRONMENT, PAYPAL_CURRENCY) and are never hard-coded or committed.
+/// </summary>
+public class PayPalSettings
+{
+    public const string CONFIG_NAME = "PayPal";
+
+    public string ClientId { get; set; } = string.Empty;
+    public string ClientSecret { get; set; } = string.Empty;
+    public string Environment { get; set; } = string.Empty;
+    public string Currency { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional override. When set, it is used verbatim as the API base address for
+    /// every PayPal call (including the OAuth token request).
+    /// </summary>
+    public string? BaseUrl { get; set; }
+
+    public string ApiBaseUrl
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(BaseUrl))
+            {
+                return BaseUrl.TrimEnd('/');
+            }
+
+            return string.Equals(Environment, "live", StringComparison.OrdinalIgnoreCase)
+                ? "https://api-m.paypal.com"
+                : "https://api-m.sandbox.paypal.com";
+        }
+    }
+
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(ClientId) || string.IsNullOrWhiteSpace(ClientSecret))
+        {
+            throw new InvalidOperationException(
+                "PayPal credentials are not configured. Set PayPal:ClientId and PayPal:ClientSecret " +
+                "(environment variables PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET or user-secrets).");
+        }
+
+        if (string.IsNullOrWhiteSpace(Currency))
+        {
+            throw new InvalidOperationException(
+                "PayPal currency is not configured. Set PayPal:Currency (environment variable PAYPAL_CURRENCY or user-secrets).");
+        }
+    }
+}

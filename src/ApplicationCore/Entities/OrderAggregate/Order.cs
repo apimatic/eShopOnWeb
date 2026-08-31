@@ -22,6 +22,29 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status), s => s == OrderStatus.PendingPayment,
+            "Only an order awaiting payment can be marked as authorized.");
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status), s => s == OrderStatus.PaymentAuthorized,
+            "Only an order with an authorized payment can be fulfilled.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        Guard.Against.InvalidInput(Status, nameof(Status),
+            s => s == OrderStatus.PendingPayment || s == OrderStatus.PaymentAuthorized,
+            "Only an unfulfilled order can be cancelled.");
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

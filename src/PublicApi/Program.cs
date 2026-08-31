@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -44,6 +47,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Map the PAYPAL_* environment variables onto the PayPal: configuration section
+// (values can also be supplied via .NET user-secrets; neither is ever committed).
+var payPalEnvMappings = new Dictionary<string, string?>
+{
+    [$"{PayPalSettings.CONFIG_NAME}:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    [$"{PayPalSettings.CONFIG_NAME}:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    [$"{PayPalSettings.CONFIG_NAME}:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    [$"{PayPalSettings.CONFIG_NAME}:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY"),
+};
+builder.Configuration.AddInMemoryCollection(
+    payPalEnvMappings.Where(kv => !string.IsNullOrEmpty(kv.Value)));
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME));
+builder.Services.AddHttpClient(PayPalPaymentGateway.HttpClientName);
+builder.Services.AddSingleton<IPaymentGateway, PayPalPaymentGateway>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
