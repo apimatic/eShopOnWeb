@@ -22,6 +22,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public FulfilmentState FulfilmentState { get; private set; } = FulfilmentState.Pending;
+    public PaymentRecord? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,25 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void RequirePayment(string currency)
+    {
+        if (Payment is not null)
+        {
+            throw new InvalidOperationException("Payment has already been initialized for this order.");
+        }
+
+        Payment = new PaymentRecord(Total(), currency);
+    }
+
+    public void MarkFulfilled()
+    {
+        FulfilmentState = FulfilmentState.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        FulfilmentState = FulfilmentState.Cancelled;
     }
 }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +16,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,8 +25,22 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var payPalEnvironmentMappings = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = builder.Configuration["PAYPAL_CLIENT_ID"],
+    ["PayPal:ClientSecret"] = builder.Configuration["PAYPAL_CLIENT_SECRET"],
+    ["PayPal:Environment"] = builder.Configuration["PAYPAL_ENVIRONMENT"],
+    ["PayPal:Currency"] = builder.Configuration["PAYPAL_CURRENCY"],
+    ["PayPal:BaseUrl"] = builder.Configuration["PAYPAL_BASE_URL"]
+};
+builder.Configuration.AddInMemoryCollection(payPalEnvironmentMappings
+    .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))!);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +61,48 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(PayPalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(o => string.Equals(o.Environment, "sandbox", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be sandbox for this build.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<PayPalCallContext>();
+builder.Services.AddTransient<PayPalTelemetryHandler>();
+builder.Services.AddHttpClient("PayPal", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<PayPalTelemetryHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var configured = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalOptions>>().Value;
+    var options = new PayPalServerSdk.PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = configured.ClientId,
+            ClientSecret = configured.ClientSecret
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(configured.BaseUrl))
+    {
+        options.Server.Default.Sandbox.BaseUrl = configured.BaseUrl;
+    }
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    return new PayPalServerSdk.PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<IPayPalGateway, PayPalGateway>();
+builder.Services.AddSingleton<OrderOperationLock>();
+builder.Services.AddScoped<CommerceService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +219,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
