@@ -34,6 +34,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>     
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <!-- Unify Microsoft.Extensions.* with the Twilio SDK's 10.x closure (CS1705) -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="wwwroot\fonts\" />
