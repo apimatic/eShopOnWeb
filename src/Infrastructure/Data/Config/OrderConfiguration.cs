@@ -12,6 +12,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
@@ -41,5 +44,28 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Currency).HasMaxLength(3);
+        builder.Property(o => o.AuthorizedAmount).HasPrecision(18, 2);
+        builder.Property(o => o.CapturedAmount).HasPrecision(18, 2);
+        builder.Property(o => o.PayPalFee).HasPrecision(18, 2);
+        builder.Property(o => o.NetProceeds).HasPrecision(18, 2);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalOrderStatus).HasMaxLength(32);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(32);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CaptureStatus).HasMaxLength(32);
+        builder.Property(o => o.CreatePaymentRequestId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizeRequestId).HasMaxLength(64);
+        builder.Property(o => o.CaptureRequestId).HasMaxLength(64);
+        builder.Property(o => o.VoidRequestId).HasMaxLength(64);
+        builder.Property(o => o.ReauthorizeRequestId).HasMaxLength(64);
+        builder.Property(o => o.RowVersion).IsRowVersion();
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

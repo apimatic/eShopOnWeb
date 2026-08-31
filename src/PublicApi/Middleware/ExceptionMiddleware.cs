@@ -4,16 +4,20 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -32,7 +36,20 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is PaymentApiException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            _logger.LogWarning("Payment request failed with status {StatusCode}; PayPal debug id {DebugId}",
+                paymentException.StatusCode, paymentException.ProviderDebugId);
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = context.Response.StatusCode,
+                message = paymentException.Message,
+                providerDebugId = paymentException.ProviderDebugId,
+                outcomeUnknown = paymentException.OutcomeUnknown
+            });
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -43,11 +60,12 @@ public class ExceptionMiddleware
         }
         else
         {
+            _logger.LogError("Unhandled request exception of type {ExceptionType}", exception.GetType().FullName);
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected server error occurred."
             }.ToString());
         }
     }

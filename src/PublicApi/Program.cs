@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +50,44 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .ValidateDataAnnotations();
+builder.Services.AddSingleton<OrderOperationLock>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddHttpClient("PayPal", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalOptions>>().Value;
+    if (!string.Equals(settings.Environment, "sandbox", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("PayPal:Environment must be sandbox for this build.");
+    if (string.IsNullOrWhiteSpace(settings.ClientId) || string.IsNullOrWhiteSpace(settings.ClientSecret)
+        || string.IsNullOrWhiteSpace(settings.Currency))
+        throw new InvalidOperationException("PayPal credentials and currency are not configured.");
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        },
+        Logging = new LoggingOptions()
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl)) options.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    return new PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<IPayPalGateway, PayPalGateway>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -173,6 +217,7 @@ app.UseSwaggerUI(c =>
 });
 
 app.MapControllers();
+app.MapPaymentEndpoints();
 app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
