@@ -32,23 +32,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => HttpStatusCode.Conflict,
+            OrderNotFoundException => HttpStatusCode.NotFound,
+            InvoiceNotFoundException => HttpStatusCode.NotFound,
+            InvoiceAccessDeniedException => HttpStatusCode.Forbidden,
+            // A refusal driven by the state the bill is in (e.g. correcting an issued/withdrawn bill).
+            InvoiceStateException => HttpStatusCode.Conflict,
+            // The provider could not be reached or errored unexpectedly.
+            InvoicingProviderException => HttpStatusCode.BadGateway,
+            // Invalid input surfaced from the domain (e.g. unknown catalog item, empty order).
+            ArgumentException => HttpStatusCode.BadRequest,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
