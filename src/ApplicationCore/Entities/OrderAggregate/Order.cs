@@ -17,11 +17,16 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public DateTimeOffset? FulfilledAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +49,49 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public OrderPayment StartPayment(string currency)
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+            throw new InvalidOperationException("This order is not awaiting payment.");
+
+        Payment ??= new OrderPayment(Id, Total(), currency);
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Status == OrderStatus.AwaitingPayment)
+            Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled(DateTimeOffset fulfilledAt)
+    {
+        if (Status == OrderStatus.Fulfilled)
+            return;
+        if (Status != OrderStatus.Authorized)
+            throw new InvalidOperationException("Only an authorized order can be fulfilled.");
+
+        Status = OrderStatus.Fulfilled;
+        FulfilledAt = fulfilledAt;
+    }
+
+    public void MarkCancelled(DateTimeOffset cancelledAt)
+    {
+        if (Status == OrderStatus.Cancelled)
+            return;
+        if (Status == OrderStatus.Fulfilled)
+            throw new InvalidOperationException("A fulfilled order cannot be cancelled; refund it instead.");
+
+        Status = OrderStatus.Cancelled;
+        CancelledAt = cancelledAt;
+    }
+}
+
+public enum OrderStatus
+{
+    AwaitingPayment,
+    Authorized,
+    Fulfilled,
+    Cancelled
 }

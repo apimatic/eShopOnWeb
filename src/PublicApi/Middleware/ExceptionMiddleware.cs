@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using System.Text.Json;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -41,13 +43,23 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentApiException apiException)
+        {
+            context.Response.StatusCode = apiException.StatusCode;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                status = apiException.StatusCode,
+                code = apiException.Code,
+                message = apiException.Message
+            }));
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }
