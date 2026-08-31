@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -23,16 +24,9 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
-    // DDD Patterns comment
-    // Using a private collection field, better for DDD Aggregate's encapsulation
-    // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
-    // but only through the method Order.AddOrderItem() which includes behavior.
-    private readonly List<OrderItem> _orderItems = new List<OrderItem>();
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
-    // Using List<>.AsReadOnly() 
-    // This will create a read only wrapper around the private list so is protected against "external updates".
-    // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
+    private readonly List<OrderItem> _orderItems = new List<OrderItem>();
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public decimal Total()
@@ -43,5 +37,44 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new PaymentDomainException($"Order {Id} cannot be marked as paid while in status {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new PaymentDomainException($"Order {Id} cannot be fulfilled while in status {Status}; it must be paid first.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new PaymentDomainException($"Order {Id} has already been fulfilled; issue a refund instead of cancelling.");
+        }
+        if (Status != OrderStatus.Cancelled)
+        {
+            Status = OrderStatus.Cancelled;
+        }
+    }
+
+    public void MarkRefunded(bool partial)
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded))
+        {
+            throw new PaymentDomainException($"Order {Id} cannot be refunded while in status {Status}; it must be fulfilled first.");
+        }
+        Status = partial ? OrderStatus.PartiallyRefunded : OrderStatus.Refunded;
     }
 }

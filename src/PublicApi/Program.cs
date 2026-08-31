@@ -85,6 +85,47 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// PayPal: bind the "PayPal" section (user-secrets in Development). Fall back to the
+// PAYPAL_* environment variables only for keys no other source provides, so credentials
+// never have to be written into any file in this repository.
+var paypalEnvFallback = new Dictionary<string, string?>();
+foreach (var (envVar, configKey) in new[]
+{
+    ("PAYPAL_CLIENT_ID", "PayPal:ClientId"),
+    ("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret"),
+    ("PAYPAL_ENVIRONMENT", "PayPal:Environment"),
+    ("PAYPAL_CURRENCY", "PayPal:Currency"),
+})
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value) && string.IsNullOrEmpty(builder.Configuration[configKey]))
+    {
+        paypalEnvFallback[configKey] = value;
+    }
+}
+builder.Configuration.AddInMemoryCollection(paypalEnvFallback);
+
+var payPalSettings = builder.Configuration
+    .GetSection(Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings.SectionName)
+    .Get<Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings>()
+    ?? new Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<Microsoft.eShopWeb.ApplicationCore.Interfaces.IPayPalClient,
+    Microsoft.eShopWeb.Infrastructure.PayPal.PayPalClient>();
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Interfaces.IPaymentService,
+    Microsoft.eShopWeb.ApplicationCore.Services.PaymentService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Interfaces.ISavedCardService,
+    Microsoft.eShopWeb.ApplicationCore.Services.SavedCardService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Interfaces.IReconciliationService,
+    Microsoft.eShopWeb.ApplicationCore.Services.ReconciliationService>();
+
+if (string.IsNullOrEmpty(payPalSettings.ClientId) || string.IsNullOrEmpty(payPalSettings.ClientSecret))
+{
+    builder.Logging.AddConsole();
+    Console.WriteLine("WARNING: PayPal credentials are not configured; payment endpoints will fail until " +
+        "PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are set.");
+}
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
