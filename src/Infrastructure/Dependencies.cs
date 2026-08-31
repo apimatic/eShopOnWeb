@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +39,15 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    /// <summary>
+    /// Registers the PayPal settings (bound from the "PayPal" configuration section)
+    /// and the typed HTTP client for the PayPal REST APIs.
+    /// </summary>
+    public static void ConfigurePayPalServices(IConfiguration configuration, IServiceCollection services)
+    {
+        services.Configure<PayPalSettings>(configuration.GetSection(PayPalSettings.SectionName));
+        services.AddHttpClient<IPayPalClient, PayPalClient>();
     }
 }
