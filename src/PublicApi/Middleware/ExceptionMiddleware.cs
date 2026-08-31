@@ -41,6 +41,33 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is NotificationConflictException notificationConflictException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = notificationConflictException.Message
+            }.ToString());
+        }
+        else if (exception is MessagingProviderException messagingProviderException)
+        {
+            // One ladder for provider failures: our credentials/quota faults are not the
+            // caller's to fix (5xx); other provider 4xx are handed back so the caller can act.
+            // Messages on MessagingProviderException are caller-safe by construction.
+            context.Response.StatusCode = (int?)messagingProviderException.StatusCode switch
+            {
+                401 or 403 => (int)HttpStatusCode.BadGateway,
+                429 => (int)HttpStatusCode.ServiceUnavailable,
+                >= 400 and < 500 => (int)messagingProviderException.StatusCode!.Value,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = messagingProviderException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
