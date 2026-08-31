@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -39,6 +39,45 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is EntityNotFoundException EntityNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = EntityNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentConflictException conflictException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = conflictException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentDeclinedException or PayerActionRequiredException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is PaymentGatewayException gatewayException)
+        {
+            // A provider rejection is caller-actionable; a transport/unknown failure is an outage.
+            context.Response.StatusCode = gatewayException.IsProviderRejection
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = gatewayException.Message
             }.ToString());
         }
         else

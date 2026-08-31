@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -29,6 +31,19 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Map the flat PAYPAL_* environment variables onto the PayPal: configuration section
+// (values may also come from user-secrets under the same PayPal: keys).
+var payPalEnvMap = new Dictionary<string, string?>
+{
+    [$"{PayPalSettings.SectionName}:ClientId"] = builder.Configuration["PAYPAL_CLIENT_ID"],
+    [$"{PayPalSettings.SectionName}:ClientSecret"] = builder.Configuration["PAYPAL_CLIENT_SECRET"],
+    [$"{PayPalSettings.SectionName}:Environment"] = builder.Configuration["PAYPAL_ENVIRONMENT"],
+    [$"{PayPalSettings.SectionName}:Currency"] = builder.Configuration["PAYPAL_CURRENCY"],
+};
+builder.Configuration.AddInMemoryCollection(
+    payPalEnvMap.Where(kv => !string.IsNullOrEmpty(kv.Value)));
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +59,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddPayPalPayments(builder.Configuration);
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +181,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
