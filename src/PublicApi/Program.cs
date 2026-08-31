@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using CyberSourceMergedSpec;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -11,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Invoicing;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
@@ -85,6 +87,12 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Customer invoicing (Visa/CyberSource). The endpoints read the caller from the token via the
+// HttpContext accessor; AddVisaInvoicing wires the SDK client (routed through Visa:BaseUrl), the
+// provider adapter, and the invoicing/order-placement services.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddVisaInvoicing(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -123,6 +131,10 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// Construct the Visa client now so misconfigured/missing signing credentials fail at startup rather than
+// on the first invoicing request (the signature hook resolves its env vars once, at construction).
+app.Services.GetRequiredService<CyberSourceMergedSpecClient>();
 
 app.Logger.LogInformation("PublicApi App created...");
 

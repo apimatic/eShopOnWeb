@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="APIMatic.VisaCyberSource" />
     <PackageReference Include="Ardalis.ApiEndpoints" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="MinimalApi.Endpoint" />
