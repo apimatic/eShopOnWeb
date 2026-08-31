@@ -19,9 +19,18 @@ public class Order : BaseEntity, IAggregateRoot
         _orderItems = items;
     }
 
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, string currency)
+        : this(buyerId, shipToAddress, items)
+    {
+        Status = OrderStatus.AwaitingPayment;
+        Payment = new Payment(Total(), currency);
+    }
+
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+    public Payment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +52,34 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Status == OrderStatus.Authorized) return;
+        if (Status != OrderStatus.AwaitingPayment) throw new InvalidOperationException("Only an order awaiting payment can be authorized.");
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status == OrderStatus.Fulfilled) return;
+        if (Status != OrderStatus.Authorized) throw new InvalidOperationException("Only an authorized order can be fulfilled.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled) return;
+        if (Status is not (OrderStatus.AwaitingPayment or OrderStatus.Authorized))
+            throw new InvalidOperationException("Only an unfulfilled order can be cancelled.");
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(decimal totalRefunded)
+    {
+        if (Payment is null || Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded))
+            throw new InvalidOperationException("Only a fulfilled order can be refunded.");
+        Status = totalRefunded == Payment.CapturedAmount ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
     }
 }

@@ -41,6 +41,16 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentOperationException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                statusCode = paymentException.StatusCode,
+                code = paymentException.Code,
+                message = paymentException.Message
+            });
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

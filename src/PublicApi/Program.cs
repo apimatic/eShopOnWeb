@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,7 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddEnvironmentVariables();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +46,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(PayPalOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => x.Environment is not null && (x.Environment.Equals("Sandbox", StringComparison.OrdinalIgnoreCase) || x.Environment.Equals("Live", StringComparison.OrdinalIgnoreCase)), "PayPal:Environment must be Sandbox or Live.")
+    .Validate(x => x.Currency?.Length == 3, "PayPal:Currency must be a three-letter ISO-4217 code.")
+    .Validate(x => string.IsNullOrWhiteSpace(x.BaseUrl) || Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out _), "PayPal:BaseUrl must be an absolute URL.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IPayPalClient, PayPalHttpClient>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,8 +95,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +170,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
