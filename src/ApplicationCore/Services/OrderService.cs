@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,43 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderAsync(string buyerId, IReadOnlyCollection<OrderItemRequest> requestedItems, Address shipToAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(shipToAddress, nameof(shipToAddress));
+        if (requestedItems is null || requestedItems.Count == 0)
+        {
+            throw new EmptyOrderException();
+        }
+
+        foreach (var line in requestedItems)
+        {
+            Guard.Against.NegativeOrZero(line.CatalogItemId, nameof(line.CatalogItemId));
+            Guard.Against.NegativeOrZero(line.Quantity, nameof(line.Quantity));
+        }
+
+        var catalogItemIds = requestedItems.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItemsSpecification = new CatalogItemsSpecification(catalogItemIds);
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+
+        var missing = catalogItemIds.Where(id => catalogItems.All(c => c.Id != id)).ToArray();
+        if (missing.Length > 0)
+        {
+            throw new CatalogItemNotFoundException(missing);
+        }
+
+        var items = requestedItems.Select(line =>
+        {
+            var catalogItem = catalogItems.First(c => c.Id == line.CatalogItemId);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            // Unit price is taken from the catalog, never from the caller.
+            return new OrderItem(itemOrdered, catalogItem.Price, line.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shipToAddress, items);
+
+        return await _orderRepository.AddAsync(order);
     }
 }
