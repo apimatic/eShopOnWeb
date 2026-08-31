@@ -21,7 +21,11 @@ public class Order : BaseEntity, IAggregateRoot
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public string PaymentReference { get; private set; } = Guid.NewGuid().ToString("N");
     public Address ShipToAddress { get; private set; }
+    public PaymentStatus PaymentStatus { get; private set; } = PaymentStatus.AwaitingPayment;
+    public FulfillmentStatus FulfillmentStatus { get; private set; } = FulfillmentStatus.AwaitingPayment;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +47,42 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void RecordAuthorization(OrderPayment payment)
+    {
+        if (PaymentStatus != PaymentStatus.AwaitingPayment) throw new InvalidOperationException("Only an order awaiting payment can be authorized.");
+        Payment = payment;
+        PaymentStatus = PaymentStatus.Authorized;
+        FulfillmentStatus = FulfillmentStatus.AwaitingFulfillment;
+    }
+
+    public void RecordCapture(string captureId, string status, decimal amount, decimal? fee,
+        decimal? netAmount, DateTimeOffset capturedAt)
+    {
+        if (PaymentStatus != PaymentStatus.Authorized || Payment == null) throw new InvalidOperationException("The order does not have an authorization to capture.");
+        Payment.RecordCapture(captureId, status, amount, fee, netAmount, capturedAt);
+        PaymentStatus = PaymentStatus.Captured;
+        FulfillmentStatus = FulfillmentStatus.Fulfilled;
+    }
+
+    public void Cancel(string? authorizationStatus = null)
+    {
+        if (FulfillmentStatus == FulfillmentStatus.Fulfilled) throw new InvalidOperationException("A fulfilled order cannot be cancelled; refund it instead.");
+        if (Payment != null && authorizationStatus != null)
+        {
+            Payment.RecordVoid(authorizationStatus);
+            PaymentStatus = PaymentStatus.Voided;
+        }
+        FulfillmentStatus = FulfillmentStatus.Cancelled;
+    }
+
+    public PaymentRefund RecordRefund(string idempotencyKey, string refundId, string status,
+        decimal amount, DateTimeOffset createdAt)
+    {
+        if (Payment == null || PaymentStatus is not (PaymentStatus.Captured or PaymentStatus.PartiallyRefunded)) throw new InvalidOperationException("Only a captured payment can be refunded.");
+        var refund = Payment.RecordRefund(idempotencyKey, refundId, status, amount, createdAt);
+        PaymentStatus = Payment.RefundedAmount == Payment.CapturedAmount ? PaymentStatus.Refunded : PaymentStatus.PartiallyRefunded;
+        return refund;
     }
 }

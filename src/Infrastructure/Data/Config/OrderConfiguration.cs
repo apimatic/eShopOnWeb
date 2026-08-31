@@ -12,9 +12,19 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<OrderPayment>(p => p.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(o => o.PaymentStatus).HasConversion<string>().HasMaxLength(32).HasDefaultValue(PaymentStatus.AwaitingPayment);
+        builder.Property(o => o.FulfillmentStatus).HasConversion<string>().HasMaxLength(32).HasDefaultValue(FulfillmentStatus.AwaitingPayment);
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+        builder.Property(b => b.PaymentReference).HasMaxLength(32).IsRequired().HasDefaultValueSql("LOWER(REPLACE(CONVERT(varchar(36), NEWID()), '-', ''))");
+        builder.HasIndex(b => b.PaymentReference).IsUnique();
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
