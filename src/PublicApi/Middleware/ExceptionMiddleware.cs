@@ -32,23 +32,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            InvoiceNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            OrderNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            InvalidOrderRequestException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            InvoiceStateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // A provider outcome carries the status the caller should see (e.g. a refused transition).
+            InvoiceProviderException providerException => (providerException.SuggestedStatusCode, providerException.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
