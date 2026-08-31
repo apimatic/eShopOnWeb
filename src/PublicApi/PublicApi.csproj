@@ -29,6 +29,10 @@
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <!-- Keep the Microsoft.IdentityModel.* family unified on one version (see Directory.Packages.props). -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,6 +29,11 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Load the Visa credential values from user-secrets in every environment. Secrets are never stored
+// in the repository; they are loaded into user-secrets out-of-band from the VISA_* environment variables.
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -39,6 +44,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+builder.Services.AddScoped<IInvoiceManagementService, InvoiceManagementService>();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
@@ -159,6 +165,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

@@ -32,23 +32,40 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = MapException(exception);
+        context.Response.StatusCode = (int)statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (HttpStatusCode statusCode, string message) MapException(Exception exception) => exception switch
+    {
+        // A bill or order that does not exist, or is not the caller's to see.
+        InvoiceNotFoundException or OrderNotFoundException =>
+            (HttpStatusCode.NotFound, exception.Message),
+
+        // A change that the bill's current state does not allow (already issued, already withdrawn):
+        // an expected outcome of the bill's lifecycle, reported rather than silently ignored.
+        InvoiceStateException =>
+            (HttpStatusCode.Conflict, exception.Message),
+
+        // The provider refused the request on state grounds (4xx) vs. failed to serve it (5xx / transport).
+        VisaInvoicingException visaException =>
+            (visaException.IsProviderRefusal ? HttpStatusCode.Conflict : HttpStatusCode.BadGateway,
+             DescribeVisaFailure(visaException)),
+
+        DuplicateException =>
+            (HttpStatusCode.Conflict, exception.Message),
+
+        _ => (HttpStatusCode.InternalServerError, exception.Message)
+    };
+
+    private static string DescribeVisaFailure(VisaInvoicingException exception) =>
+        string.IsNullOrWhiteSpace(exception.ProviderReason)
+            ? exception.Message
+            : $"{exception.Message} Provider detail: {exception.ProviderReason}";
 }
