@@ -16,6 +16,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.PaymentOperationId)
+            .HasDefaultValueSql("newid()");
+        builder.HasIndex(b => b.PaymentOperationId).IsUnique();
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
@@ -41,5 +45,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.HasOne(x => x.Payment)
+            .WithOne()
+            .HasForeignKey<OrderPayment>(x => x.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

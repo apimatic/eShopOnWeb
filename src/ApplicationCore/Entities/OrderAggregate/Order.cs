@@ -17,11 +17,15 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
-    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.UtcNow;
+    public Guid PaymentOperationId { get; private set; } = Guid.NewGuid();
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +47,60 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public OrderPayment StartPayment(string currency, string createOrderRequestId)
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid while it is {Status}.");
+        }
+
+        Payment ??= new OrderPayment(Id, currency, createOrderRequestId);
+        return Payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        if (Payment?.Status != PaymentStatus.Authorized)
+        {
+            throw new InvalidOperationException("The order does not have an authorized payment.");
+        }
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilmentPending()
+    {
+        Status = OrderStatus.FulfilmentPending;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Payment?.Status != PaymentStatus.Captured)
+        {
+            throw new InvalidOperationException("The order cannot be fulfilled until its payment is captured.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded)
+        {
+            throw new InvalidOperationException("A fulfilled order must be refunded rather than cancelled.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void UpdateRefundState()
+    {
+        if (Payment is null || Payment.CaptureAmount is null)
+        {
+            throw new InvalidOperationException("The order has no captured payment to refund.");
+        }
+
+        Status = Payment.RefundedAmount >= Payment.CaptureAmount.Value
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }
