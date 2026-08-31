@@ -1,6 +1,11 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- The CyberSource SDK pulls Microsoft.IdentityModel.* 8.x transitively; pin the whole family
+         (incl. the JWT bearer stack used for PublicApi auth) to one version so JsonWebTokens and
+         Tokens do not mismatch at runtime. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <IdentityModelVersion>8.14.0</IdentityModelVersion>
     <TargetFramework>net8.0</TargetFramework>
     <AspNetVersion>8.0.2</AspNetVersion>
     <SystemExtensionVersion>8.0.0</SystemExtensionVersion>
@@ -48,11 +53,19 @@
     <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" />
     <PackageVersion Include="System.Net.Http.Json" Version="$(SystemExtensionVersion)" />
     <PackageVersion Include="System.Security.Claims" Version="4.3.0" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.3" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="7.3.1" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.Logging" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.Abstractions" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols" Version="$(IdentityModelVersion)" />
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="$(IdentityModelVersion)" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
+    <!-- Visa / CyberSource invoicing integration -->
+    <PackageVersion Include="CyberSource.Rest.Client" Version="1.0.1" />
     <!-- Test -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />

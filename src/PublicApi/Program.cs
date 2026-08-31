@@ -45,6 +45,12 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Visa (CyberSource) customer invoicing integration.
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Invoicing.VisaOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Invoicing.VisaOptions.SectionName));
+builder.Services.AddScoped<IInvoiceProvider, Microsoft.eShopWeb.Infrastructure.Invoicing.CyberSourceInvoiceProvider>();
+builder.Services.AddScoped<IInvoiceService, Microsoft.eShopWeb.ApplicationCore.Services.InvoiceService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
