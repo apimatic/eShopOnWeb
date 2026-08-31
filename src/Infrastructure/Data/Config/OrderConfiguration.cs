@@ -16,6 +16,24 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.Currency).HasMaxLength(3);
+        builder.Property(b => b.PaymentState).HasConversion<string>().HasMaxLength(32);
+        builder.Property(b => b.PayPalOrderId).HasMaxLength(64);
+        builder.Property(b => b.PayPalAuthorizationId).HasMaxLength(64);
+        builder.Property(b => b.PayPalAuthorizationStatus).HasMaxLength(32);
+        builder.Property(b => b.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(b => b.PayPalCaptureStatus).HasMaxLength(32);
+        builder.Property(b => b.AuthorizedAmount).HasPrecision(18, 2);
+        builder.Property(b => b.CapturedAmount).HasPrecision(18, 2);
+        builder.Property(b => b.PayPalFee).HasPrecision(18, 2);
+        builder.Property(b => b.NetProceeds).HasPrecision(18, 2);
+        builder.Property(b => b.RefundedAmount).HasPrecision(18, 2);
+        builder.Property(b => b.PayPalCreateRequestId).HasMaxLength(108);
+        builder.Property(b => b.PayPalAuthorizeRequestId).HasMaxLength(108);
+        builder.Property(b => b.PayPalCaptureRequestId).HasMaxLength(108);
+        builder.Property(b => b.PayPalVoidRequestId).HasMaxLength(108);
+        builder.Property(b => b.PayPalReauthorizeRequestId).HasMaxLength(108);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
