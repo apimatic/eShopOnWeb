@@ -41,6 +41,41 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is InvalidContactNumberException invalidNumberException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = invalidNumberException.Message
+            }.ToString());
+        }
+        else if (exception is InvalidOrderStateException invalidOrderStateException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = invalidOrderStateException.Message
+            }.ToString());
+        }
+        else if (exception is MessageProviderException providerException)
+        {
+            // The provider's status decides ours: caller-fixable rejections keep their 4xx,
+            // our own credential/quota faults and provider outages are 5xx.
+            context.Response.StatusCode = providerException.ProviderStatusCode switch
+            {
+                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => (int)HttpStatusCode.BadGateway,
+                HttpStatusCode.TooManyRequests => (int)HttpStatusCode.ServiceUnavailable,
+                >= (HttpStatusCode)400 and < (HttpStatusCode)500 => (int)providerException.ProviderStatusCode,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = providerException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
