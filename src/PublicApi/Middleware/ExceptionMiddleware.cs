@@ -32,23 +32,49 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            case DuplicateException duplicationException:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                await WriteError(context, duplicationException.Message);
+                break;
+            case OrderNotFoundException notFoundException:
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                await WriteError(context, notFoundException.Message);
+                break;
+            case OrderStateException stateException:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                await WriteError(context, stateException.Message);
+                break;
+            case AuthorizationNotRenewableException notRenewableException:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                await WriteError(context, notRenewableException.Message);
+                break;
+            case BuyerActionRequiredException buyerActionException:
+                context.Response.StatusCode = (int)HttpStatusCode.UnprocessableEntity;
+                await WriteError(context, buyerActionException.Message);
+                break;
+            case PaymentGatewayException gatewayException:
+                // Provider 4xx rejections keep their status (the caller can act on them);
+                // transport failures and unknowns are 502 — the provider side is at fault.
+                context.Response.StatusCode = gatewayException.IsProviderRejection
+                    ? gatewayException.ProviderStatusCode!.Value
+                    : (int)HttpStatusCode.BadGateway;
+                await WriteError(context, gatewayException.Message);
+                break;
+            default:
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                await WriteError(context, exception.Message);
+                break;
         }
-        else
+    }
+
+    private static async Task WriteError(HttpContext context, string message)
+    {
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

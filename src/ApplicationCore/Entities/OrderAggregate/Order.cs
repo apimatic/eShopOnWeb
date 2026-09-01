@@ -22,6 +22,47 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new Exceptions.OrderStateException($"Order {Id} cannot be marked payment-authorized from state {Status}.");
+        }
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkAwaitingPayment()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new Exceptions.OrderStateException($"Order {Id} cannot return to awaiting-payment from state {Status}.");
+        }
+        Status = OrderStatus.AwaitingPayment;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new Exceptions.OrderStateException($"Order {Id} cannot be fulfilled from state {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new Exceptions.OrderStateException($"Order {Id} is fulfilled and can only be refunded, not cancelled.");
+        }
+        if (Status == OrderStatus.Cancelled)
+        {
+            return;
+        }
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
