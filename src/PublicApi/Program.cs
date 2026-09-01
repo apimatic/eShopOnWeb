@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -44,6 +45,44 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payments integration. Values are bound from the "PayPal" configuration section
+// (user-secrets / environment); nothing is hard-coded.
+builder.Services.Configure<Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings.CONFIG_NAME));
+builder.Services.PostConfigure<Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings>(settings =>
+{
+    // Fall back to the PAYPAL_* environment variables when the section is not populated
+    // (e.g. user-secrets were not loaded in this environment).
+    if (string.IsNullOrWhiteSpace(settings.ClientId))
+    {
+        settings.ClientId = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID") ?? string.Empty;
+    }
+    if (string.IsNullOrWhiteSpace(settings.ClientSecret))
+    {
+        settings.ClientSecret = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET") ?? string.Empty;
+    }
+    if (string.IsNullOrWhiteSpace(settings.Environment))
+    {
+        settings.Environment = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT") ?? "sandbox";
+    }
+    if (string.IsNullOrWhiteSpace(settings.Currency))
+    {
+        settings.Currency = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY") ?? "USD";
+    }
+});
+builder.Services.AddSingleton<IPayPalClient>(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalSettings>>().Value;
+    settings.Validate();
+    var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) };
+    var httpClient = new HttpClient(handler) { BaseAddress = new Uri(settings.ApiBaseUrl + "/") };
+    return new Microsoft.eShopWeb.Infrastructure.Services.PayPal.PayPalApiClient(
+        httpClient, settings,
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Microsoft.eShopWeb.Infrastructure.Services.PayPal.PayPalApiClient>>());
+});
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +199,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
