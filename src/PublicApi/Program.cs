@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -14,6 +16,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +25,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +91,53 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// PayPal settings: bound from the "PayPal" section (user-secrets in dev), with the
+// PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_ENVIRONMENT / PAYPAL_CURRENCY
+// environment variables as a fallback source. Values never live in the repository.
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+payPalSettings.ClientId = FirstNonEmpty(payPalSettings.ClientId, builder.Configuration["PAYPAL_CLIENT_ID"]);
+payPalSettings.ClientSecret = FirstNonEmpty(payPalSettings.ClientSecret, builder.Configuration["PAYPAL_CLIENT_SECRET"]);
+payPalSettings.Environment = FirstNonEmpty(payPalSettings.Environment, builder.Configuration["PAYPAL_ENVIRONMENT"]);
+payPalSettings.Currency = FirstNonEmpty(payPalSettings.Currency, builder.Configuration["PAYPAL_CURRENCY"]);
+builder.Services.AddSingleton(payPalSettings);
+
+// Named HttpClient keeps the SDK's handler pipeline, timeout and connection lifetime scoped
+// to PayPal; the client is a singleton, so PooledConnectionLifetime keeps DNS fresh.
+builder.Services.AddHttpClient("PayPal", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = payPalSettings.ClientId,
+            ClientSecret = payPalSettings.ClientSecret
+        },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(30) }
+    };
+    if (!string.IsNullOrEmpty(payPalSettings.BaseUrl))
+    {
+        // Verbatim override covering every PayPal call, including the OAuth token request.
+        options.Server.Default.Sandbox.BaseUrl = payPalSettings.BaseUrl;
+    }
+    return new PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddScoped<IPaymentGateway, PayPalPaymentGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+
+static string FirstNonEmpty(string? configured, string? fallback)
+    => string.IsNullOrEmpty(configured) ? (fallback ?? string.Empty) : configured;
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
