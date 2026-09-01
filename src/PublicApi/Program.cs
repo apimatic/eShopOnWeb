@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,13 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Bridge the PAYPAL_* environment variables into the PayPal:* configuration keys
+// (values come from the environment or user-secrets; none are stored in the repo).
+builder.Configuration["PayPal:ClientId"] ??= Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID");
+builder.Configuration["PayPal:ClientSecret"] ??= Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET");
+builder.Configuration["PayPal:Environment"] ??= Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT");
+builder.Configuration["PayPal:Currency"] ??= Environment.GetEnvironmentVariable("PAYPAL_CURRENCY");
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +52,13 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddHttpContextAccessor();
+
+var payPalOptions = builder.Configuration.GetSection(Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalOptions.ConfigName)
+    .Get<Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalOptions>()
+    ?? new Microsoft.eShopWeb.ApplicationCore.Configuration.PayPalOptions();
+builder.Services.AddPayPalPayments(payPalOptions);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

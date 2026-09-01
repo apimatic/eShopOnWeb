@@ -12,6 +12,23 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(128);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(128);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(30);
+        builder.Property(o => o.CaptureId).HasMaxLength(128);
+        builder.Property(o => o.Currency).HasMaxLength(3);
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
