@@ -258,7 +258,9 @@ public class PayPalPaymentGateway : IPaymentGateway
     {
         var request = new PaymentTokenRequest
         {
-            Customer = new Customer { Id = customerId, MerchantCustomerId = customerId },
+            // Our user id goes in MerchantCustomerId; Customer.Id is PayPal-generated and
+            // rejects values like email addresses at creation.
+            Customer = new Customer { MerchantCustomerId = customerId },
             PaymentSource = new PaymentTokenRequestPaymentSource
             {
                 Card = new PaymentTokenRequestCard
@@ -449,8 +451,10 @@ public class PayPalPaymentGateway : IPaymentGateway
     private static DateTimeOffset? ParseDate(string? value) =>
         value is null ? null : DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
 
-    private PaymentGatewayException Rejection(string action, string? name, string? message, IEnumerable<string>? issues)
+    private PaymentGatewayException Rejection(string action, string? name, string? message, IEnumerable<ErrorDetails>? details)
     {
+        var issues = details?.Select(d =>
+            d.Field is null ? d.Issue : $"{d.Issue} (field: {d.Field}, value: {d.Value}) {d.Description}");
         // The SDK's typed error branch does not expose the HTTP status, so map from PayPal's
         // error name: caller-actionable rejections stay 4xx; our own credential/permission
         // failures are server-side and surface as no-status (502 at the boundary).
@@ -489,21 +493,21 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException Translate(string action, CreateOrderError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetRawError(out var raw)) return RawFailure(action, raw);
         return new PaymentGatewayException($"PayPal could not {action}.");
     }
 
     private PaymentGatewayException Translate(string action, AuthorizeOrderError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetRawError(out var raw)) return RawFailure(action, raw);
         return new PaymentGatewayException($"PayPal could not {action}.");
     }
 
     private PaymentGatewayException Translate(string action, GetAuthorizedPaymentError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetNoContent(out var raw)) return RawFailure(action, raw);
         if (error.TryGetRawError(out var fallback)) return RawFailure(action, fallback);
         return new PaymentGatewayException($"PayPal could not {action}.");
@@ -511,7 +515,7 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException Translate(string action, ReauthorizePaymentError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetNoContent(out var raw)) return RawFailure(action, raw);
         if (error.TryGetRawError(out var fallback)) return RawFailure(action, fallback);
         return new PaymentGatewayException($"PayPal could not {action}.");
@@ -519,7 +523,7 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException Translate(string action, CaptureAuthorizedPaymentError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetNoContent(out var raw)) return RawFailure(action, raw);
         if (error.TryGetRawError(out var fallback)) return RawFailure(action, fallback);
         return new PaymentGatewayException($"PayPal could not {action}.");
@@ -527,7 +531,7 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException Translate(string action, VoidPaymentError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetNoContent(out var raw)) return RawFailure(action, raw);
         if (error.TryGetRawError(out var fallback)) return RawFailure(action, fallback);
         return new PaymentGatewayException($"PayPal could not {action}.");
@@ -535,7 +539,7 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException Translate(string action, RefundCapturedPaymentError error)
     {
-        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError(out var err)) return Rejection(action, err.Name, err.Message, err.Details);
         if (error.TryGetNoContent(out var raw)) return RawFailure(action, raw);
         if (error.TryGetRawError(out var fallback)) return RawFailure(action, fallback);
         return new PaymentGatewayException($"PayPal could not {action}.");
@@ -543,14 +547,14 @@ public class PayPalPaymentGateway : IPaymentGateway
 
     private PaymentGatewayException TranslateVault(string action, CreatePaymentTokenError error)
     {
-        if (error.TryGetError1(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError1(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => new ErrorDetails { Issue = d.Issue, Field = d.Field, Value = d.Value, Description = d.Description }));
         if (error.TryGetRawError(out var raw)) return RawFailure(action, raw);
         return new PaymentGatewayException($"PayPal could not {action}.");
     }
 
     private PaymentGatewayException TranslateVault(string action, DeletePaymentTokenError error)
     {
-        if (error.TryGetError1(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => d.Issue));
+        if (error.TryGetError1(out var err)) return Rejection(action, err.Name, err.Message, err.Details?.Select(d => new ErrorDetails { Issue = d.Issue, Field = d.Field, Value = d.Value, Description = d.Description }));
         if (error.TryGetRawError(out var raw)) return RawFailure(action, raw);
         return new PaymentGatewayException($"PayPal could not {action}.");
     }

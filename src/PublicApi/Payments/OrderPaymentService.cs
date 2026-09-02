@@ -108,7 +108,7 @@ public class OrderPaymentService
             var savedCard = await _savedCardRepository.GetByIdAsync(savedPaymentMethodId.Value, ct);
             if (savedCard is null || savedCard.BuyerId != buyerId)
             {
-                throw new InvalidOperationException($"Saved payment method {savedPaymentMethodId} was not found.");
+                throw new KeyNotFoundException($"Saved payment method {savedPaymentMethodId} was not found.");
             }
             vaultId = savedCard.VaultTokenId;
             description = $"{savedCard.Brand} ****{savedCard.LastDigits} (saved)";
