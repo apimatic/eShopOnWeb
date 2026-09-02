@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -39,6 +40,34 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+
+// PayPal settings: bind the PayPal: section; fall back to the PAYPAL_* environment
+// variables when the section keys are not set (e.g. via user-secrets).
+var paypalEnvMapping = new (string EnvVar, string ConfigKey)[]
+{
+    ("PAYPAL_CLIENT_ID", "PayPal:ClientId"),
+    ("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret"),
+    ("PAYPAL_ENVIRONMENT", "PayPal:Environment"),
+    ("PAYPAL_CURRENCY", "PayPal:Currency"),
+};
+foreach (var (envVar, configKey) in paypalEnvMapping)
+{
+    var value = builder.Configuration[envVar];
+    if (!string.IsNullOrEmpty(value) && string.IsNullOrEmpty(builder.Configuration[configKey]))
+    {
+        builder.Configuration[configKey] = value;
+    }
+}
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<IPayPalClient, Microsoft.eShopWeb.Infrastructure.PayPal.PayPalHttpClient>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl());
+});
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
@@ -160,6 +189,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
