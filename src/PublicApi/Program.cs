@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,38 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Bridge the PAYPAL_* environment variables into the PayPal: configuration section.
+// Secret values come from the environment or user-secrets only - never from files in
+// this repository. User-secrets (loaded earlier by the host) take precedence.
+var paypalEnvVars = new Dictionary<string, string>
+{
+    [$"{PayPalSettings.CONFIG_NAME}:ClientId"] = "PAYPAL_CLIENT_ID",
+    [$"{PayPalSettings.CONFIG_NAME}:ClientSecret"] = "PAYPAL_CLIENT_SECRET",
+    [$"{PayPalSettings.CONFIG_NAME}:Environment"] = "PAYPAL_ENVIRONMENT",
+    [$"{PayPalSettings.CONFIG_NAME}:Currency"] = "PAYPAL_CURRENCY"
+};
+var paypalOverrides = new Dictionary<string, string?>();
+foreach (var (configKey, envVar) in paypalEnvVars)
+{
+    if (string.IsNullOrEmpty(builder.Configuration[configKey]))
+    {
+        var value = Environment.GetEnvironmentVariable(envVar);
+        if (!string.IsNullOrEmpty(value))
+        {
+            paypalOverrides[configKey] = value;
+        }
+    }
+}
+if (paypalOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(paypalOverrides);
+}
+
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.CONFIG_NAME));
+builder.Services.Configure<PaymentSettings>(builder.Configuration.GetSection(PaymentSettings.CONFIG_NAME));
+builder.Services.AddHttpClient<IPaymentGateway, PayPalClient>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
