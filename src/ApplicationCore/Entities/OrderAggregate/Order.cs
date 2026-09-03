@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
@@ -22,6 +23,21 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public string PaymentStatus { get; private set; } = "AwaitingPayment";
+    public string? PaymentAuthorizationId { get; private set; }
+    public int? SavedPaymentMethodId { get; private set; }
+    public string? PaymentCaptureId { get; private set; }
+    public decimal CapturedAmount { get; private set; }
+    public decimal RefundedAmount { get; private set; }
+    public decimal PaymentFee { get; private set; }
+    public decimal NetProceeds { get; private set; }
+    public DateTimeOffset? FulfilledAt { get; private set; }
+    public string RefundIdempotencyKeys { get; private set; } = string.Empty;
+    public void SetAuthorization(string id) { PaymentAuthorizationId = id; PaymentStatus = "Authorized"; }
+    public void SetSavedPaymentMethod(int? id) { SavedPaymentMethodId = id; }
+    public void SetFulfilled(string captureId, decimal captured, decimal fee, decimal net) { PaymentCaptureId=captureId; CapturedAmount=captured; PaymentFee=fee; NetProceeds=net; PaymentStatus="Captured"; FulfilledAt=DateTimeOffset.UtcNow; }
+    public bool AddRefund(decimal amount, string idempotencyKey) { if (RefundIdempotencyKeys.Split(',', StringSplitOptions.RemoveEmptyEntries).Contains(idempotencyKey)) return false; RefundedAmount += amount; RefundIdempotencyKeys = string.IsNullOrEmpty(RefundIdempotencyKeys) ? idempotencyKey : RefundIdempotencyKeys + "," + idempotencyKey; PaymentStatus = RefundedAmount >= CapturedAmount ? "Refunded" : "PartiallyRefunded"; return true; }
+    public void Cancel() { PaymentStatus = "Cancelled"; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
