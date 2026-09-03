@@ -6,6 +6,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace Microsoft.eShopWeb.FunctionalTests.PublicApi;
 
@@ -16,6 +18,15 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Twilio:AccountSid"] = "test-account",
+                ["Twilio:AuthToken"] = "test-token",
+                ["Twilio:FromNumber"] = "test-from-number",
+                ["Twilio:MessagingServiceSid"] = "test-messaging-service",
+                ["Twilio:BaseUrl"] = "http://127.0.0.1:1"
+            }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>

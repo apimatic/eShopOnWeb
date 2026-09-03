@@ -16,6 +16,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(24)
+            .HasDefaultValue(OrderStatus.Placed)
+            .IsConcurrencyToken();
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
