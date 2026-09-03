@@ -1,0 +1,8 @@
+<Project>
+  <!-- Vendored third-party SDK (APIMatic-generated PayPal .NET SDK), built from source and
+       pinned to its own inline PackageReference versions. Opt this subtree out of the repo's
+       central package version management so those inline versions are honoured verbatim. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

@@ -32,23 +32,37 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    // Maps domain and PayPal-integration failures to caller-facing statuses. Every message here is
+    // caller-safe: PayPalException carries a sanitized message built at the integration boundary, never
+    // raw SDK/JSON exception detail.
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException dup => ((int)HttpStatusCode.Conflict, dup.Message),
+        PaymentNotFoundException nf => ((int)HttpStatusCode.NotFound, nf.Message),
+        PaymentConflictException c => ((int)HttpStatusCode.Conflict, c.Message),
+        PaymentValidationException v => ((int)HttpStatusCode.BadRequest, v.Message),
+        PayPalApprovalRequiredException ar => ((int)HttpStatusCode.Conflict, ar.Message),
+
+        // Our credentials/quota — the caller did nothing wrong and cannot fix it.
+        PayPalException p when p.StatusCode is 401 or 403 or 429 =>
+            ((int)HttpStatusCode.BadGateway, "The payment provider is currently unavailable."),
+        // A provider 4xx the caller can act on (e.g. bad request routed through).
+        PayPalException p when p.StatusCode is >= 400 and < 500 => (p.StatusCode!.Value, p.Message),
+        // A typed rejection (card declined etc.): no transport status, but the caller can act on it.
+        PayPalException p when p.StatusCode is null =>
+            ((int)HttpStatusCode.UnprocessableEntity, p.Message),
+        // Transport, timeout, provider 5xx.
+        PayPalException p => ((int)HttpStatusCode.BadGateway, p.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
