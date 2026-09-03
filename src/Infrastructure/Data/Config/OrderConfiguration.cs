@@ -41,5 +41,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+        builder.HasOne(x => x.Payment).WithOne().HasForeignKey<PaymentRecord>(x => x.OrderId);
     }
 }
