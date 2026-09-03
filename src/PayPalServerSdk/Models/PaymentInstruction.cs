@@ -1,0 +1,49 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using PayPalServerSdk.Core.Models;
+using PayPalServerSdk.Models.Enums;
+
+namespace PayPalServerSdk.Models;
+
+/// <summary>
+/// Any additional payment instructions to be consider during payment processing. This processing instruction is applicable for Capturing an order or Authorizing an Order.
+/// </summary>
+public record PaymentInstruction
+{
+    /// <summary>
+    /// An array of various fees, commissions, tips, or donations. This field is only applicable to merchants that been enabled for PayPal Complete Payments Platform for Marketplaces and Platforms capability.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("platform_fees")]
+    [MinLength(0)]
+    [MaxLength(1)]
+    public IReadOnlyList<PlatformFee>? PlatformFees { get; init; }
+
+    /// <summary>
+    /// The funds that are held on behalf of the merchant.
+    /// </summary>
+    [JsonPropertyName("disbursement_mode")]
+    public DisbursementMode? DisbursementMode { get; init; } = DisbursementMode.Instant;
+
+    /// <summary>
+    /// This field is only enabled for selected merchants/partners to use and provides the ability to trigger a specific pricing rate/plan for a payment transaction. The list of eligible 'payee_pricing_tier_id' would be provided to you by your Account Manager. Specifying values other than the one provided to you by your account manager would result in an error.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payee_pricing_tier_id")]
+    [StringLength(20, MinimumLength = 1)]
+    [RegularExpression("^.*$")]
+    public string? PayeePricingTierId { get; init; }
+
+    /// <summary>
+    /// FX identifier generated returned by PayPal to be used for payment processing in order to honor FX rate (for eligible integrations) to be used when amount is settled/received into the payee account.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payee_receivable_fx_rate_id")]
+    [StringLength(4000, MinimumLength = 1)]
+    [RegularExpression("^.*$")]
+    public string? PayeeReceivableFxRateId { get; init; }
+
+    [JsonExtensionData]
+    public AdditionalProperties AdditionalProperties { get; init; } = [];
+}

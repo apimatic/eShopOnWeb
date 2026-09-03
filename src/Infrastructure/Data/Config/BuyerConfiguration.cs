@@ -1,0 +1,19 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public sealed class BuyerConfiguration : IEntityTypeConfiguration<Buyer>
+{
+    public void Configure(EntityTypeBuilder<Buyer> builder)
+    {
+        builder.Property(x => x.IdentityGuid).IsRequired().HasMaxLength(256);
+        builder.HasIndex(x => x.IdentityGuid).IsUnique();
+        builder.Metadata.FindNavigation(nameof(Buyer.PaymentMethods))?.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.HasMany(x => x.PaymentMethods)
+            .WithOne()
+            .HasForeignKey("BuyerId")
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

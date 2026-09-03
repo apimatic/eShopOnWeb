@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <NoWarn>$(NoWarn);649</NoWarn>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <RepositoryUrl>https://github.com/context-plugins/paypal-csharp-sdk</RepositoryUrl>
+        <RepositoryCommit>705249aa20c87a8bb7c215468008bf8f6e334607</RepositoryCommit>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
+        <PackageReference Include="Polly" Version="8.6.5" />
+        <PackageReference Include="PolySharp" Version="1.15.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
+        <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    </ItemGroup>
+
+    <!-- This app uses only PayPal's request/response payment APIs. The generated SSE helper
+         depends on a .NET 10-only package and is not referenced by any shipped PayPal operation. -->
+    <ItemGroup>
+        <Compile Remove="Core\Response\SseFrameReader.cs" />
+        <Compile Remove="Core\Response\JsonSseResponse.cs" />
+        <Compile Remove="Core\Response\PlainTextSseResponse.cs" />
+    </ItemGroup>
+
+</Project>
