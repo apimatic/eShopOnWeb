@@ -1,0 +1,7 @@
+<Project>
+  <!-- Isolates the vendored Twilio SDK from the parent repo's central package management.
+       The SDK declares its own package versions inline in Twilio.csproj. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

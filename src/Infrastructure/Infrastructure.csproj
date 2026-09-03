@@ -14,6 +14,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Vendored, non-NuGet Twilio SDK (APIMatic-generated). Built from source; isolated from
+		     the repo's central package management by lib\twilio-csharp-sdk\Directory.Packages.props. -->
+		<ProjectReference Include="..\..\lib\twilio-csharp-sdk\Twilio.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
