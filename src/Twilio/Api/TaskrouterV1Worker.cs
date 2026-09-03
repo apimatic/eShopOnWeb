@@ -1,0 +1,140 @@
+using System;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Twilio.Core;
+using Twilio.Core.ErrorResponse;
+using Twilio.Core.Exceptions;
+using Twilio.Core.Models;
+using Twilio.Core.Request;
+using Twilio.Core.Response;
+using Twilio.Models;
+
+namespace Twilio.Api;
+
+public sealed class TaskrouterV1Worker
+{
+    private readonly RawClient _rawClient;
+    private readonly Server _server;
+    private readonly AuthSchemes _auth;
+
+    internal TaskrouterV1Worker(RawClient rawClient, Server server, AuthSchemes auth)
+    {
+        _rawClient = rawClient;
+        _server = server;
+        _auth = auth;
+    }
+
+    public Task<TaskrouterV1WorkspaceWorker> CreateWorker(string workspaceSid,
+        string friendlyName,
+        string? activitySid,
+        string? attributes,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default8("/v1/Workspaces/{WorkspaceSid}/Workers"),
+            [new TemplateParam("WorkspaceSid", workspaceSid)],
+            [],
+            [new HeaderParam("Idempotency-Key", Guid.NewGuid())],
+            HttpMethod.Post,
+            FormUrlEncodedRequest.Create([new Param("FriendlyName", friendlyName),
+                    new Param("ActivitySid", activitySid),
+                    new Param("Attributes", attributes)]),
+            JsonResponse.Create<TaskrouterV1WorkspaceWorker>(),
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+
+    public Task DeleteWorker(string workspaceSid,
+        string sid,
+        string? ifMatch,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default8("/v1/Workspaces/{WorkspaceSid}/Workers/{Sid}"),
+            [new TemplateParam("WorkspaceSid", workspaceSid), new TemplateParam("Sid", sid)],
+            [],
+            [new HeaderParam("If-Match", ifMatch), new HeaderParam("Idempotency-Key", Guid.NewGuid())],
+            HttpMethod.Delete,
+            EmptyBody.Instance,
+            VoidResponse.Instance,
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+
+    public Task<TaskrouterV1WorkspaceWorker> FetchWorker(string workspaceSid,
+        string sid,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default8("/v1/Workspaces/{WorkspaceSid}/Workers/{Sid}"),
+            [new TemplateParam("WorkspaceSid", workspaceSid), new TemplateParam("Sid", sid)],
+            [],
+            [],
+            HttpMethod.Get,
+            EmptyBody.Instance,
+            JsonResponse.Create<TaskrouterV1WorkspaceWorker>(),
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+
+    public Task<ListWorkerResponse> ListWorker(string workspaceSid,
+        string? activityName,
+        string? activitySid,
+        string? available,
+        string? friendlyName,
+        string? targetWorkersExpression,
+        string? taskQueueName,
+        string? taskQueueSid,
+        string? ordering,
+        long? pageSize,
+        int? page,
+        string? pageToken,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default8("/v1/Workspaces/{WorkspaceSid}/Workers"),
+            [new TemplateParam("WorkspaceSid", workspaceSid)],
+            [new Param("ActivityName", activityName),
+                new Param("ActivitySid", activitySid),
+                new Param("Available", available),
+                new Param("FriendlyName", friendlyName),
+                new Param("TargetWorkersExpression", targetWorkersExpression),
+                new Param("TaskQueueName", taskQueueName),
+                new Param("TaskQueueSid", taskQueueSid),
+                new Param("Ordering", ordering),
+                new Param("PageSize", pageSize),
+                new Param("Page", page),
+                new Param("PageToken", pageToken)],
+            [],
+            HttpMethod.Get,
+            EmptyBody.Instance,
+            JsonResponse.Create<ListWorkerResponse>(),
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+
+    public Task<TaskrouterV1WorkspaceWorker> UpdateWorker(string workspaceSid,
+        string sid,
+        string? ifMatch,
+        string? activitySid,
+        string? attributes,
+        string? friendlyName,
+        bool? rejectPendingReservations,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default8("/v1/Workspaces/{WorkspaceSid}/Workers/{Sid}"),
+            [new TemplateParam("WorkspaceSid", workspaceSid), new TemplateParam("Sid", sid)],
+            [],
+            [new HeaderParam("If-Match", ifMatch), new HeaderParam("Idempotency-Key", Guid.NewGuid())],
+            HttpMethod.Post,
+            FormUrlEncodedRequest.Create([new Param("ActivitySid", activitySid),
+                    new Param("Attributes", attributes),
+                    new Param("FriendlyName", friendlyName),
+                    new Param("RejectPendingReservations", rejectPendingReservations)]),
+            JsonResponse.Create<TaskrouterV1WorkspaceWorker>(),
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+}
