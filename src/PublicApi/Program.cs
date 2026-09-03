@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -44,6 +46,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payments (additive): bind the PayPal: section and register the SDK client, gateway and
+// payment services. Values come from configuration/user-secrets and are never hard-coded.
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.CONFIG_SECTION).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+builder.Services.AddPayPalPayments(payPalSettings);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
