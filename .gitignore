@@ -162,6 +162,10 @@ PublishScripts/
 *.nuget.props
 *.nuget.targets
 
+# The Maxio SDK is not published to NuGet. Keep the pinned, source-built package.
+!packages/
+!packages/MaxioAdvancedBilling.1.0.0-ba14a64.nupkg
+
 # Microsoft Azure Build Output
 csx/
 *.build.csdef
