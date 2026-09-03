@@ -41,6 +41,15 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioBillingException billingException)
+        {
+            context.Response.StatusCode = MapBillingStatus(billingException);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -50,5 +59,21 @@ public class ExceptionMiddleware
                 Message = exception.Message
             }.ToString());
         }
+    }
+
+    private static int MapBillingStatus(MaxioBillingException exception)
+    {
+        if (exception.IsCallerFault && exception.ProviderStatusCode is >= 400 and < 500)
+        {
+            return exception.ProviderStatusCode.Value;
+        }
+
+        return exception.ProviderStatusCode switch
+        {
+            401 or 403 => StatusCodes.Status502BadGateway,
+            429 => StatusCodes.Status503ServiceUnavailable,
+            >= 500 => StatusCodes.Status502BadGateway,
+            _ => StatusCodes.Status502BadGateway
+        };
     }
 }
