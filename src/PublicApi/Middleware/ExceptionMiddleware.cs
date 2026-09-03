@@ -32,23 +32,30 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException e => (HttpStatusCode.Conflict, e.Message),
+            InvalidContactNumberException e => (HttpStatusCode.BadRequest, e.Message),
+            MissingIdempotencyKeyException e => (HttpStatusCode.BadRequest, e.Message),
+            ArgumentException e => (HttpStatusCode.BadRequest, e.Message),
+            NotificationNotResendableException e => (HttpStatusCode.Conflict, e.Message),
+            InvalidOperationException e => (HttpStatusCode.Conflict, e.Message),
+            ContactNumberNotFoundException e => (HttpStatusCode.NotFound, e.Message),
+            OrderNotFoundException e => (HttpStatusCode.NotFound, e.Message),
+            NotificationNotFoundException e => (HttpStatusCode.NotFound, e.Message),
+            NotificationContentRedactionException e => (HttpStatusCode.BadGateway, e.Message),
+            SmsProviderException p when (int?)p.StatusCode is 401 or 403 => (HttpStatusCode.BadGateway, "Provider unavailable."),
+            SmsProviderException p when (int?)p.StatusCode is 429 => (HttpStatusCode.ServiceUnavailable, "Temporarily unavailable."),
+            SmsProviderException p when (int?)p.StatusCode is >= 400 and < 500 => ((HttpStatusCode)p.StatusCode!, p.Message),
+            SmsProviderException p => (HttpStatusCode.BadGateway, p.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
