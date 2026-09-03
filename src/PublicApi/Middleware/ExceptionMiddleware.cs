@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // Surface a provider 4xx (validation/conflict/not-found the caller can act on) as that
+            // same client 4xx; reserve 5xx for outages and unreadable provider responses.
+            context.Response.StatusCode = billingException.IsClientError
+                ? billingException.ProviderStatusCode!.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
