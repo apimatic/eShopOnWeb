@@ -1,0 +1,41 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using Twilio.Core.Models;
+
+namespace Twilio.Models;
+
+/// <summary>
+/// Content update request body
+/// </summary>
+public record ContentUpdateRequest
+{
+    /// <summary>
+    /// User defined name of the content
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("friendly_name")]
+    public string? FriendlyName { get; init; }
+
+    /// <summary>
+    /// Key value pairs of variable name to value
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("variables")]
+    public IReadOnlyDictionary<string, string>? Variables { get; init; }
+
+    /// <summary>
+    /// Language code for the content
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("language")]
+    public string? Language { get; init; }
+
+    /// <summary>
+    /// Content types
+    /// </summary>
+    [JsonPropertyName("types")]
+    public required Types Types { get; init; }
+
+    [JsonExtensionData]
+    public AdditionalProperties AdditionalProperties { get; init; } = [];
+}

@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -45,11 +46,15 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+OverlayTwilioFromEnvironment(builder.Configuration);
+builder.Services.AddTwilioMessaging(builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +165,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +183,23 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void OverlayTwilioFromEnvironment(ConfigurationManager configuration)
+{
+    Overlay("TWILIO_ACCOUNT_SID", "Twilio:AccountSid");
+    Overlay("TWILIO_AUTH_TOKEN", "Twilio:AuthToken");
+    Overlay("TWILIO_FROM_NUMBER", "Twilio:FromNumber");
+    Overlay("TWILIO_MESSAGING_SERVICE_SID", "Twilio:MessagingServiceSid");
+    Overlay("TWILIO_BASE_URL", "Twilio:BaseUrl");
+
+    void Overlay(string environmentName, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
