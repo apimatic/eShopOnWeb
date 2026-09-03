@@ -11,17 +11,29 @@ public class Order : BaseEntity, IAggregateRoot
     private Order() {}
 
     public Order(string buyerId, Address shipToAddress, List<OrderItem> items)
+        : this(buyerId, shipToAddress, items, null)
+    {
+    }
+
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, string? paymentCurrency)
     {
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
 
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        FulfillmentStatus = OrderFulfillmentStatus.Pending;
+        if (!string.IsNullOrWhiteSpace(paymentCurrency))
+        {
+            Payment = new OrderPayment(paymentCurrency);
+        }
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderFulfillmentStatus FulfillmentStatus { get; private set; }
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +55,23 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Cancelled)
+        {
+            throw new InvalidOperationException("A cancelled order cannot be fulfilled.");
+        }
+        FulfillmentStatus = OrderFulfillmentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfillmentStatus == OrderFulfillmentStatus.Fulfilled)
+        {
+            throw new InvalidOperationException("A fulfilled order cannot be cancelled.");
+        }
+        FulfillmentStatus = OrderFulfillmentStatus.Cancelled;
     }
 }
