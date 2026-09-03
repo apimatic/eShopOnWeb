@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Billing failures carry the client-facing status the boundary already decided
+            // (e.g. 400 bad plan, 422 provider validation, 502 provider unreachable) and a
+            // caller-safe message — never SDK/framework detail.
+            context.Response.StatusCode = billingException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
