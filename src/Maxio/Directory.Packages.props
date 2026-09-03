@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    The Maxio SDK is vendored generated source (from
+    https://github.com/context-plugins/maxio-csharp-sdk, branch main). It pins its own
+    NuGet versions inline on each PackageReference, which is incompatible with the repo-root
+    central package management (Directory.Packages.props). This nearest-wins file overrides the
+    root for this subtree so the vendored csproj builds with its own pinned versions.
+    Keep it minimal; do not add PackageVersion items here.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

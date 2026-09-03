@@ -14,6 +14,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Vendored Maxio Advanced Billing .NET SDK (generated source; see src/Maxio). -->
+		<ProjectReference Include="..\Maxio\Maxio.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
