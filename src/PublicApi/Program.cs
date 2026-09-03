@@ -12,16 +12,21 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using System.Net.Http;
+using Twilio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +49,44 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IShopOrderService, ShopOrderService>();
+builder.Services.AddScoped<INotificationAdminService, NotificationAdminService>();
+builder.Services.AddScoped<ISmsGateway, TwilioSmsGateway>();
+
+OverlayTwilioFromEnvironment(builder.Configuration);
+
+var twilioOptions = builder.Services.AddOptions<TwilioOptions>()
+    .Bind(builder.Configuration.GetSection(TwilioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(o => !string.IsNullOrWhiteSpace(o.AccountSid), "Twilio:AccountSid is not configured.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.AuthToken), "Twilio:AuthToken is not configured.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.FromNumber), "Twilio:FromNumber is not configured.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.MessagingServiceSid), "Twilio:MessagingServiceSid is not configured.");
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    twilioOptions.ValidateOnStart();
+}
+
+const string TwilioHttpClientName = "Twilio";
+builder.Services.AddHttpClient(TwilioHttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<TwilioOptions>>().Value;
+    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(TwilioHttpClientName);
+    return new TwilioClient(httpClient, TwilioSmsGateway.CreateClientOptions(settings, loggerFactory));
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +203,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -178,4 +222,28 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void OverlayTwilioFromEnvironment(ConfigurationManager configuration)
+    {
+        var pairs = new Dictionary<string, string?>();
+        AddIfPresent(pairs, "Twilio:AccountSid", "TWILIO_ACCOUNT_SID");
+        AddIfPresent(pairs, "Twilio:AuthToken", "TWILIO_AUTH_TOKEN");
+        AddIfPresent(pairs, "Twilio:FromNumber", "TWILIO_FROM_NUMBER");
+        AddIfPresent(pairs, "Twilio:MessagingServiceSid", "TWILIO_MESSAGING_SERVICE_SID");
+        AddIfPresent(pairs, "Twilio:BaseUrl", "TWILIO_BASE_URL");
+        if (pairs.Count > 0)
+        {
+            configuration.AddInMemoryCollection(pairs);
+        }
+
+        static void AddIfPresent(Dictionary<string, string?> map, string key, string envName)
+        {
+            var value = Environment.GetEnvironmentVariable(envName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                map[key] = value;
+            }
+        }
+    }
+}
