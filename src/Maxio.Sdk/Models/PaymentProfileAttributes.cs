@@ -1,0 +1,175 @@
+using System.Text.Json.Serialization;
+using Maxio.Core.Models;
+using Maxio.Models.AnyOf;
+using Maxio.Models.Enums;
+
+namespace Maxio.Models;
+
+/// <summary>
+/// alias to credit_card_attributes
+/// </summary>
+public record PaymentProfileAttributes
+{
+    /// <summary>
+    /// (Optional) Token received after sending billing information using Maxio.js (formerly Chargify.js). This token must be passed as a sole attribute of <c>payment_profile_attributes</c> (e.g., tok_9g6hw85pnpt6knmskpwp4ttt).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("chargify_token")]
+    public string? ChargifyToken { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("id")]
+    public int? Id { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payment_type")]
+    public PaymentType? PaymentType { get; init; }
+
+    /// <summary>
+    /// (Optional) First name on card or bank account. If omitted, the first_name from customer attributes will be used.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("first_name")]
+    public string? FirstName { get; init; }
+
+    /// <summary>
+    /// (Optional) Last name on card or bank account. If omitted, the last_name from customer attributes will be used.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("last_name")]
+    public string? LastName { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("masked_card_number")]
+    public string? MaskedCardNumber { get; init; }
+
+    /// <summary>
+    /// The full credit card number (string representation, e.g., 5424000000000015)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("full_number")]
+    public string? FullNumber { get; init; }
+
+    /// <summary>
+    /// (Optional, used only for Subscription Import) If you know the card type (e.g., Visa, MC, etc.) you may supply it here so that we may display the card type in the UI.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("card_type")]
+    public CardType? CardType { get; init; }
+
+    /// <summary>
+    /// (Optional when performing a Subscription Import via vault_token, required otherwise) The 1- or 2-digit credit card expiration month, as an integer or string, e.g., 5
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("expiration_month")]
+    public ExpirationMonth2? ExpirationMonth { get; init; }
+
+    /// <summary>
+    /// (Optional when performing a Subscription Import via vault_token, required otherwise) The 4-digit credit card expiration year, as an integer or string, e.g., 2012
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("expiration_year")]
+    public ExpirationYear2? ExpirationYear { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your product configuration or gateway settings) The credit card or bank account billing street address (e.g., 123 Main St.). This value is merely passed through to the payment gateway.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_address")]
+    public string? BillingAddress { get; init; }
+
+    /// <summary>
+    /// (Optional) Second line of the customer’s billing address, e.g., Apt. 100
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_address_2")]
+    public string? BillingAddress2 { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your product configuration or gateway settings) The credit card or bank account billing address city (e.g., “Boston”). This value is merely passed through to the payment gateway.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_city")]
+    public string? BillingCity { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your product configuration or gateway settings) The credit card or bank account billing address state (e.g., MA). This value is merely passed through to the payment gateway. This must conform to the <see href="https://en.wikipedia.org/wiki/ISO_3166-1#Current_codes">ISO_3166-1</see> in order to be valid for tax locale purposes.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_state")]
+    public string? BillingState { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your product configuration or gateway settings) The credit card or bank account billing address country, required in <see href="https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2">ISO_3166-1 alpha-2</see> format (e.g., “US”). This value is merely passed through to the payment gateway. Some gateways require country codes in a specific format. Check your gateway’s documentation. If creating an ACH subscription, only US is supported at this time.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_country")]
+    public string? BillingCountry { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your product configuration or gateway settings) The credit card or bank account billing address zip code (e.g., 12345). This value is merely passed through to the payment gateway.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("billing_zip")]
+    public string? BillingZip { get; init; }
+
+    /// <summary>
+    /// (Optional, used only for Subscription Import) The vault that stores the payment profile with the provided vault_token.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("current_vault")]
+    public AllVaults? CurrentVault { get; init; }
+
+    /// <summary>
+    /// (Optional, used only for Subscription Import) The “token” provided by your vault storage for an already stored payment profile
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("vault_token")]
+    public string? VaultToken { get; init; }
+
+    /// <summary>
+    /// (Optional, used only for Subscription Import) (only for Authorize.Net CIM storage or Square) The customerProfileId for the owner of the customerPaymentProfileId provided as the vault_token
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("customer_vault_token")]
+    public string? CustomerVaultToken { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("customer_id")]
+    public int? CustomerId { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("paypal_email")]
+    public string? PaypalEmail { get; init; }
+
+    /// <summary>
+    /// (Required for Square unless importing with vault_token and customer_vault_token) The nonce generated by the Square Javascript library (SqPaymentForm)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payment_method_nonce")]
+    public string? PaymentMethodNonce { get; init; }
+
+    /// <summary>
+    /// (Optional) This attribute is only available if MultiGateway feature is enabled for your Site. This feature is in the Private Beta currently. gateway_handle is used to directly select a gateway where a payment profile will be stored in. Every connected gateway must have a unique gateway handle specified. Read <see href="https://chargify.zendesk.com/hc/en-us/articles/4407761759643#connecting-with-multiple-gateways">Multigateway description</see> to learn more about new concepts that MultiGateway introduces and the default behavior when this attribute is not passed.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("gateway_handle")]
+    public string? GatewayHandle { get; init; }
+
+    /// <summary>
+    /// (Optional, may be required by your gateway settings) The 3- or 4-digit Card Verification Value. This value is merely passed through to the payment gateway.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("cvv")]
+    public string? Cvv { get; init; }
+
+    /// <summary>
+    /// (Optional, used only for Subscription Import) If you have the last 4 digits of the credit card number, you may supply them here so that we may create a masked card number (e.g., XXXX-XXXX-XXXX-1234) for display in the UI. Last 4 digits are required for refunds in Auth.Net.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("last_four")]
+    public string? LastFour { get; init; }
+
+    [JsonExtensionData]
+    public AdditionalProperties AdditionalProperties { get; init; } = [];
+}
