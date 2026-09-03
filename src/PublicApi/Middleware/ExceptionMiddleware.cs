@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,33 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            ContactNumberRejectedException rejected => ((int)HttpStatusCode.BadRequest, rejected.Message),
+            CatalogOrderException catalog => ((int)HttpStatusCode.BadRequest, catalog.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            EntityNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            OrderStateException state => ((int)HttpStatusCode.Conflict, state.Message),
+            NotificationOperationException operation => ((int)HttpStatusCode.Conflict, operation.Message),
+            TwilioProviderException provider => (MapProviderStatus(provider.HttpStatusCode), provider.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static int MapProviderStatus(int? status) =>
+        status switch
+        {
+            401 or 403 => (int)HttpStatusCode.BadGateway,
+            429 => (int)HttpStatusCode.ServiceUnavailable,
+            >= 400 and < 500 => status.Value,
+            _ => (int)HttpStatusCode.BadGateway
+        };
 }

@@ -1,0 +1,16 @@
+using System.Collections.Generic;
+using System.Linq;
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class OrderNotificationsByOrderIdsSpecification : Specification<OrderNotification>
+{
+    public OrderNotificationsByOrderIdsSpecification(IEnumerable<int> orderIds)
+    {
+        var ids = orderIds.ToList();
+        Query.Where(n => ids.Contains(n.OrderId))
+            .OrderBy(n => n.Id);
+    }
+}
