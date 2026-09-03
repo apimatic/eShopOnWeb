@@ -11,6 +11,20 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+		<PackageReference Include="Microsoft.Bcl.TimeProvider" />
+		<PackageReference Include="Polly" />
+		<PackageReference Include="System.Net.Http.Json" />
+		<PackageReference Include="System.Net.ServerSentEvents" />
+		<PackageReference Include="System.Text.Json" />
+	</ItemGroup>
+	<ItemGroup>
+		<Reference Include="TwilioSdk">
+			<HintPath>..\..\lib\TwilioSdk\TwilioSdk.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
