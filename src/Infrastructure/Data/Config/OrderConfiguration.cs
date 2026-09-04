@@ -16,6 +16,24 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.Currency)
+            .HasMaxLength(3);
+
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(32);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CaptureStatus).HasMaxLength(32);
+
+        builder.Property(o => o.CaptureGrossAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.CaptureFeeAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.CaptureNetAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.RefundedAmount).HasColumnType("decimal(18,2)");
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
