@@ -22,6 +22,35 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public string PaymentStatus { get; private set; } = "AwaitingPayment";
+    public string FulfilmentStatus { get; private set; } = "Pending";
+    public string? PayPalOrderId { get; private set; }
+    public string? PayPalAuthorizationId { get; private set; }
+    public string? PayPalCaptureId { get; private set; }
+    public decimal CapturedAmount { get; private set; }
+    public decimal PayPalFee { get; private set; }
+    public decimal NetProceeds { get; private set; }
+    public decimal RefundedAmount { get; private set; }
+    public DateTimeOffset? AuthorizedAt { get; private set; }
+
+    public void SetPayPalOrder(string id) => PayPalOrderId = id;
+    public void SetAuthorization(string id, string status)
+    {
+        PayPalAuthorizationId = id;
+        PaymentStatus = status;
+        AuthorizedAt = DateTimeOffset.UtcNow;
+    }
+    public void SetCaptured(string id, decimal amount, decimal fee)
+    {
+        PayPalCaptureId = id;
+        CapturedAmount = amount;
+        PayPalFee = fee;
+        NetProceeds = amount - fee;
+        PaymentStatus = "Captured";
+        FulfilmentStatus = "Fulfilled";
+    }
+    public void SetCancelled(string status) { PaymentStatus = status; FulfilmentStatus = "Cancelled"; }
+    public void AddRefund(decimal amount) { RefundedAmount += amount; PaymentStatus = RefundedAmount >= CapturedAmount ? "Refunded" : "PartiallyRefunded"; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Http;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
+using Microsoft.eShopWeb.PublicApi.Payments;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +90,23 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection("PayPal"));
+var paypalSettings = builder.Configuration.GetSection("PayPal").Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(paypalSettings);
+builder.Services.AddHttpClient("PayPal", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddSingleton(sp =>
+{
+    if (!string.Equals(paypalSettings.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("PayPal:Environment must be Sandbox for this SDK.");
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials { ClientId = paypalSettings.ClientId, ClientSecret = paypalSettings.ClientSecret },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(10), MaxRetries = 1 }
+    };
+    if (!string.IsNullOrWhiteSpace(paypalSettings.BaseUrl)) options.Server.Default.Sandbox.BaseUrl = paypalSettings.BaseUrl;
+    return new PayPalServerSdkClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal"), options);
+});
+builder.Services.AddScoped<PayPalPaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +183,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
