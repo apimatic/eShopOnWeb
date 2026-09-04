@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +25,20 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var paypalEnvironment = new Dictionary<string, string?>();
+foreach (var pair in new[]
+{
+    ("PayPal:ClientId", "PAYPAL_CLIENT_ID"),
+    ("PayPal:ClientSecret", "PAYPAL_CLIENT_SECRET"),
+    ("PayPal:Environment", "PAYPAL_ENVIRONMENT"),
+    ("PayPal:Currency", "PAYPAL_CURRENCY")
+})
+{
+    var value = Environment.GetEnvironmentVariable(pair.Item2);
+    if (!string.IsNullOrWhiteSpace(value)) paypalEnvironment[pair.Item1] = value;
+}
+builder.Configuration.AddInMemoryCollection(paypalEnvironment);
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +65,9 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayPal"));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<PayPalClient>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -158,6 +176,8 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+app.UseAuthentication();
+
 app.UseCors(CORS_POLICY);
 
 app.UseAuthorization();
@@ -174,6 +194,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapPaymentEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
