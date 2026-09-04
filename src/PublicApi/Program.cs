@@ -20,6 +20,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Servers;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -84,6 +88,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayPal"));
+var paypal = builder.Configuration.GetSection("PayPal").Get<PayPalOptions>() ?? new PayPalOptions();
+builder.Services.AddPayPalServerSdkClient(options =>
+{
+    options.Environment = ServerEnvironment.Sandbox;
+    options.Oauth2 = new OAuth2ClientCredentials { ClientId = paypal.ClientId, ClientSecret = paypal.ClientSecret };
+    if (!string.IsNullOrWhiteSpace(paypal.BaseUrl))
+        options.Server.Default.Sandbox.BaseUrl = paypal.BaseUrl;
+});
+builder.Services.AddScoped<PayPalGateway>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -157,6 +172,8 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseAuthentication();
 
 app.UseCors(CORS_POLICY);
 

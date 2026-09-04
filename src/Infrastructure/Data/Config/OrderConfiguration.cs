@@ -15,6 +15,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+        builder.Property(x => x.CapturedAmount).HasPrecision(18, 2);
+        builder.Property(x => x.RefundedAmount).HasPrecision(18, 2);
+        builder.Property(x => x.PayPalFee).HasPrecision(18, 2);
+        builder.Property(x => x.NetProceeds).HasPrecision(18, 2);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {

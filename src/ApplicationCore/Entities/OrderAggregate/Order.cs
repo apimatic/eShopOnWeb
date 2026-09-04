@@ -22,6 +22,54 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderPaymentStatus PaymentStatus { get; private set; } = OrderPaymentStatus.AwaitingPayment;
+    public OrderFulfilmentStatus FulfilmentStatus { get; private set; } = OrderFulfilmentStatus.Unfulfilled;
+    public string? PaymentProviderOrderId { get; private set; }
+    public string? AuthorizationId { get; private set; }
+    public string? CaptureId { get; private set; }
+    public decimal CapturedAmount { get; private set; }
+    public decimal RefundedAmount { get; private set; }
+    public decimal PayPalFee { get; private set; }
+    public decimal NetProceeds { get; private set; }
+
+    public void SetPaymentOrder(string providerOrderId)
+    {
+        PaymentProviderOrderId = providerOrderId;
+        PaymentStatus = OrderPaymentStatus.AwaitingAuthorization;
+    }
+
+    public void SetAuthorization(string authorizationId)
+    {
+        AuthorizationId = authorizationId;
+        PaymentStatus = OrderPaymentStatus.Authorized;
+    }
+
+    public void SetCaptured(string captureId, decimal amount, decimal fee, decimal net)
+    {
+        CaptureId = captureId;
+        CapturedAmount = amount;
+        PayPalFee = fee;
+        NetProceeds = net;
+        PaymentStatus = OrderPaymentStatus.Captured;
+        FulfilmentStatus = OrderFulfilmentStatus.Fulfilled;
+    }
+
+    public void AddRefund(decimal amount)
+    {
+        if (amount <= 0 || RefundedAmount + amount > CapturedAmount)
+            throw new InvalidOperationException("Refund exceeds the captured amount.");
+        RefundedAmount += amount;
+        PaymentStatus = RefundedAmount == CapturedAmount ? OrderPaymentStatus.Refunded : OrderPaymentStatus.PartiallyRefunded;
+    }
+
+    public void Cancel()
+    {
+        PaymentStatus = OrderPaymentStatus.Cancelled;
+        FulfilmentStatus = OrderFulfilmentStatus.Cancelled;
+    }
+
+    public enum OrderPaymentStatus { AwaitingPayment, AwaitingAuthorization, Authorized, Captured, PartiallyRefunded, Refunded, Cancelled }
+    public enum OrderFulfilmentStatus { Unfulfilled, Fulfilled, Cancelled }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
