@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +32,18 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+var logFilePath = builder.Configuration["Logging:File:Path"];
+if (!string.IsNullOrWhiteSpace(logFilePath))
+{
+    builder.Logging.AddProvider(new Microsoft.eShopWeb.PublicApi.Logging.FileLoggerProvider(logFilePath));
+}
+AppDomain.CurrentDomain.UnhandledException += (sender, exArgs) =>
+{
+    if (!string.IsNullOrWhiteSpace(logFilePath))
+    {
+        File.AppendAllText(logFilePath, $"{DateTimeOffset.UtcNow:O} [FATAL unhandled]{Environment.NewLine}{exArgs.ExceptionObject}{Environment.NewLine}");
+    }
+};
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -39,11 +53,18 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payments integration: single long-lived SDK client + gateway, configuration-bound
+// credentials ("PayPal:" section, PAYPAL_* environment variables as fallback — never values in files).
+builder.Services.AddPayPalIntegration(builder.Configuration);
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

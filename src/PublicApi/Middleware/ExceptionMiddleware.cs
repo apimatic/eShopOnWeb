@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.PaymentGateway;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +33,41 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicate => ((int)HttpStatusCode.Conflict, duplicate.Message),
+            OrderNotFoundException orderNotFound => ((int)HttpStatusCode.NotFound, orderNotFound.Message),
+            PaymentMethodNotFoundException paymentMethodNotFound => ((int)HttpStatusCode.NotFound, paymentMethodNotFound.Message),
+            OrderStateException orderState => ((int)HttpStatusCode.Conflict, orderState.Message),
+            ValidationFailureException validation => ((int)HttpStatusCode.BadRequest, validation.Message),
+            PaymentGatewayException gateway => MapGatewayFailure(gateway),
+            // Anything else stays the existing contract: a bare 500 with the message.
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    /// <summary>
+    /// One mapping, applied everywhere: provider rejections keep their client-error class
+    /// (402/404/409/422-style semantics), provider outage is 502/503, and an unknown write
+    /// outcome is a distinct 502 the caller can settle by replaying the idempotent call.
+    /// Gateway messages are already caller-safe (never provider internals or card data).
+    /// </summary>
+    private static (int StatusCode, string Message) MapGatewayFailure(PaymentGatewayException gateway) => gateway.Kind switch
+    {
+        PaymentFailureKind.ProviderRejected => ((int)HttpStatusCode.PaymentRequired, gateway.Message),
+        PaymentFailureKind.ResourceNotFound => ((int)HttpStatusCode.NotFound, gateway.Message),
+        PaymentFailureKind.Conflict => ((int)HttpStatusCode.Conflict, gateway.Message),
+        PaymentFailureKind.Unreachable => ((int)HttpStatusCode.ServiceUnavailable, gateway.Message),
+        PaymentFailureKind.OutcomeUnknown => ((int)HttpStatusCode.BadGateway, gateway.Message),
+        PaymentFailureKind.ProtocolError => ((int)HttpStatusCode.BadGateway, gateway.Message),
+        PaymentFailureKind.AuthenticationFailed => ((int)HttpStatusCode.BadGateway, "The payment provider refused the merchant's credentials. An operator must check the PayPal configuration."),
+        _ => ((int)HttpStatusCode.InternalServerError, "The payment operation failed.")
+    };
 }
