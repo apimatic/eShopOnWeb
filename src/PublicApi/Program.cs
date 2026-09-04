@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,16 +15,23 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddUserSecrets<Program>(optional: true);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +52,54 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetSection("Maxio"))
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApiKey), "Maxio:ApiKey is required.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.Subdomain), "Maxio:Subdomain is required.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ProductFamilyHandle), "Maxio:ProductFamilyHandle is required.")
+    .ValidateOnStart();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value);
+builder.Services.AddScoped<MaxioSubscriptionService>();
+
+const string MaxioHttpClientName = "MaxioAdvancedBilling";
+builder.Services.AddTransient<MaxioDiagnosticsHandler>();
+builder.Services.AddTransient<MaxioWriteAttemptHandler>();
+builder.Services.AddHttpClient(MaxioHttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<MaxioDiagnosticsHandler>()
+    .AddHttpMessageHandler<MaxioWriteAttemptHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<MaxioSettings>();
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials { Username = settings.ApiKey!, Password = "x" },
+        Environment = string.Equals(builder.Configuration["Maxio:Environment"] ?? builder.Configuration["MAXIO_ENVIRONMENT"], "EU", StringComparison.OrdinalIgnoreCase)
+            ? ServerEnvironment.Eu
+            : ServerEnvironment.Us,
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(8),
+            MaxRetries = 2,
+            Delay = TimeSpan.FromMilliseconds(250),
+            MaxJitter = TimeSpan.FromMilliseconds(50)
+        },
+        Server = new ServerOptions()
+    };
+    options.Server.Production.Us.Site = settings.Subdomain!;
+    options.Server.Production.Eu.Site = settings.Subdomain!;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+        options.Server.Production.Eu.BaseUrl = settings.BaseUrl;
+    }
+    return new MaxioAdvancedBillingClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioHttpClientName), options);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +216,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
