@@ -1,0 +1,25 @@
+title: Create Offer
+type: object
+properties:
+  name:
+    type: string
+  handle:
+    type: string
+  description:
+    type: string
+  product_id:
+    type: integer
+  product_price_point_id:
+    type: integer
+  components:
+    type: array
+    items:
+      $ref: "./Create-Offer-Component.yaml"
+  coupons:
+    type: array
+    items:
+      type: string
+required:
+  - name
+  - handle
+  - product_id

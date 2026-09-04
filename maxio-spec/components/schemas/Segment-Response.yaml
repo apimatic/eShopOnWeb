@@ -1,0 +1,5 @@
+title: Segment Response
+type: object
+properties:
+  segment:
+    $ref: "./Segment.yaml"
