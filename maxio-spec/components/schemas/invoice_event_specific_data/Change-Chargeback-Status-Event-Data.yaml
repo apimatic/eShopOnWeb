@@ -1,0 +1,9 @@
+title: Change Chargeback Status Event Data
+type: object
+description: Example schema for an `change_chargeback_status` event
+properties:
+  chargeback_status:
+    allOf:
+      - $ref: "../Chargeback-Status.yaml"
+required:
+  - chargeback_status
