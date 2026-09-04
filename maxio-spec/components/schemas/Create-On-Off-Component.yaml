@@ -1,0 +1,7 @@
+title: Create On/Off Component
+type: object
+properties:
+  on_off_component:
+    $ref: "./On-Off-Component.yaml"
+required:
+  - on_off_component

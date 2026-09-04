@@ -1,0 +1,5 @@
+title: Update Metadata Request
+type: object
+properties:
+  metadata:
+    $ref: "./Update-Metadata.yaml"

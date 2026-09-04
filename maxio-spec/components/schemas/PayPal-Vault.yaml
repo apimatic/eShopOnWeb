@@ -1,0 +1,8 @@
+title: PayPal Vault
+type: string
+description: The vault that stores the payment profile with the provided vault_token.
+enum:
+  - braintree_blue
+  - paypal
+  - moduslink
+  - paypal_complete

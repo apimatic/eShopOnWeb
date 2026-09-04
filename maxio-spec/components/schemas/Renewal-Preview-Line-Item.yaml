@@ -1,0 +1,34 @@
+title: Renewal Preview Line Item
+type: object
+properties:
+  transaction_type:
+    $ref: "./Line-Item-Transaction-Type.yaml"
+  kind:
+    $ref: "./Line-Item-Kind.yaml"
+  amount_in_cents:
+    type: integer
+    format: int64
+  memo:
+    type: string
+  discount_amount_in_cents:
+    type: integer
+    format: int64
+  taxable_amount_in_cents:
+    type: integer
+    format: int64
+  product_id:
+    type: integer
+  product_name:
+    type: string
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  component_name:
+    type: string
+  product_handle:
+    type: string
+  period_range_start:
+    type: string
+  period_range_end:
+    type: string
