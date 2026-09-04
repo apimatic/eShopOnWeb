@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,36 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (HttpStatusCode, string) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException duplicationException:
+                return (HttpStatusCode.Conflict, duplicationException.Message);
+            case OrderStateException stateException:
+                // The message is written for the person who can act on it (shopper or operator).
+                return (HttpStatusCode.Conflict, stateException.Message);
+            case OrderNotFoundException notFound:
+                return (HttpStatusCode.NotFound, notFound.Message);
+            case PaymentMethodNotFoundException methodNotFound:
+                return (HttpStatusCode.NotFound, methodNotFound.Message);
+            case PaymentDeclinedException declined:
+                return (HttpStatusCode.PaymentRequired, declined.Message);
+            case PayPalGatewayException gatewayException:
+                return (HttpStatusCode.BadGateway, gatewayException.Message);
+            case ArgumentException argumentException:
+                return (HttpStatusCode.BadRequest, argumentException.Message);
+            default:
+                return (HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }

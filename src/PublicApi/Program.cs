@@ -7,11 +7,15 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentMethodAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +36,23 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// PayPal payment integration: gateway + order/payment lifecycle services.
+builder.Services.AddPayPalGateway(builder.Configuration);
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>() ?? new PayPalSettings();
+if (string.IsNullOrWhiteSpace(payPalSettings.Currency))
+{
+    throw new InvalidOperationException("PayPal:Currency must be configured (set the PayPal:Currency configuration key, e.g. from PAYPAL_CURRENCY).");
+}
+builder.Services.AddScoped<IOrderPaymentService>(sp => new OrderPaymentService(
+    sp.GetRequiredService<IRepository<Order>>(),
+    sp.GetRequiredService<IRepository<CatalogItem>>(),
+    sp.GetRequiredService<IRepository<PaymentMethod>>(),
+    sp.GetRequiredService<IPayPalGateway>(),
+    payPalSettings.Currency));
+builder.Services.AddScoped<IPaymentMethodService>(sp => new PaymentMethodService(
+    sp.GetRequiredService<IRepository<PaymentMethod>>(),
+    sp.GetRequiredService<IPayPalGateway>()));
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
