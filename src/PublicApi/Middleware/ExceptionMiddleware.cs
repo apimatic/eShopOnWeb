@@ -4,16 +4,20 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -24,6 +28,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unhandled PublicApi exception.");
             await HandleExceptionAsync(httpContext, ex);        
         }
     }
@@ -41,13 +46,22 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioProviderException maxioException)
+        {
+            context.Response.StatusCode = (int)maxioException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }

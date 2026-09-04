@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -17,9 +19,15 @@ using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -44,6 +52,47 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+
+var maxioSection = builder.Configuration.GetSection("Maxio");
+builder.Services.Configure<MaxioOptions>(maxioSection);
+builder.Services.AddHttpClient("MaxioAdvancedBilling", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .AddHttpMessageHandler<MaxioWriteOnceHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddTransient<MaxioWriteOnceHandler>();
+builder.Services.AddSingleton<MaxioAdvancedBillingClient>(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("MaxioAdvancedBilling");
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    options.Server.Production.Us.Site = settings.Subdomain;
+    if (!string.IsNullOrEmpty(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -55,6 +104,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -160,6 +211,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -174,6 +226,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+SubscriptionEndpointRoutes.Map(app);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
