@@ -22,10 +22,33 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+builder.Services.AddHttpContextAccessor();
+
+// The sandbox supplies MAXIO_* variables. Project them into the Maxio section so
+// the same options binding works locally (user-secrets) and in hosted deployments.
+var maxioEnvironmentConfiguration = new Dictionary<string, string?>();
+AddMaxioEnvironmentSetting("MAXIO_API_KEY", "Maxio:ApiKey");
+AddMaxioEnvironmentSetting("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+AddMaxioEnvironmentSetting("MAXIO_ENVIRONMENT", "Maxio:Environment");
+AddMaxioEnvironmentSetting("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+if (maxioEnvironmentConfiguration.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvironmentConfiguration);
+}
+
+void AddMaxioEnvironmentSetting(string environmentName, string configurationName)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        maxioEnvironmentConfiguration[configurationName] = value;
+    }
+}
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -40,6 +63,12 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<SubscriptionService>();
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
@@ -160,6 +189,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

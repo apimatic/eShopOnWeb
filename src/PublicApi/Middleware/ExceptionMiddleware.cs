@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Threading.Tasks;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
@@ -39,6 +40,42 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is CurrentUserNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is MaxioConfigurationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "Subscription billing is not configured."
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
             }.ToString());
         }
         else
