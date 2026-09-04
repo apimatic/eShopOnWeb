@@ -260,3 +260,6 @@ pub/
 .devcontainer
 
 .azure
+
+# opencode per-run skill carrier (plugin content, NOT delivered code - keep it off the run branch and out of the diffstat)
+/.opencode/
