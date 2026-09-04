@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,9 +15,11 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -25,7 +28,83 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Deployment values are configuration, not source. Development uses the
+// PublicApi user-secrets store; the aliases also support non-development hosts.
+var maxioEnvironmentValues = new Dictionary<string, string?>();
+AddMaxioEnvironmentValue("MAXIO_API_KEY", "Maxio:ApiKey");
+AddMaxioEnvironmentValue("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+AddMaxioEnvironmentValue("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+AddMaxioEnvironmentValue("MAXIO_BASE_URL", "Maxio:BaseUrl");
+if (maxioEnvironmentValues.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvironmentValues);
+}
+
+void AddMaxioEnvironmentValue(string environmentName, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(builder.Configuration[configurationKey]))
+    {
+        maxioEnvironmentValues[configurationKey] = value;
+    }
+}
+
 builder.Services.AddEndpoints();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddTransient<MaxioWriteGuardHandler>();
+builder.Services.AddTransient<MaxioWireLoggingHandler>();
+builder.Services.AddHttpClient(MaxioBillingService.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    })
+    .AddHttpMessageHandler<MaxioWireLoggingHandler>()
+    .AddHttpMessageHandler<MaxioWriteGuardHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton<MaxioAdvancedBilling.MaxioAdvancedBillingClient>(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    settings.Validate();
+
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>()
+        .CreateClient(MaxioBillingService.HttpClientName);
+    var usServerOptions = new MaxioAdvancedBilling.Servers.ProductionOptions.UsOptions
+    {
+        Site = settings.Subdomain!
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        usServerOptions.BaseUrl = settings.BaseUrl!;
+    }
+    var sdkOptions = new MaxioAdvancedBilling.MaxioAdvancedBillingClientOptions
+    {
+        Environment = MaxioAdvancedBilling.Servers.ServerEnvironment.Us,
+        Retry = MaxioAdvancedBilling.Core.Configuration.RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        },
+        Server = new MaxioAdvancedBilling.ServerOptions
+        {
+            Production = new MaxioAdvancedBilling.Servers.ProductionOptions
+            {
+                Us = usServerOptions
+            }
+        },
+        BasicAuth = new MaxioAdvancedBilling.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = settings.ApiKey!,
+            Password = "x"
+        }
+    };
+
+    return new MaxioAdvancedBilling.MaxioAdvancedBillingClient(httpClient, sdkOptions);
+});
+builder.Services.AddSingleton<MaxioBillingService>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -160,6 +239,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
