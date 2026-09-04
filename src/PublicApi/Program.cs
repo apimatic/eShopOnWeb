@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,40 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Bind settings from the PayPal: configuration section using exactly these keys
+// (PayPal:ClientId, PayPal:ClientSecret, PayPal:Environment, PayPal:Currency, PayPal:BaseUrl).
+// Values arrive as PAYPAL_* environment variables / .NET user-secrets; nothing is hard-coded.
+var payPalEnvOverrides = new (string ConfigKey, string EnvVar)[]
+{
+    ("PayPal:ClientId", "PAYPAL_CLIENT_ID"),
+    ("PayPal:ClientSecret", "PAYPAL_CLIENT_SECRET"),
+    ("PayPal:Environment", "PAYPAL_ENVIRONMENT"),
+    ("PayPal:Currency", "PAYPAL_CURRENCY")
+};
+foreach (var (configKey, envVar) in payPalEnvOverrides)
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration[configKey]))
+    {
+        builder.Configuration[configKey] = Environment.GetEnvironmentVariable(envVar);
+    }
+}
+
+var payPalSection = builder.Configuration.GetSection(PayPalOptions.SectionName);
+builder.Services.Configure<PayPalOptions>(payPalSection);
+var payPalOptions = payPalSection.Get<PayPalOptions>() ?? new PayPalOptions();
+builder.Services.AddSingleton(payPalOptions);
+
+builder.Services.AddHttpClient("PayPal");
+builder.Services.AddSingleton<IPayPalGateway>(sp =>
+{
+    var clientFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+    var client = clientFactory.CreateClient("PayPal");
+    return new PayPalGateway(client, payPalOptions, sp.GetRequiredService<ILogger<PayPalGateway>>());
+});
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

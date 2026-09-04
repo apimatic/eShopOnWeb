@@ -23,6 +23,11 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+    public DateTimeOffset? FulfilledAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public OrderPayment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +48,37 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void SetPayment(OrderPayment payment)
+    {
+        Payment = payment;
+    }
+
+    public void UpdatePayment(OrderPayment payment)
+    {
+        Payment = payment;
+    }
+
+    public void MarkPaid()
+    {
+        Status = OrderStatus.Paid;
+    }
+
+    public void MarkFulfilled()
+    {
+        Status = OrderStatus.Fulfilled;
+        FulfilledAt = DateTimeOffset.UtcNow;
+    }
+
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+        CancelledAt = DateTimeOffset.UtcNow;
+    }
+
+    public void MarkFullyRefunded()
+    {
+        Status = OrderStatus.Refunded;
     }
 }
