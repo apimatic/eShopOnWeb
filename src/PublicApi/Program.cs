@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -40,6 +41,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
@@ -157,6 +162,8 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseAuthentication();
 
 app.UseCors(CORS_POLICY);
 
