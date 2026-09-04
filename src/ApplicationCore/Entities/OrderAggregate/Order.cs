@@ -23,6 +23,18 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Fulfilment/processing state of the order. New orders start in
+    /// <see cref="OrderStatus.AwaitingPayment"/>.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// Payment state owned by the order (PayPal hold/capture/refunds). Null until the
+    /// shopper pays for the order.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +55,48 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attaches the payment (authorization) PayPal just returned for this order.</summary>
+    public void Authorize(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+
+        if (Status == OrderStatus.Fulfilled || Status == OrderStatus.Cancelled)
+        {
+            throw new Exceptions.InvalidOrderStateException($"Cannot authorize an order that is {Status}.");
+        }
+
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Operator flow: money captured at fulfilment.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new Exceptions.InvalidOrderStateException($"Only an authorized order can be fulfilled (current state: {Status}).");
+        }
+        if (Payment is null ||
+            (Payment.Status != PaymentStatus.Captured &&
+             Payment.Status != PaymentStatus.PartiallyRefunded &&
+             Payment.Status != PaymentStatus.Refunded))
+        {
+            throw new Exceptions.InvalidOrderStateException("The order cannot be fulfilled until its payment has been captured.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Operator flow: cancel before fulfilment, releasing the hold.</summary>
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.Authorized)
+        {
+            throw new Exceptions.InvalidOrderStateException($"An order in state {Status} cannot be cancelled; refund the captured payment instead.");
+        }
+
+        Status = OrderStatus.Cancelled;
     }
 }

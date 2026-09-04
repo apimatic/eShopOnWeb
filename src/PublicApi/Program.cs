@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,28 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- PayPal integration ------------------------------------------------------------
+// All settings bind from the "PayPal:" configuration section (user-secrets / env vars):
+//   PayPal:ClientId, PayPal:ClientSecret, PayPal:Environment, PayPal:Currency, PayPal:BaseUrl
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SECTION_NAME));
+// Convenience fallback: PAYPAL_* environment variables map onto the same keys when the
+// section does not carry a value (never the other way round).
+builder.Services.PostConfigure<PayPalSettings>(settings =>
+{
+    settings.ClientId = string.IsNullOrWhiteSpace(settings.ClientId) ? Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID") : settings.ClientId;
+    settings.ClientSecret = string.IsNullOrWhiteSpace(settings.ClientSecret) ? Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET") : settings.ClientSecret;
+    settings.Environment = string.IsNullOrWhiteSpace(settings.Environment) ? Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT") : settings.Environment;
+    settings.Currency = string.IsNullOrWhiteSpace(settings.Currency) ? Environment.GetEnvironmentVariable("PAYPAL_CURRENCY") : settings.Currency;
+    settings.BaseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? Environment.GetEnvironmentVariable("PAYPAL_BASE_URL") : settings.BaseUrl;
+});
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>().Value);
+builder.Services.AddHttpClient<IPayPalProvider, PayPalProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(90);
+    client.DefaultRequestHeaders.Add("User-Agent", "eShopOnWeb-PublicApi/1.0");
+});
+builder.Services.AddScoped<IPaymentProcessingService, PaymentProcessingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

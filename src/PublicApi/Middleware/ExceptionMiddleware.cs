@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
-using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message, issue) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            ResourceNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message, (string?)null),
+            DomainValidationException validation => ((int)HttpStatusCode.BadRequest, validation.Message, (string?)null),
+            InvalidOrderStateException invalidState => ((int)HttpStatusCode.Conflict, invalidState.Message, (string?)null),
+            DuplicateException duplicate => ((int)HttpStatusCode.Conflict, duplicate.Message, (string?)null),
+            PaymentDeclinedException declined => ((int)HttpStatusCode.PaymentRequired, declined.Message, declined.Issue),
+            PaymentGatewayException gateway => ((int)HttpStatusCode.BadGateway, gateway.Message, (string?)null),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message, (string?)null)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            statusCode,
+            message,
+            issue
+        }));
     }
 }
