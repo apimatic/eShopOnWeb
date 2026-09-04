@@ -10,6 +10,8 @@ public class OrderWithItemsByIdSpec : Specification<Order>
         Query
             .Where(order => order.Id == orderId)
             .Include(o => o.OrderItems)
-            .ThenInclude(i => i.ItemOrdered);
+            .ThenInclude(i => i.ItemOrdered)
+            .Include(o => o.Payment)
+            .ThenInclude(p => p!.Refunds);
     }
 }
