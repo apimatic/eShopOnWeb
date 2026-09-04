@@ -1,0 +1,18 @@
+title: Net Terms
+type: object
+properties:
+  default_net_terms:
+    type: integer
+    default: 0
+  automatic_net_terms:
+    type: integer
+    default: 0
+  remittance_net_terms:
+    type: integer
+    default: 0
+  net_terms_on_remittance_signups_enabled:
+    type: boolean
+    default: false
+  custom_net_terms_enabled:
+    type: boolean
+    default: false

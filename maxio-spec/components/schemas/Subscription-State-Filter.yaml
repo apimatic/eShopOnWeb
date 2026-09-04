@@ -1,0 +1,16 @@
+title: Subscription State Filter
+type: string
+description: Allowed values for filtering by the current state of the subscription.
+enum:
+  - active
+  - canceled
+  - expired
+  - expired_cards
+  - on_hold
+  - past_due
+  - pending_cancellation
+  - pending_renewal
+  - suspended
+  - trial_ended
+  - trialing
+  - unpaid

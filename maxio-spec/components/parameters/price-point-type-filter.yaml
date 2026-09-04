@@ -1,0 +1,13 @@
+in: query
+name: filter[type]
+schema:
+  type: array
+  items:
+    $ref: "../schemas/Price-Point-Type.yaml"
+  example:
+    - catalog
+    - default
+style: form
+explode: false
+description: |-
+  Use in query: `filter[type]=catalog,default`.
