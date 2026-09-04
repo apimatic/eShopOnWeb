@@ -1,0 +1,7 @@
+title: Invoice Line Item Component Cost Data
+type: object
+properties:
+  rates:
+    type: array
+    items:
+      $ref: "./Component-Cost-Data.yaml"
