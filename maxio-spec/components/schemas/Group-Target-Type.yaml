@@ -1,0 +1,9 @@
+title: Group Target Type
+type: string
+description: The type of object indicated by the id attribute.
+enum:
+  - customer
+  - subscription
+  - self
+  - parent
+  - eldest
