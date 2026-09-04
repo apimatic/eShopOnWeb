@@ -1,0 +1,6 @@
+title: Bank Account Holder Type
+type: string
+description: Defaults to personal
+enum:
+  - personal
+  - business
