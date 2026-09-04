@@ -14,18 +14,28 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// User secrets are loaded outside Development as well so headless test and local
+// launch profiles use the same configuration binding as deployed hosts.
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+
 builder.Services.AddEndpoints();
+builder.Services.AddHttpContextAccessor();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -44,6 +54,32 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+var maxioOptions = maxioSection.Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.Environment = ServerEnvironment.Us;
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioOptions.ApiKey ?? string.Empty,
+        Password = "x"
+    };
+    options.Server.Production.Us.Site = maxioOptions.Subdomain ?? string.Empty;
+    if (!string.IsNullOrWhiteSpace(maxioOptions.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+
+    options.Retry = RetryOptions.Default() with
+    {
+        // GETs may retry on status, while writes are reconciled by reference.
+        MaxRetries = 1,
+        Timeout = TimeSpan.FromSeconds(10)
+    };
+});
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +196,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
