@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,6 +33,17 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        if (exception is MaxioBillingException maxioException)
+        {
+            context.Response.StatusCode = maxioException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+            return;
+        }
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
@@ -47,7 +59,7 @@ public class ExceptionMiddleware
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }
