@@ -11,11 +11,21 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
+    public DbSet<MaxioSubscriptionRecord> MaxioSubscriptionRecords => Set<MaxioSubscriptionRecord>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         // Customize the ASP.NET Identity model and override the defaults if needed.
         // For example, you can rename the ASP.NET Identity table names and more.
         // Add your customizations after calling base.OnModelCreating(builder);
+        builder.Entity<MaxioSubscriptionRecord>(entity =>
+        {
+            entity.HasKey(record => record.Id);
+            entity.Property(record => record.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(record => record.ProductHandle).HasMaxLength(255).IsRequired();
+            entity.HasIndex(record => record.UserId).IsUnique();
+            entity.HasIndex(record => record.MaxioSubscriptionId).IsUnique();
+        });
     }
 }
