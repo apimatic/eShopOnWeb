@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +18,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -26,6 +32,78 @@ using MinimalApi.Endpoint.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+builder.Services.AddHttpContextAccessor();
+
+// Deployment environments provide these names; the application itself binds only the
+// Maxio section. User-secrets provide the same section locally without repository data.
+var maxioEnvironment = builder.Configuration["MAXIO_ENVIRONMENT"];
+var maxioEnvironmentValues = new Dictionary<string, string?>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration["MAXIO_API_KEY"]))
+{
+    maxioEnvironmentValues["Maxio:ApiKey"] = builder.Configuration["MAXIO_API_KEY"];
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration["MAXIO_SITE_SUBDOMAIN"]))
+{
+    maxioEnvironmentValues["Maxio:Subdomain"] = builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"]))
+{
+    maxioEnvironmentValues["Maxio:ProductFamilyHandle"] = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+}
+if (!string.IsNullOrWhiteSpace(maxioEnvironment))
+{
+    maxioEnvironmentValues["Maxio:Environment"] = maxioEnvironment;
+}
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentValues);
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+
+const string MaxioHttpClientName = "MaxioAdvancedBilling";
+builder.Services.AddTransient<MaxioWriteGuardHandler>();
+builder.Services.AddHttpClient(MaxioHttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    })
+    .AddHttpMessageHandler<MaxioWriteGuardHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton<MaxioAdvancedBillingClient>(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient(MaxioHttpClientName);
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        },
+        Environment = string.Equals(settings.Environment, "eu", StringComparison.OrdinalIgnoreCase)
+            ? MaxioAdvancedBilling.Servers.ServerEnvironment.Eu
+            : MaxioAdvancedBilling.Servers.ServerEnvironment.Us,
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+            MaxRetries = 1
+        }
+    };
+
+    options.Server.Production.Us.Site = settings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+builder.Services.AddTransient<SubscriptionPlansEndpoint>();
+builder.Services.AddTransient<CreateSubscriptionEndpoint>();
+builder.Services.AddTransient<MySubscriptionsEndpoint>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -160,6 +238,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
