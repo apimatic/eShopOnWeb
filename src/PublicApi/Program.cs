@@ -1,7 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +19,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +30,23 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+
+// AsadAli.AdvancedBilling.Sdk 1.0.2's netstandard2.0 assembly carries an assembly reference to
+// Microsoft.Bcl.AsyncInterfaces at a synthetic build-time version ("10.0.0.8") that no published
+// NuGet release of that package ever ships. Left alone, MinimalApi.Endpoint's reflection-based
+// endpoint scan (Assembly.GetTypes() over every loaded assembly) throws ReflectionTypeLoadException
+// the first time it reaches MaxioAdvancedBilling.dll. Redirect that one identity to whichever
+// Microsoft.Bcl.AsyncInterfaces build actually restored alongside the app.
+AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+{
+    if (new AssemblyName(args.Name).Name != "Microsoft.Bcl.AsyncInterfaces")
+    {
+        return null;
+    }
+
+    var path = Path.Combine(AppContext.BaseDirectory, "Microsoft.Bcl.AsyncInterfaces.dll");
+    return File.Exists(path) ? Assembly.LoadFrom(path) : null;
+};
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +75,38 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (recurring-subscription billing) — bound from the "Maxio" configuration
+// section (Maxio:ApiKey / Maxio:Subdomain / Maxio:ProductFamilyHandle / Maxio:BaseUrl), sourced from
+// .NET user-secrets locally and from environment/App Service configuration in deployed environments.
+// Values are intentionally absent from every appsettings*.json file in this repo.
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+var maxioOptions = builder.Configuration.GetSection("Maxio").Get<MaxioOptions>() ?? new MaxioOptions();
+
+// AddMaxioAdvancedBillingClient resolves the default (unnamed) IHttpClientFactory client once, at
+// singleton-construction time, so the usual per-call handler rotation never reaches it — set
+// PooledConnectionLifetime here so pooled connections still recycle behind that singleton.
+builder.Services.ConfigureHttpClientDefaults(http =>
+{
+    http.ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
+    http.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+});
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials { Username = maxioOptions.ApiKey, Password = "x" };
+    options.Environment = ServerEnvironment.Us;
+    options.Server.Production.Us.Site = maxioOptions.Subdomain;
+    if (!string.IsNullOrWhiteSpace(maxioOptions.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+    options.Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(15) };
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
