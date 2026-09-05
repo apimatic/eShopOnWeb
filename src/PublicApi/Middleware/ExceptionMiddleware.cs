@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -39,6 +40,30 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException planNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // Upstream client errors (bad plan handle, validation failures, etc.) are surfaced
+            // with the same status code Maxio returned; upstream server/network trouble maps to
+            // 502, since eShopOnWeb isn't at fault but can't complete the request either.
+            var statusCode = maxioApiException.StatusCode is >= 400 and < 500
+                ? maxioApiException.StatusCode
+                : (int)HttpStatusCode.BadGateway;
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = statusCode,
+                Message = maxioApiException.Errors.Any() ? string.Join(" ", maxioApiException.Errors) : maxioApiException.Message
             }.ToString());
         }
         else
