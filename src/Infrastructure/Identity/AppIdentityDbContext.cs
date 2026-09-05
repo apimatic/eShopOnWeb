@@ -6,6 +6,9 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity;
 
 public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
 {
+    public DbSet<MaxioBillingCustomer> MaxioBillingCustomers => Set<MaxioBillingCustomer>();
+    public DbSet<MaxioSubscriptionEnrollment> MaxioSubscriptionEnrollments => Set<MaxioSubscriptionEnrollment>();
+
     public AppIdentityDbContext(DbContextOptions<AppIdentityDbContext> options)
         : base(options)
     {
@@ -14,8 +17,21 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        // Customize the ASP.NET Identity model and override the defaults if needed.
-        // For example, you can rename the ASP.NET Identity table names and more.
-        // Add your customizations after calling base.OnModelCreating(builder);
+        builder.Entity<MaxioBillingCustomer>(entity =>
+        {
+            entity.HasIndex(customer => customer.UserId).IsUnique();
+            entity.HasIndex(customer => customer.Reference).IsUnique();
+            entity.Property(customer => customer.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(customer => customer.Reference).HasMaxLength(256).IsRequired();
+        });
+
+        builder.Entity<MaxioSubscriptionEnrollment>(entity =>
+        {
+            entity.HasIndex(enrollment => new { enrollment.UserId, enrollment.PlanHandle }).IsUnique();
+            entity.HasIndex(enrollment => enrollment.SubscriptionReference).IsUnique();
+            entity.Property(enrollment => enrollment.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(enrollment => enrollment.PlanHandle).HasMaxLength(256).IsRequired();
+            entity.Property(enrollment => enrollment.SubscriptionReference).HasMaxLength(256).IsRequired();
+        });
     }
 }
