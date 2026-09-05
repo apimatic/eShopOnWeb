@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,20 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // 422 from Maxio means the caller sent something invalid (e.g. an unknown plan
+            // handle) - a client error. Anything else (misconfiguration, network failure,
+            // unexpected status) is an upstream failure.
+            context.Response.StatusCode = maxioException.StatusCode == (int)HttpStatusCode.UnprocessableEntity
+                ? (int)HttpStatusCode.BadRequest
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
             }.ToString());
         }
         else
