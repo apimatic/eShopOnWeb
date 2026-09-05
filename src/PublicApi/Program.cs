@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -48,6 +52,41 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Configure Maxio options
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+
+// Register Maxio client with DI
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var maxioConfig = builder.Configuration.GetSection("Maxio").Get<MaxioOptions>();
+    if (maxioConfig != null)
+    {
+        // Use environment variables or fall back to config
+        var apiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? maxioConfig.ApiKey;
+        var subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? maxioConfig.Subdomain;
+        var baseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL") ?? maxioConfig.BaseUrl;
+
+        options.BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        };
+
+        options.Environment = ServerEnvironment.Us;
+
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            options.Server.Production.Us.BaseUrl = baseUrl;
+        }
+        else if (!string.IsNullOrEmpty(subdomain))
+        {
+            options.Server.Production.Us.Site = subdomain;
+        }
+    }
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddMemoryCache();
 
