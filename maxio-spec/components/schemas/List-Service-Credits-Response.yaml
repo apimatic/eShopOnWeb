@@ -1,0 +1,7 @@
+title: List Service Credits Response
+type: object
+properties:
+  service_credits:
+    type: array
+    items:
+      $ref: "./List-Service-Credits-Item.yaml"
