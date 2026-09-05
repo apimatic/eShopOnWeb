@@ -13,7 +13,11 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MAXIO_API_KEY": "",
+        "MAXIO_SITE_SUBDOMAIN": "",
+        "MAXIO_ENVIRONMENT": "sandbox",
+        "MAXIO_DEFAULT_PRODUCT_FAMILY": ""
       },
       "applicationUrl": "https://localhost:24723;http://localhost:24724"
     },
