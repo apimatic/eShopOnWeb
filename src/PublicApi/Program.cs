@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +49,39 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+const string MaxioHttpClientName = "Maxio";
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+var maxioOptions = builder.Configuration.GetSection("Maxio").Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddHttpClient(MaxioHttpClientName, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(20);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var maxioHttpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioHttpClientName);
+    var clientOptions = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials { Username = maxioOptions.ApiKey, Password = "x" },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(15) }
+    };
+    if (!string.IsNullOrWhiteSpace(maxioOptions.Subdomain))
+    {
+        clientOptions.Server.Production.Us.Site = maxioOptions.Subdomain;
+    }
+    if (!string.IsNullOrWhiteSpace(maxioOptions.BaseUrl))
+    {
+        clientOptions.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+    return new MaxioAdvancedBillingClient(maxioHttpClient, clientOptions);
+});
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
