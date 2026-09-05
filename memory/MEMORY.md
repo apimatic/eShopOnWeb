@@ -1,0 +1,2 @@
+- [Maxio subscription integration](project_maxio_subscription_integration.md) — eShopOnWeb PublicApi now has recurring-subscription billing via Maxio, additive to Catalog/Basket/Order
+- [Maxio remittance payment_collection_method](feedback_maxio_remittance_payment_collection.md) — cardless subscribe needs payment_collection_method=remittance or Maxio 422s
