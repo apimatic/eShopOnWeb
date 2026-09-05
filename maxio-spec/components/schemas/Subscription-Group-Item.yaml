@@ -1,0 +1,31 @@
+title: Subscription Group Item
+type: object
+properties:
+  id:
+    type: integer
+  reference:
+    type:
+      - string
+      - "null"
+  product_id:
+    type: integer
+  product_handle:
+    type:
+      - "null"
+      - string
+  product_price_point_id:
+    type: integer
+  product_price_point_handle:
+    type: string
+  currency:
+    type: string
+  coupon_code:
+    type:
+      - string
+      - "null"
+  total_revenue_in_cents:
+    type: integer
+    format: int64
+  balance_in_cents:
+    type: integer
+    format: int64
