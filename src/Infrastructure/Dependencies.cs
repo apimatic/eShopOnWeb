@@ -36,5 +36,7 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        Maxio.MaxioDependencies.ConfigureServices(configuration, services);
     }
 }
