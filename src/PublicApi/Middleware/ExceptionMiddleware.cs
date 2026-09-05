@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // Surface the upstream billing provider's status where it maps sensibly onto ours;
+            // anything else (e.g. a Maxio-side outage) is reported as a Bad Gateway.
+            context.Response.StatusCode = maxioApiException.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict
+                ? (int)maxioApiException.StatusCode
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"Maxio billing request failed: {maxioApiException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
