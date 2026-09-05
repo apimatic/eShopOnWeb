@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // 4xx from Maxio means our request was rejected (e.g. an unknown plan handle) -
+            // pass that status through. Anything else (5xx, network failure) is an upstream
+            // problem, surfaced as a Bad Gateway.
+            var statusCode = (int)maxioException.StatusCode;
+            context.Response.StatusCode = statusCode is >= 400 and < 500 ? statusCode : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"Maxio billing request failed: {maxioException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
