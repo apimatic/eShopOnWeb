@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.Infrastructure.Data;
@@ -41,6 +42,14 @@ public class CatalogContextSeed
             {
                 await catalogContext.CatalogItems.AddRangeAsync(
                     GetPreconfiguredItems());
+
+                await catalogContext.SaveChangesAsync();
+            }
+
+            if (!await catalogContext.SubscriptionPlans.AnyAsync())
+            {
+                await catalogContext.SubscriptionPlans.AddRangeAsync(
+                    GetPreconfiguredSubscriptionPlans());
 
                 await catalogContext.SaveChangesAsync();
             }
@@ -97,5 +106,39 @@ public class CatalogContextSeed
                 new(3,2, "Cup<T> Sheet", "Cup<T> Sheet", 8.5M, "http://catalogbaseurltobereplaced/images/products/11.png"),
                 new(2,5, "Prism White TShirt", "Prism White TShirt", 12, "http://catalogbaseurltobereplaced/images/products/12.png")
             };
+    }
+
+    static IEnumerable<SubscriptionPlan> GetPreconfiguredSubscriptionPlans()
+    {
+        var now = DateTime.UtcNow;
+        return new List<SubscriptionPlan>
+        {
+            new()
+            {
+                MaxioProductId = 7126957,
+                Handle = "eshop-pro",
+                Name = "Pro Plan",
+                Description = "$299/month subscription plan",
+                PriceInDollars = 299.00M,
+                IntervalUnit = "month",
+                Interval = 1,
+                IsArchived = false,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new()
+            {
+                MaxioProductId = 7126958,
+                Handle = "basic-plan",
+                Name = "Basic Plan",
+                Description = "$29/month subscription plan",
+                PriceInDollars = 29.00M,
+                IntervalUnit = "month",
+                Interval = 1,
+                IsArchived = false,
+                CreatedAt = now,
+                UpdatedAt = now
+            }
+        };
     }
 }
