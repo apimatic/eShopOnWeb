@@ -1,0 +1,7 @@
+title: Product Price Point Error Response
+type: object
+properties:
+  errors:
+    $ref: "./Product-Price-Point-Errors.yaml"
+required:
+  - errors

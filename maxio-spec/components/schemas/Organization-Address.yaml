@@ -1,0 +1,35 @@
+title: Organization Address
+type: object
+properties:
+  street:
+    type:
+      - string
+      - "null"
+  line2:
+    type:
+      - string
+      - "null"
+  city:
+    type:
+      - string
+      - "null"
+  state:
+    type:
+      - string
+      - "null"
+  zip:
+    type:
+      - string
+      - "null"
+  country:
+    type:
+      - string
+      - "null"
+  name:
+    type:
+      - string
+      - "null"
+  phone:
+    type:
+      - string
+      - "null"
