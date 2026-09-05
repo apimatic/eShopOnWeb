@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // Client-error responses from Maxio (bad plan handle, validation failures) are
+            // surfaced with their original status; anything else is an upstream failure.
+            var isClientError = (int)maxioException.StatusCode is >= 400 and < 500;
+            context.Response.StatusCode = isClientError ? (int)maxioException.StatusCode : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
