@@ -1,0 +1,23 @@
+title: Component Price
+type: object
+properties:
+  id:
+    type: integer
+  component_id:
+    type: integer
+  starting_quantity:
+    type: integer
+  ending_quantity:
+    type:
+      - integer
+      - "null"
+  unit_price:
+    type: string
+  price_point_id:
+    type: integer
+  formatted_unit_price:
+    type: string
+  segment_id:
+    type:
+      - integer
+      - "null"

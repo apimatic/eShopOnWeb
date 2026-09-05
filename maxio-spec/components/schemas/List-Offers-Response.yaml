@@ -1,0 +1,7 @@
+title: List Offers Response
+type: object
+properties:
+  offers:
+    type: array
+    items:
+      $ref: "./Offer.yaml"
