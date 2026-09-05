@@ -9,6 +9,14 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
+    <!--
+      AsadAli.AdvancedBilling.Sdk targets netstandard2.0 and depends on System.Net.ServerSentEvents
+      10.0.8, which itself requires Microsoft.Bcl.AsyncInterfaces >= 10.0.8. The .NET 8 SDK's own
+      implicit netstandard2.0-compat reference otherwise pins this package back down to 7.0.0, which
+      compiles but throws FileNotFoundException at run time. Pin it explicitly so the higher version wins.
+    -->
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Result" Version="7.0.0" />
