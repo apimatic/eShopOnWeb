@@ -1,0 +1,7 @@
+title: Prepaid Product Price Point Filter
+type: object
+properties:
+  product_price_point_id:
+    $ref: "./Include-Not-Null.yaml"
+required:
+  - product_price_point_id
