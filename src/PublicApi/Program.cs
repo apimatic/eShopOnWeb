@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +25,9 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Subscription credentials are intentionally stored outside this published repository.
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +48,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = options.GetApiBaseAddress();
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<SubscriptionEnrollmentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -67,6 +81,15 @@ builder.Services.AddAuthentication(config =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(SubscriptionEndpoints.JwtPolicyName, policy =>
+    {
+        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+    });
 });
 
 const string CORS_POLICY = "CorsPolicy";
@@ -160,6 +183,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
