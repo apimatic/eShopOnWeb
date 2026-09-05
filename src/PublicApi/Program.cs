@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +18,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +56,45 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+const string MaxioHttpClientName = "MaxioAdvancedBilling";
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+
+builder.Services.AddHttpClient(MaxioHttpClientName, c =>
+    {
+        // Bounds a single attempt; a hung Maxio call ends here rather than at the SDK's 100s default.
+        c.Timeout = TimeSpan.FromSeconds(20);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioHttpClientName);
+
+    var maxioOptions = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey,
+            Password = "x"
+        },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(15) }
+    };
+    maxioOptions.Server.Production.Us.Site = maxioSettings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+    {
+        maxioOptions.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, maxioOptions);
+});
+
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
