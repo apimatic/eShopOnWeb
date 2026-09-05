@@ -1,0 +1,5 @@
+title: Group Type
+type: string
+enum:
+  - single_customer
+  - multiple_customers

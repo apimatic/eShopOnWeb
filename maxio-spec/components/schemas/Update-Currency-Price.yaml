@@ -1,0 +1,12 @@
+title: Update Currency Price
+type: object
+properties:
+  id:
+    type: integer
+    description: ID of the currency price record being updated
+  price:
+    type: number
+    description: New price for the given currency
+required:
+  - id
+  - price
