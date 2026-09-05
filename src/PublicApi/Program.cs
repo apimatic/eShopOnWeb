@@ -7,11 +7,13 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +24,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +53,47 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio
+var maxioConfig = new MaxioConfiguration();
+builder.Configuration.GetSection(MaxioConfiguration.SectionName).Bind(maxioConfig);
+
+if (!string.IsNullOrWhiteSpace(maxioConfig.ApiKey) && !string.IsNullOrWhiteSpace(maxioConfig.ProductFamilyHandle))
+{
+    var maxioBaseUrl = maxioConfig.GetBaseUrl();
+    builder.Services.AddScoped<IMaxioApiClient>(serviceProvider =>
+    {
+        var httpClient = new System.Net.Http.HttpClient();
+        var logger = serviceProvider.GetRequiredService<ILogger<MaxioApiClient>>();
+        return new MaxioApiClient(httpClient, maxioBaseUrl, maxioConfig.ApiKey, logger);
+    });
+
+    builder.Services.AddScoped<ISubscriptionService>(serviceProvider =>
+    {
+        var maxioClient = serviceProvider.GetRequiredService<IMaxioApiClient>();
+        var identityContext = serviceProvider.GetRequiredService<AppIdentityDbContext>();
+        var maxioCustomerRepository = serviceProvider.GetRequiredService<IReadRepository<MaxioCustomer>>();
+        var maxioSubscriptionRepository = serviceProvider.GetRequiredService<IReadRepository<MaxioSubscription>>();
+        var maxioCustomerWriteRepository = serviceProvider.GetRequiredService<IRepository<MaxioCustomer>>();
+        var maxioSubscriptionWriteRepository = serviceProvider.GetRequiredService<IRepository<MaxioSubscription>>();
+        var logger = serviceProvider.GetRequiredService<ILogger<SubscriptionService>>();
+
+        return new SubscriptionService(
+            maxioClient,
+            identityContext,
+            maxioCustomerRepository,
+            maxioSubscriptionRepository,
+            maxioCustomerWriteRepository,
+            maxioSubscriptionWriteRepository,
+            maxioConfig.ProductFamilyHandle,
+            logger
+        );
+    });
+}
+else
+{
+    builder.Services.AddScoped<ISubscriptionService, StubSubscriptionService>();
+}
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
