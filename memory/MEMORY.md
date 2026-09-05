@@ -1,0 +1,1 @@
+- [Maxio subscription integration](project_maxio_subscription_integration.md) — eShopOnWeb PublicApi + Maxio Advanced Billing, payment_collection_method gotcha
