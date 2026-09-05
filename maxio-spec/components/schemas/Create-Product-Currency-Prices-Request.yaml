@@ -1,0 +1,9 @@
+title: Create Product Currency Prices Request
+type: object
+properties:
+  currency_prices:
+    type: array
+    items:
+      $ref: "./Create-Product-Currency-Price.yaml"
+required:
+  - currency_prices
