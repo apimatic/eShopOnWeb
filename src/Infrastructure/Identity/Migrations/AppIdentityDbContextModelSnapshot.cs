@@ -150,6 +150,51 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity.Migrations
                     b.ToTable("AspNetUserTokens");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioCustomer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .UseIdentityColumn();
+
+                    b.Property<DateTimeOffset>("CreatedUtc").HasColumnType("datetimeoffset");
+                    b.Property<int>("CustomerId").HasColumnType("int");
+                    b.Property<string>("CustomerReference").IsRequired().HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<DateTimeOffset>("UpdatedUtc").HasColumnType("datetimeoffset");
+                    b.Property<string>("UserId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+                    b.HasIndex("CustomerReference").IsUnique();
+                    b.HasIndex("UserId").IsUnique();
+                    b.ToTable("MaxioCustomers");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioSubscriptionEnrollment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .UseIdentityColumn();
+
+                    b.Property<DateTimeOffset>("CreatedUtc").HasColumnType("datetimeoffset");
+                    b.Property<DateTimeOffset?>("NextBillingAt").HasColumnType("datetimeoffset");
+                    b.Property<string>("PlanHandle").IsRequired().HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<long?>("PriceInCents").HasColumnType("bigint");
+                    b.Property<DateTimeOffset?>("ProcessingLeaseExpiresUtc").HasColumnType("datetimeoffset");
+                    b.Property<string>("ProductName").HasColumnType("nvarchar(max)");
+                    b.Property<byte[]>("RowVersion").IsConcurrencyToken().ValueGeneratedOnAddOrUpdate().HasColumnType("rowversion");
+                    b.Property<string>("State").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<int?>("SubscriptionId").HasColumnType("int");
+                    b.Property<string>("SubscriptionReference").IsRequired().HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<DateTimeOffset>("UpdatedUtc").HasColumnType("datetimeoffset");
+                    b.Property<string>("UserId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+                    b.HasIndex("SubscriptionReference").IsUnique();
+                    b.HasIndex("UserId", "PlanHandle").IsUnique();
+                    b.ToTable("MaxioSubscriptionEnrollments");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
