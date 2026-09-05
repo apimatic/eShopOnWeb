@@ -22,10 +22,18 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(MaxioOptions.IsValid, "Maxio must specify an API key, a product family handle, and either a subdomain or BaseUrl.");
+builder.Services.AddHttpClient<IMaxioAdvancedBillingClient, MaxioAdvancedBillingClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -68,6 +76,7 @@ builder.Services.AddAuthentication(config =>
         ValidateAudience = false
     };
 });
+builder.Services.AddAuthorization();
 
 const string CORS_POLICY = "CorsPolicy";
 builder.Services.AddCors(options =>
@@ -160,6 +169,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
