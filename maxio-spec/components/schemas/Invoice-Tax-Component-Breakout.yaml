@@ -1,0 +1,31 @@
+title: Invoice Tax Component Breakout
+type: object
+properties:
+  tax_rule_id:
+    type: integer
+  percentage:
+    type: string
+  country_code:
+    type: string
+  subdivision_code:
+    type: string
+  tax_amount:
+    type: string
+  taxable_amount:
+    type: string
+  tax_exempt_amount:
+    type: string
+  non_taxable_amount:
+    type: string
+  tax_name:
+    type: string
+  tax_type:
+    type: string
+  rate_type:
+    type: string
+  tax_authority_type:
+    type: integer
+  state_assigned_no:
+    type: string
+  tax_sub_type:
+    type: string
