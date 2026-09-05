@@ -1,0 +1,32 @@
+title: Remove Payment Event Data
+type: object
+description: Example schema for an `remove_payment` event
+properties:
+  transaction_id:
+    type: integer
+    description: Transaction ID of the original payment that was removed
+  memo:
+    type: string
+    description: Memo of the original payment
+  original_amount:
+    type: string
+    description: Full amount of the original payment
+  applied_amount:
+    type: string
+    description: Applied amount of the original payment
+  transaction_time:
+    type: string
+    format: date-time
+    description: 'Transaction time of the original payment, in ISO 8601 format, i.e. "2019-06-07T17:20:06Z"'
+  payment_method:
+    $ref: "../../../openapi.yaml#/components/schemas/Invoice-Event-Payment"
+  prepayment:
+    type: boolean
+    description: The flag that shows whether the original payment was a prepayment or not
+required:
+  - transaction_id
+  - prepayment
+  - memo
+  - applied_amount
+  - transaction_time
+  - payment_method
