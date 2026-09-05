@@ -1,8 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +42,27 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    public static void ConfigureMaxioServices(IConfiguration configuration, IServiceCollection services)
+    {
+        services.Configure<MaxioOptions>(configuration.GetSection(MaxioOptions.CONFIG_NAME));
+
+        services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? $"https://{options.Subdomain}.chargify.com"
+                : options.BaseUrl!.TrimEnd('/');
+            client.BaseAddress = new Uri(baseUrl + "/");
+
+            // Per maxio-spec securitySchemes.BasicAuth: username is the API key, password is "x".
+            var basicAuthValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuthValue);
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+
+        services.AddScoped<IMaxioBillingService, MaxioBillingService>();
     }
 }
