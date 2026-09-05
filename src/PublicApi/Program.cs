@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,18 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Configure Maxio settings
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = builder.Configuration["Maxio:ApiKey"],
+    Subdomain = builder.Configuration["Maxio:Subdomain"],
+    ProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"],
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"],
+    Environment = builder.Configuration["Maxio:Environment"]
+};
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 builder.Services.AddMemoryCache();
 

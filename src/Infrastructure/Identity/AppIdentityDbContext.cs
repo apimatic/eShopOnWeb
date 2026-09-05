@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
 
 
 namespace Microsoft.eShopWeb.Infrastructure.Identity;
@@ -10,6 +11,8 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
         : base(options)
     {
     }
+
+    public DbSet<MaxioSubscriptionMapping>? MaxioSubscriptionMappings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
