@@ -1,0 +1,87 @@
+title: List Coupons Filter
+type: object
+properties:
+  date_field:
+    allOf:
+      - $ref: "./Basic-Date-Field.yaml"
+    description: "The type of filter you would like to apply to your search. Use in query `filter[date_field]=created_at`."
+  start_date:
+    type: string
+    format: date
+    example: "2011-12-17"
+    description:
+      "The start date (format YYYY-MM-DD) with which to filter the date_field. Returns coupons with a timestamp at or after midnight (12:00:00 AM) in your site’s time zone on the date specified.
+      Use in query `filter[start_date]=2011-12-17`."
+  end_date:
+    type: string
+    format: date
+    example: "2011-12-15"
+    description:
+      "The end date (format YYYY-MM-DD) with which to filter the date_field. Returns coupons with a timestamp up to and including 11:59:59PM in your site’s time zone on the date specified.
+      Use in query `filter[end_date]=2011-12-15`."
+  start_datetime:
+    type: string
+    format: date-time
+    example: "2011-12-19T10:15:30+01:00"
+    description:
+      "The start date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns coupons with a timestamp at or after exact time provided in query. You can specify timezone in query - otherwise your site's time zone will be used. If provided, this parameter will be used instead of start_date.
+      Use in query `filter[start_datetime]=2011-12-19T10:15:30+01:00`."
+  end_datetime:
+    type: string
+    format: date-time
+    example: "2019-06-07T17:20:06Z"
+    description:
+      "The end date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns coupons with a timestamp at or before exact time provided in query. You can specify timezone in query - otherwise your site's time zone will be used. If provided, this parameter will be used instead of end_date.
+      Use in query `filter[end_datetime]=2011-12-1T10:15:30+01:00`."
+  ids:
+    type: array
+    items:
+      type: integer
+    example:
+      - 1
+      - 2
+      - 3
+    minItems: 1
+    description:
+      "Allows fetching coupons with matching id based on provided values.
+      Use in query `filter[ids]=1,2,3`."
+    style: form
+    explode: false
+  codes:
+    type: array
+    items:
+      type: string
+    example:
+      - free
+      - free_trial
+    description:
+      "Allows fetching coupons with matching codes based on provided values.
+      Use in query `filter[codes]=free,free_trial`."
+    style: form
+    explode: false
+  use_site_exchange_rate:
+    type: boolean
+    description:
+      "If true, restricts the list to coupons whose pricing is recalculated from the site’s current exchange rates, so their currency_prices array contains on-the-fly conversions rather than stored price records. If false, restricts the list to coupons that have manually defined amounts for each currency, ensuring the response includes the saved currency_prices entries instead of exchange-rate-derived values.
+      Use in query `filter[use_site_exchange_rate]=true`."
+  include_archived:
+    type: boolean
+    description: "Controls returning archived coupons."
+examples:
+  Created-Between:
+    date_field: created_at
+    start_date: 2024-01-01
+    end_date: 2024-12-31
+  Updated-Between-Time:
+    date_field: updated_at
+    start_datetime: 2024-01-01T10:15:30+01:00
+    end_datetime: 2024-12-31T10:15:30+01:00
+  With-Ids:
+    ids:
+      - 123
+      - 124
+      - 125
+  With-Codes:
+    codes:
+      - discount_10_percent
+      - summer_discount
