@@ -41,6 +41,16 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // Surface Maxio's own status code (e.g. 422 for invalid plan/state) rather than masking it as a 500.
+            context.Response.StatusCode = (int)maxioApiException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioApiException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
