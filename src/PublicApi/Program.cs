@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -29,6 +30,7 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddEnvironmentVariables();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -50,6 +52,32 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio Billing
+var maxioApiKey = builder.Configuration["MAXIO_API_KEY"] ?? builder.Configuration["Maxio:ApiKey"];
+var maxioSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? builder.Configuration["Maxio:Subdomain"];
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+if (string.IsNullOrEmpty(maxioBaseUrl))
+{
+    if (!string.IsNullOrEmpty(maxioSubdomain))
+    {
+        maxioBaseUrl = $"https://{maxioSubdomain}.chargify.com";
+    }
+}
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioBaseUrl))
+{
+    builder.Services.AddHttpClient();
+    builder.Services.AddScoped<MaxioApiClient>(provider =>
+    {
+        var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
+        var httpClient = httpClientFactory.CreateClient();
+        var logger = provider.GetRequiredService<IAppLogger<MaxioApiClient>>();
+        return new MaxioApiClient(httpClient, maxioApiKey, maxioBaseUrl, logger);
+    });
+    builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
+}
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -83,7 +111,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -123,6 +150,15 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioBaseUrl))
+{
+    app.Logger.LogInformation($"Maxio Billing configured with base URL: {maxioBaseUrl}");
+}
+else
+{
+    app.Logger.LogWarning("Maxio API credentials not configured. Subscription features will be unavailable.");
+}
 
 app.Logger.LogInformation("PublicApi App created...");
 
