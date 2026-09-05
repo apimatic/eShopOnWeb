@@ -1,0 +1,14 @@
+title: Credit Note Application
+type: object
+properties:
+  uid:
+    type: string
+  transaction_time:
+    type: string
+    format: date-time
+  invoice_uid:
+    type: string
+  memo:
+    type: string
+  applied_amount:
+    type: string
