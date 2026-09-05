@@ -1,0 +1,13 @@
+title: Cancellation Method
+type:
+  - string
+  - "null"
+description: "The process used to cancel the subscription, if the subscription has been canceled. It is nil if the subscription's state is not canceled."
+enum:
+  - merchant_ui
+  - merchant_api
+  - dunning
+  - billing_portal
+  - unknown
+  - imported
+  - null
