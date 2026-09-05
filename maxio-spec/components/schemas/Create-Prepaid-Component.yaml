@@ -1,0 +1,7 @@
+title: Create Prepaid Component
+type: object
+properties:
+  prepaid_usage_component:
+    $ref: "./Prepaid-Component.yaml"
+required:
+  - prepaid_usage_component
