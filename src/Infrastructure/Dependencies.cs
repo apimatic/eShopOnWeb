@@ -1,6 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.ApplicationCore.Subscriptions;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +27,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +43,26 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        ConfigureMaxio(configuration, services);
+    }
+
+    private static void ConfigureMaxio(IConfiguration configuration, IServiceCollection services)
+    {
+        var maxioOptions = configuration.GetSection(MaxioOptions.ConfigSectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+        services.AddSingleton(maxioOptions);
+
+        services.AddHttpClient<IMaxioClient, MaxioClient>(client =>
+        {
+            var baseUrl = string.IsNullOrWhiteSpace(maxioOptions.BaseUrl)
+                ? $"https://{maxioOptions.Subdomain}.chargify.com/"
+                : maxioOptions.BaseUrl.TrimEnd('/') + "/";
+            client.BaseAddress = new Uri(baseUrl);
+
+            var basicAuthValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioOptions.ApiKey}:x"));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuthValue);
+        });
+
+        services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
     }
 }

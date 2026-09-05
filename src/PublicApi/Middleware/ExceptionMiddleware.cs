@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PlanNotFoundException planNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // The upstream billing provider rejected or failed the request; surface as a
+            // Bad Gateway since eShopOnWeb itself received a well-formed request.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"Maxio returned {(int)maxioApiException.StatusCode}: {maxioApiException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

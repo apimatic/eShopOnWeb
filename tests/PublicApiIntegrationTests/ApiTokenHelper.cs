@@ -26,6 +26,16 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        /// <summary>
+        /// Mints a token for an arbitrary username, with no corresponding Identity user required.
+        /// Useful for tests that only need a stable JWT "name" claim (e.g. Maxio customer
+        /// reference) rather than a real, seeded eShopOnWeb account.
+        /// </summary>
+        public static string GetTokenFor(string userName)
+        {
+            return CreateToken(userName, System.Array.Empty<string>());
+        }
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
