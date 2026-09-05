@@ -45,6 +45,18 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+var maxioSection = builder.Configuration.GetSection("Maxio");
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = maxioSection["ApiKey"] ?? string.Empty,
+    Subdomain = maxioSection["Subdomain"] ?? string.Empty,
+    ProductFamilyHandle = maxioSection["ProductFamilyHandle"] ?? string.Empty,
+    BaseUrl = maxioSection["BaseUrl"]
+};
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
