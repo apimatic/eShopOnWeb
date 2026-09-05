@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +53,49 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Register Maxio Advanced Billing client
+var maxioConfig = builder.Configuration.GetSection("Maxio");
+builder.Services.AddHttpClient();
+
+builder.Services.AddScoped(sp =>
+{
+    var httpClientFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient(string.Empty);
+
+    var apiKey = maxioConfig["ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey is not configured");
+    var subdomain = maxioConfig["Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain is not configured");
+    var environment = maxioConfig["Environment"] ?? "US";
+    var baseUrl = maxioConfig["BaseUrl"];
+
+    var usOptions = new ProductionOptions.UsOptions { Site = subdomain };
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        usOptions.BaseUrl = baseUrl;
+    }
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        },
+        Environment = environment.Equals("EU", StringComparison.OrdinalIgnoreCase)
+            ? ServerEnvironment.Eu
+            : ServerEnvironment.Us,
+        Server = new ServerOptions
+        {
+            Production = new ProductionOptions
+            {
+                Us = usOptions
+            }
+        }
+    };
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
