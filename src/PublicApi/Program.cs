@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,10 +19,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +91,64 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// Configure Maxio SDK client
+builder.Services.AddHttpClient(Options.DefaultName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient(Options.DefaultName);
+
+    var maxioApiKey = config["Maxio:ApiKey"];
+    var maxioEnvironment = config["Maxio:Environment"];
+    var maxioSubdomain = config["Maxio:Subdomain"];
+    var maxioBaseUrl = config["Maxio:BaseUrl"];
+
+    if (string.IsNullOrEmpty(maxioApiKey))
+    {
+        throw new InvalidOperationException("Maxio:ApiKey configuration is missing.");
+    }
+
+    var serverEnvironment = (maxioEnvironment?.ToLower()) switch
+    {
+        "eu" => ServerEnvironment.Eu,
+        _ => ServerEnvironment.Us
+    };
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = serverEnvironment,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioApiKey,
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioBaseUrl;
+        options.Server.Production.Eu.BaseUrl = maxioBaseUrl;
+    }
+    else if (!string.IsNullOrEmpty(maxioSubdomain))
+    {
+        options.Server.Production.Us.Site = maxioSubdomain;
+        options.Server.Production.Eu.Site = maxioSubdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddSingleton<IMaxioCustomerService, MaxioCustomerService>();
+builder.Services.AddScoped<IMaxioService, MaxioService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
