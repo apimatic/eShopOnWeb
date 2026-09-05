@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,9 +10,11 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.ApplicationCore.Subscriptions;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Subscriptions;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,23 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.CONFIG_NAME);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+var maxioOptions = maxioSection.Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddSingleton(maxioOptions);
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<MaxioOptions>();
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+        ? $"https://{options.Subdomain}.chargify.com"
+        : options.BaseUrl!.TrimEnd('/');
+    client.BaseAddress = new Uri(baseUrl + "/");
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    var basicAuthValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuthValue);
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
