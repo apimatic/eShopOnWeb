@@ -1,0 +1,11 @@
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public class ListMySubscriptionsRequest : BaseRequest
+{
+    public string Username { get; }
+
+    public ListMySubscriptionsRequest(string username)
+    {
+        Username = username;
+    }
+}
