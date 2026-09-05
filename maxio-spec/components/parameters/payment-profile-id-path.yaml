@@ -1,0 +1,6 @@
+name: payment_profile_id
+in: path
+description: The Chargify id of the payment profile
+schema:
+  type: integer
+required: true
