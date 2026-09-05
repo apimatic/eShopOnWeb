@@ -1,0 +1,15 @@
+title: Invoice Custom Field
+type: object
+properties:
+  owner_id:
+    type: integer
+  owner_type:
+    $ref: "./Custom-Field-Owner.yaml"
+  name:
+    type: string
+    minLength: 1
+  value:
+    type: string
+    minLength: 1
+  metadatum_id:
+    type: integer
