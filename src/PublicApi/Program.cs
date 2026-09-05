@@ -33,6 +33,12 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+builder.Configuration.AddEnvironmentVariables();
+var maxioSettings = new MaxioSettings();
+builder.Configuration.GetSection("Maxio").Bind(maxioSettings);
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
@@ -140,6 +146,9 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        var maxioService = scopedProvider.GetRequiredService<IMaxioService>();
+        await SubscriptionContextSeed.SeedAsync(catalogContext, maxioService, maxioSettings, app.Logger);
     }
     catch (Exception ex)
     {
