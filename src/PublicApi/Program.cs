@@ -1,23 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Maxio;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +55,37 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// The sandbox credentials arrive as plain environment variables (not the Maxio: / double-underscore
+// convention IConfiguration's env var provider understands), so map them onto the Maxio: section
+// explicitly. Added last so they always win over appsettings/user-secrets when present.
+var maxioEnvOverrides = new Dictionary<string, string?>();
+void MapMaxioEnvVar(string envVarName, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envVarName);
+    if (!string.IsNullOrEmpty(value))
+    {
+        maxioEnvOverrides[configKey] = value;
+    }
+}
+MapMaxioEnvVar("MAXIO_API_KEY", "Maxio:ApiKey");
+MapMaxioEnvVar("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+MapMaxioEnvVar("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+if (maxioEnvOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvOverrides);
+}
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.ConfigSectionName));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((sp, client) =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    client.BaseAddress = new Uri(maxioSettings.GetBaseUrl().TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Accept.Clear();
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    var basicAuthToken = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuthToken);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
