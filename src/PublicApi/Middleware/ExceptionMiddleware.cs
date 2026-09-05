@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioIntegrationException maxioException)
+        {
+            // Carry the provider's own status when it rejected the request (4xx); an unknown
+            // status or a transport/parse failure surfaces as 502, never as a generic 500.
+            var providerStatus = maxioException.ProviderStatusCode;
+            context.Response.StatusCode = providerStatus.HasValue && (int)providerStatus.Value is >= 400 and < 500
+                ? (int)providerStatus.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

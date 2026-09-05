@@ -1,6 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +40,24 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        var maxioSection = configuration.GetSection("Maxio");
+        services.Configure<MaxioSettings>(maxioSection);
+        var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+
+        services.AddMaxioAdvancedBillingClient(o =>
+        {
+            o.BasicAuth = new BasicAuthCredentials
+            {
+                Username = maxioSettings.ApiKey,
+                Password = "x"
+            };
+            o.Server.Production.Us.Site = maxioSettings.Subdomain;
+            if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+            {
+                o.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+            }
+        });
+        services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
     }
 }
