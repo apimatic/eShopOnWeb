@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,42 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The requested subscription plan was not found."
+            }.ToString());
+        }
+        else if (exception is SubscriptionUserNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The authenticated user was not found."
+            }.ToString());
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = configurationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The billing service could not complete the request."
             }.ToString());
         }
         else
