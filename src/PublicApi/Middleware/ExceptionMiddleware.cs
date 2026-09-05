@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // Surface Maxio's own 4xx (e.g. an unknown plan handle) as the same status code; anything else
+            // upstream (5xx, network-level failures) is reported as a Bad Gateway rather than our own 500.
+            var upstreamStatusCode = (int)maxioException.StatusCode;
+            context.Response.StatusCode = upstreamStatusCode is >= 400 and < 500
+                ? upstreamStatusCode
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
