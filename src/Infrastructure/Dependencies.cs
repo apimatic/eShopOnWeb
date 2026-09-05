@@ -1,6 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +24,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -35,6 +39,26 @@ public static class Dependencies
             // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
+        }
+
+        ConfigureMaxio(configuration, services);
+    }
+
+    private static void ConfigureMaxio(IConfiguration configuration, IServiceCollection services)
+    {
+        var maxioSettings = new MaxioSettings
+        {
+            ApiKey = configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? "",
+            Subdomain = configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "",
+            ProductFamilyHandle = configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "",
+            BaseUrl = configuration["Maxio:BaseUrl"] ?? Environment.GetEnvironmentVariable("MAXIO_BASE_URL"),
+            Environment = configuration["Maxio:Environment"] ?? "sandbox"
+        };
+
+        if (!string.IsNullOrEmpty(maxioSettings.ApiKey) && !string.IsNullOrEmpty(maxioSettings.Subdomain))
+        {
+            services.AddSingleton(maxioSettings);
+            services.AddHttpClient<IMaxioService, MaxioService>();
         }
     }
 }
