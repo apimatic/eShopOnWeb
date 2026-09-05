@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // Surface Maxio's own status code (e.g. 422 for validation errors) when it maps
+            // cleanly onto our API; otherwise treat it as an upstream failure.
+            context.Response.StatusCode = maxioApiException.StatusCode is >= 400 and < 500
+                ? maxioApiException.StatusCode
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"Maxio Advanced Billing request failed: {maxioApiException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
