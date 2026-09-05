@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -85,6 +86,13 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Payments. Everything the integration needs comes from the "PayPal:" configuration section - user
+// secrets locally, environment or a secret store when deployed - and nothing is hard-coded here.
+// Misconfigured settings fail the app now, at startup, rather than on a shopper's first payment.
+builder.Services.AddPayPalPayments(builder.Configuration);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IPaymentProcessingService, PaymentProcessingService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +133,19 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+// Payments are additive: the catalog and basket work whether or not the processor is configured, so a
+// missing configuration is called out here rather than breaking the app.
+var payPalProblem = builder.Configuration.PayPalConfigurationProblem();
+if (payPalProblem is not null)
+{
+    app.Logger.LogWarning($"Payments are unavailable until this is fixed: {payPalProblem}");
+}
+else
+{
+    app.Logger.LogInformation("Payments configured; PayPal calls will use " +
+        $"{app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>().Value.BaseAddress}.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 

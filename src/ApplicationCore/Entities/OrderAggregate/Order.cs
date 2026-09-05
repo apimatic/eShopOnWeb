@@ -23,6 +23,16 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Where the order has got to: awaiting payment, paid for (held), fulfilled or cancelled.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public DateTimeOffset? AuthorizedDate { get; private set; }
+    public DateTimeOffset? FulfilledDate { get; private set; }
+    public DateTimeOffset? CancelledDate { get; private set; }
+
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +53,43 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>
+    /// Records that the order total has been put on hold by the payment processor.
+    /// </summary>
+    public void MarkAuthorized(DateTimeOffset authorizedDate)
+    {
+        Guard.Against.NotAllowed(Status != OrderStatus.AwaitingPayment,
+            $"An order that is {Status} can no longer be authorized.");
+
+        Status = OrderStatus.Authorized;
+        AuthorizedDate = authorizedDate;
+    }
+
+    /// <summary>
+    /// Records that the held money has been taken and the order handed over.
+    /// </summary>
+    public void MarkFulfilled(DateTimeOffset fulfilledDate)
+    {
+        Guard.Against.NotAllowed(Status != OrderStatus.Authorized,
+            $"Only an order that is awaiting fulfilment can be fulfilled; this order is {Status}.");
+
+        Status = OrderStatus.Fulfilled;
+        FulfilledDate = fulfilledDate;
+    }
+
+    /// <summary>
+    /// Records that the order was called off before fulfilment.
+    /// </summary>
+    public void MarkCancelled(DateTimeOffset cancelledDate)
+    {
+        Guard.Against.NotAllowed(Status == OrderStatus.Fulfilled,
+            "A fulfilled order cannot be cancelled; refund it instead.");
+        Guard.Against.NotAllowed(Status == OrderStatus.Cancelled,
+            "This order has already been cancelled.");
+
+        Status = OrderStatus.Cancelled;
+        CancelledDate = cancelledDate;
     }
 }
