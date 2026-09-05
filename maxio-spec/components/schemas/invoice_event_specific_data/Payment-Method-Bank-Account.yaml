@@ -1,0 +1,15 @@
+title: Payment Method Bank Account
+type: object
+properties:
+  masked_account_number:
+    type: string
+  masked_routing_number:
+    type: string
+  type:
+    allOf:
+      - $ref: "./Invoice-Event-Payment-Method.yaml"
+    example: "bank_account"
+required:
+  - masked_account_number
+  - masked_routing_number
+  - type
