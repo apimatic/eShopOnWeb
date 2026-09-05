@@ -32,6 +32,7 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureMaxioServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

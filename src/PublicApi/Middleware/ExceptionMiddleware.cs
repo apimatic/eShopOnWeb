@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // A 4xx from Maxio (e.g. an unknown plan handle) reflects a bad request from our
+            // caller; anything else (5xx, unreachable) is an upstream failure.
+            var isClientError = maxioException.StatusCode.HasValue &&
+                (int)maxioException.StatusCode.Value is >= 400 and < 500;
+            context.Response.StatusCode = isClientError ? (int)HttpStatusCode.BadRequest : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
