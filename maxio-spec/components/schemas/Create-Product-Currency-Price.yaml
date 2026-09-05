@@ -1,0 +1,17 @@
+title: Create Product Currency Price
+type: object
+properties:
+  currency:
+    type: string
+    description: |
+      ISO code for one of the site level currencies.
+  price:
+    type: integer
+    description: |
+      Price for the given role.
+  role:
+    $ref: "./Currency-Price-Role.yaml"
+required:
+  - currency
+  - price
+  - role
