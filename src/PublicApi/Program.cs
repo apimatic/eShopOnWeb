@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,11 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Falls back to the MAXIO_* environment variables when Maxio:* has not been configured elsewhere.
+// Registered at the lowest precedence, so user secrets and appsettings still win.
+builder.Configuration.AddMaxioEnvironmentVariableDefaults();
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +50,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Runs alongside the existing
+// catalog/basket/order flow rather than replacing any of it.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +135,15 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+// Surface at start-up whether subscription billing can serve requests, without echoing any secret.
+var maxioSection = app.Configuration.GetSection(MaxioOptions.ConfigurationSectionName);
+app.Logger.LogInformation(
+    "Maxio subscription billing: apiKey={ApiKeyConfigured}, site={SiteConfigured}, productFamily={ProductFamilyConfigured}.",
+    !string.IsNullOrWhiteSpace(maxioSection[nameof(MaxioOptions.ApiKey)]) ? "configured" : "MISSING",
+    !string.IsNullOrWhiteSpace(maxioSection[nameof(MaxioOptions.Subdomain)]) ||
+        !string.IsNullOrWhiteSpace(maxioSection[nameof(MaxioOptions.BaseUrl)]) ? "configured" : "MISSING",
+    !string.IsNullOrWhiteSpace(maxioSection[nameof(MaxioOptions.ProductFamilyHandle)]) ? "configured" : "MISSING");
 
 app.Logger.LogInformation("Seeding Database...");
 
