@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing as the system of record.
+// Bound from the "Maxio" configuration section; supply the values via user-secrets or the
+// platform secret store, never in appsettings.
+builder.Services.AddMaxioSubscriptions(builder.Configuration);
+
+// Scoped, and taken as a route-handler parameter by the subscription endpoints: endpoint instances
+// are built once from the root provider, so a scoped dependency captured in their constructors
+// would be shared across every request.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentSubscriber, CurrentSubscriber>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +138,16 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["Maxio:ApiKey"]) ||
+    (string.IsNullOrWhiteSpace(builder.Configuration["Maxio:Subdomain"]) &&
+     string.IsNullOrWhiteSpace(builder.Configuration["Maxio:BaseUrl"])))
+{
+    // Start anyway: the rest of the API must not be held hostage by an unconfigured integration.
+    // The subscription endpoints answer 503 with the missing-configuration detail.
+    app.Logger.LogWarning(
+        "Maxio is not configured (Maxio:ApiKey plus Maxio:Subdomain or Maxio:BaseUrl); subscription endpoints will report 503.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
