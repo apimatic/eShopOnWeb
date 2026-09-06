@@ -44,6 +44,7 @@ var maxioSettings = new MaxioSettings
 };
 builder.Services.AddSingleton(maxioSettings);
 builder.Services.AddHttpClient<IMaxioApiService, MaxioApiService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
