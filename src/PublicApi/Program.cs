@@ -85,6 +85,10 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring subscription billing, backed by Maxio Advanced Billing (the 'Maxio' configuration
+// section). This runs alongside the one-time catalog/basket/order flow, it does not replace it.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +129,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+app.Services.LogSubscriptionBillingConfiguration(app.Logger);
 
 app.Logger.LogInformation("Seeding Database...");
 
