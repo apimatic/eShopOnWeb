@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -51,6 +52,24 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.Configure<MaxioConfiguration>(cfg =>
+{
+    cfg.ApiKey = builder.Configuration["MAXIO_API_KEY"];
+    cfg.Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+    cfg.Environment = builder.Configuration["MAXIO_ENVIRONMENT"];
+    cfg.ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+    cfg.BaseUrl = builder.Configuration["Maxio:BaseUrl"];
+});
+
+builder.Services.AddHttpClient<MaxioApiClient>();
+builder.Services.AddScoped<SubscriptionService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -83,7 +102,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
