@@ -9,15 +9,19 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +48,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Additive to - not a
+// replacement for - the one-time catalog/basket/order flow.
+builder.Services.AddSubscriptionBilling(builder.Configuration);
+builder.Services.AddScoped<SubscriberService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +134,22 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var maxioSettings = app.Services.GetRequiredService<IOptions<MaxioSettings>>().Value;
+if (maxioSettings.IsConfigured)
+{
+    // Never log the API key itself, only where it points.
+    app.Logger.LogInformation(
+        "Subscription billing enabled against {BaseAddress} for product family '{ProductFamily}'.",
+        maxioSettings.ResolveBaseAddress(),
+        maxioSettings.ProductFamilyHandle);
+}
+else
+{
+    app.Logger.LogWarning(
+        "Subscription billing is disabled: {Problems} The subscription endpoints will answer 503 until this is configured.",
+        string.Join(" ", maxioSettings.Problems()));
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
