@@ -1,0 +1,9 @@
+title: Item Price Point Data
+type: object
+properties:
+  id:
+    type: integer
+  handle:
+    type: string
+  name:
+    type: string
