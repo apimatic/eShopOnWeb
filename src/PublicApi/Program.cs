@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscription;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,12 +45,25 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var configBuilder = new ConfigurationBuilder();
+configBuilder.AddEnvironmentVariables();
+var tempConfig = configBuilder.Build();
+
+builder.Services.Configure<MaxioConfiguration>(options =>
+{
+    options.ApiKey = tempConfig["MAXIO_API_KEY"];
+    options.Subdomain = tempConfig["MAXIO_SITE_SUBDOMAIN"];
+    options.ProductFamilyHandle = tempConfig["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? "eshop-subscribe";
+    options.BaseUrl = tempConfig["MAXIO_BASE_URL"];
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +188,10 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+app.MapGetSubscriptionPlans();
+app.MapCreateSubscription();
+app.MapGetMySubscriptions();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
