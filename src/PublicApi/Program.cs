@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +45,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey), "Maxio:ApiKey is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.Subdomain), "Maxio:Subdomain is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ProductFamilyHandle), "Maxio:ProductFamilyHandle is required.")
+    .Validate(options => string.IsNullOrWhiteSpace(options.BaseUrl) || Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _), "Maxio:BaseUrl must be an absolute URI.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = MaxioOptions.GetBaseUri(options);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionEnrollmentService, SubscriptionEnrollmentService>();
+builder.Services.AddSingleton<SubscriptionEnrollmentGate>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
