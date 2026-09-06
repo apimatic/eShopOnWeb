@@ -1,0 +1,23 @@
+title: Product Family
+type: object
+properties:
+  id:
+    type: integer
+  name:
+    type: string
+  handle:
+    type: string
+  accounting_code:
+    type:
+      - "null"
+      - string
+  description:
+    type:
+      - string
+      - "null"
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
