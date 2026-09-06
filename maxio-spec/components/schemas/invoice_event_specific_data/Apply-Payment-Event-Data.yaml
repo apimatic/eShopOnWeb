@@ -1,0 +1,44 @@
+title: Apply Payment Event Data
+type: object
+description: Example schema for an `apply_payment` event
+properties:
+  consolidation_level:
+    allOf:
+      - $ref: "../Consolidation-Level.yaml"
+  memo:
+    type: string
+    description: The payment memo
+  original_amount:
+    type: string
+    description: 'The full, original amount of the payment transaction as a string in full units. Incoming payments can be split amongst several invoices, which will result in a `applied_amount` less than the `original_amount`. Example: A $100.99 payment, of which $40.11 is applied to this invoice, will have an `original_amount` of `"100.99"`.'
+  applied_amount:
+    type: string
+    description: 'The amount of the payment applied to this invoice. Incoming payments can be split amongst several invoices, which will result in a `applied_amount` less than the `original_amount`. Example: A $100.99 payment, of which $40.11 is applied to this invoice, will have an `applied_amount` of `"40.11"`.'
+  transaction_time:
+    type: string
+    format: date-time
+    description: 'The time the payment was applied, in ISO 8601 format, i.e. "2019-06-07T17:20:06Z"'
+  payment_method:
+    $ref: "../../../openapi.yaml#/components/schemas/Invoice-Event-Payment"
+  transaction_id:
+    type: integer
+    description: The Chargify id of the original payment
+  parent_invoice_number:
+    type:
+      - "null"
+      - integer
+  remaining_prepayment_amount:
+    type:
+      - string
+      - "null"
+  prepayment:
+    type: boolean
+  external:
+    type: boolean
+required:
+  - consolidation_level
+  - memo
+  - original_amount
+  - applied_amount
+  - transaction_time
+  - payment_method

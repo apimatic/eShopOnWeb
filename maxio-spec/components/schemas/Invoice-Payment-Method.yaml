@@ -1,0 +1,21 @@
+title: Invoice Payment Method
+type: object
+properties:
+  details:
+    type: string
+  kind:
+    type: string
+  memo:
+    type: string
+  type:
+    type: string
+  card_brand:
+    type: string
+  card_expiration:
+    type: string
+  last_four:
+    type:
+      - string
+      - "null"
+  masked_card_number:
+    type: string
