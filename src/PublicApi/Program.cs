@@ -85,6 +85,24 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Configure Maxio from environment variables
+var maxioApiKey = builder.Configuration["MAXIO_API_KEY"];
+var maxioSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+var maxioEnvironment = builder.Configuration["MAXIO_ENVIRONMENT"];
+var maxioDefaultProductFamily = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+var maxioBaseUrl = builder.Configuration["MAXIO_BASE_URL"];
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSubdomain) && !string.IsNullOrEmpty(maxioDefaultProductFamily))
+{
+    builder.Configuration["Maxio:ApiKey"] = maxioApiKey;
+    builder.Configuration["Maxio:Subdomain"] = maxioSubdomain;
+    builder.Configuration["Maxio:ProductFamilyHandle"] = maxioDefaultProductFamily;
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        builder.Configuration["Maxio:BaseUrl"] = maxioBaseUrl;
+    }
+}
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
