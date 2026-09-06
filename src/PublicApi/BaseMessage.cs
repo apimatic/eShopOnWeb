@@ -12,4 +12,9 @@ public abstract class BaseMessage
     /// </summary>
     protected Guid _correlationId = Guid.NewGuid();
     public Guid CorrelationId() => _correlationId;
+
+    /// <summary>
+    /// Error message from an API operation
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }
