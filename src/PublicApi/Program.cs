@@ -2,6 +2,11 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Api;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -44,6 +49,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Register Maxio Advanced Billing client
+builder.Services.AddMaxioAdvancedBillingClient(opts =>
+{
+    var apiKey = builder.Configuration["Maxio:ApiKey"];
+    var subdomain = builder.Configuration["Maxio:Subdomain"];
+
+    opts.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey ?? "",
+        Password = "x"
+    };
+
+    opts.Environment = ServerEnvironment.Us;
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
