@@ -1,0 +1,13 @@
+title: Invoice Sort Field
+type: string
+enum:
+  - status
+  - total_amount
+  - due_amount
+  - created_at
+  - updated_at
+  - issue_date
+  - due_date
+  - number
+example: total_amount
+default: number

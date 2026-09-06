@@ -1,0 +1,11 @@
+title: Deduct Service Credit
+type: object
+properties:
+  amount:
+    type:
+      - string
+      - number
+  memo:
+    type: string
+required:
+  - amount

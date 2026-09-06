@@ -1,0 +1,7 @@
+title: Subscription Migration Preview Request
+type: object
+properties:
+  migration:
+    $ref: "./Subscription-Migration-Preview-Options.yaml"
+required:
+  - migration
