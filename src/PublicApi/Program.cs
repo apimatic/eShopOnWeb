@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Additive to the one-time
+// Catalog/Basket/Order flow: it shares no storage with it and Maxio stays the system of record.
+builder.Services.AddMaxioSubscriptions(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +130,20 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+if (maxioOptions.IsConfigured)
+{
+    // Never log the API key itself - only where we will be talking to and which catalog we will read.
+    app.Logger.LogInformation("Maxio subscriptions enabled: {BaseAddress} (product family '{ProductFamilyHandle}').",
+        maxioOptions.ResolveBaseAddress(), maxioOptions.ProductFamilyHandle);
+}
+else
+{
+    app.Logger.LogWarning(
+        "Maxio subscriptions are not configured; the subscription endpoints will answer 503. Missing: {Problems}",
+        string.Join(" ", maxioOptions.Validate()));
+}
 
 app.Logger.LogInformation("Seeding Database...");
 

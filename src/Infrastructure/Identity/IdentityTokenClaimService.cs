@@ -29,6 +29,18 @@ public class IdentityTokenClaimService : ITokenClaimsService
         var roles = await _userManager.GetRolesAsync(user);
         var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
 
+        // Carried so downstream integrations (for example billing) can identify the user and reach
+        // them without a second round trip to the identity store.
+        if (!string.IsNullOrWhiteSpace(user.Id))
+        {
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
+
         foreach (var role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
