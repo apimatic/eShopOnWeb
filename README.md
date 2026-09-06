@@ -164,6 +164,23 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Recurring subscriptions (Maxio Advanced Billing)
+
+Alongside the one-time Catalog/Basket/Order flow, the Public API exposes recurring subscription
+billing backed by [Maxio Advanced Billing](https://www.maxio.com/), built against the OpenAPI
+specification in `maxio-spec/`:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/subscription-plans` | Plans a shopper can subscribe to |
+| `POST /api/subscriptions` | Subscribe the caller to a plan (idempotent) |
+| `GET /api/my-subscriptions` | The caller's subscriptions |
+
+All three are JWT authenticated - get a token from `POST /api/authenticate` first. Configure the
+integration through the `Maxio` configuration section (`Maxio:ApiKey`, `Maxio:Subdomain`,
+`Maxio:ProductFamilyHandle`, optional `Maxio:BaseUrl`); keep the API key in user-secrets, never in
+the repository. See [docs/maxio-subscriptions.md](./docs/maxio-subscriptions.md) for the full guide.
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
