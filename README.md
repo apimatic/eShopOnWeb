@@ -164,6 +164,29 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Subscription billing (Maxio Advanced Billing)
+
+Alongside the one-time Catalog → Basket → Order flow, the Public API exposes a recurring
+subscription capability backed by [Maxio Advanced Billing](https://docs.maxio.com/), which is the
+system of record for plans, billing customers and subscriptions.
+
+| Method | Route | Purpose |
+| ------ | ----- | ------- |
+| `GET`  | `/api/subscription-plans` | Plans on offer |
+| `POST` | `/api/subscriptions`      | Subscribe the caller to a plan (idempotent) |
+| `GET`  | `/api/my-subscriptions`   | The caller's subscriptions |
+
+All three require a JWT from `POST /api/authenticate`. Configure the integration by setting
+`Maxio:ApiKey`, `Maxio:Subdomain` and `Maxio:ProductFamilyHandle` (plus the optional
+`Maxio:BaseUrl` override) in user-secrets — never in `appsettings*.json`:
+
+```bash
+dotnet user-secrets set "Maxio:ApiKey" "<your-api-key>" --project src/PublicApi
+```
+
+See [docs/subscription-billing.md](docs/subscription-billing.md) for the endpoint contracts,
+the full settings list and how idempotency is guaranteed.
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
