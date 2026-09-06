@@ -1,19 +1,25 @@
-﻿using System;
+using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
-    private readonly RequestDelegate _next;
+    private static readonly JsonSerializerOptions ErrorSerializerOptions = new(JsonSerializerDefaults.Web);
 
-    public ExceptionMiddleware(RequestDelegate next)
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
+
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -24,31 +30,69 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        var (statusCode, message) = Translate(exception);
 
-        if (exception is DuplicateException duplicationException)
+        if (statusCode >= (int)HttpStatusCode.InternalServerError)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            _logger.LogError(exception, "Unhandled exception for {Method} {Path}.",
+                context.Request.Method, context.Request.Path);
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            _logger.LogWarning("{Method} {Path} rejected with {StatusCode}: {Message}",
+                context.Request.Method, context.Request.Path, statusCode, message);
         }
+
+        if (context.Response.HasStarted)
+        {
+            // The response is already on the wire; there is nothing safe left to write.
+            return;
+        }
+
+        context.Response.Clear();
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = statusCode;
+
+        // Serialized with the web defaults rather than ErrorDetails.ToString(), so error bodies
+        // are camelCased like every other response this API returns.
+        await context.Response.WriteAsJsonAsync(new ErrorDetails
+        {
+            StatusCode = statusCode,
+            Message = message
+        }, ErrorSerializerOptions);
     }
+
+    /// <summary>
+    /// Maps domain failures onto status codes. Billing faults are deliberately distinguishable:
+    /// a misconfigured deployment (503) and a provider outage (502) are not the caller's fault and
+    /// should not be reported as 500.
+    /// </summary>
+    private static (int StatusCode, string Message) Translate(Exception exception) => exception switch
+    {
+        DuplicateException duplicate =>
+            ((int)HttpStatusCode.Conflict, duplicate.Message),
+
+        BillingNotConfiguredException notConfigured =>
+            ((int)HttpStatusCode.ServiceUnavailable, notConfigured.Message),
+
+        SubscriptionPlanNotFoundException planNotFound =>
+            ((int)HttpStatusCode.NotFound, planNotFound.Message),
+
+        DuplicateBillingRequestException duplicateBilling =>
+            ((int)HttpStatusCode.Conflict, duplicateBilling.Message),
+
+        BillingValidationException validation =>
+            ((int)HttpStatusCode.UnprocessableEntity, validation.Message),
+
+        BillingProviderException provider =>
+            ((int)HttpStatusCode.BadGateway, provider.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }

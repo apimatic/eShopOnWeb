@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -85,6 +86,11 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Additive to (and independent
+// of) the one-time Catalog/Basket/Order flow. Credentials come from the Maxio: configuration
+// section - user-secrets in development, environment variables or a secret store in production.
+builder.Services.AddMaxioBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +131,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+app.Services.LogMaxioBillingStatus(app.Logger);
 
 app.Logger.LogInformation("Seeding Database...");
 
