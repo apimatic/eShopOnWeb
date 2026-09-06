@@ -1,76 +1,81 @@
 using System;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Ardalis.ApiEndpoints;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.eShopWeb.Infrastructure.Services;
-using MinimalApi.Endpoint;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionRequest, IMaxioApiService, IHttpContextAccessor>
+[Authorize]
+public class CreateSubscriptionEndpoint : EndpointBaseAsync
+    .WithRequest<CreateSubscriptionRequest>
+    .WithActionResult<CreateSubscriptionResponse>
 {
-    public void AddRoute(IEndpointRouteBuilder app)
+    private readonly IMaxioApiService _maxioApi;
+
+    public CreateSubscriptionEndpoint(IMaxioApiService maxioApi)
     {
-        app.MapPost("api/subscriptions",
-            async (CreateSubscriptionRequest request, IMaxioApiService maxioApi, IHttpContextAccessor httpContextAccessor) =>
-            {
-                return await HandleAsync(request, maxioApi, httpContextAccessor);
-            })
-            .RequireAuthorization()
-            .Produces<CreateSubscriptionResponse>(200)
-            .Produces<CreateSubscriptionResponse>(400)
-            .WithTags("SubscriptionEndpoints");
+        _maxioApi = maxioApi;
     }
 
-    public async Task<IResult> HandleAsync(CreateSubscriptionRequest request, IMaxioApiService maxioApi, IHttpContextAccessor httpContextAccessor)
+    [HttpPost("api/subscriptions")]
+    [SwaggerOperation(
+        Summary = "Create a subscription",
+        Description = "Subscribe a user to a plan",
+        OperationId = "subscriptions.create",
+        Tags = new[] { "SubscriptionEndpoints" })
+    ]
+    [ProducesResponseType(typeof(CreateSubscriptionResponse), 200)]
+    [ProducesResponseType(typeof(CreateSubscriptionResponse), 400)]
+    public override async Task<ActionResult<CreateSubscriptionResponse>> HandleAsync(CreateSubscriptionRequest request, CancellationToken cancellationToken = default)
     {
         var response = new CreateSubscriptionResponse(request.CorrelationId());
-        var httpContext = httpContextAccessor.HttpContext;
 
         if (string.IsNullOrWhiteSpace(request.PlanHandle))
         {
             response.Success = false;
             response.ErrorMessage = "Plan handle is required";
-            return Results.BadRequest(response);
+            return BadRequest(response);
         }
 
-        var user = httpContext!.User;
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
             response.Success = false;
             response.ErrorMessage = "User not authenticated";
-            return Results.Unauthorized();
+            return Unauthorized();
         }
 
-        var email = user.FindFirst(ClaimTypes.Email)?.Value ?? $"{userId}@eshop.local";
-        var firstName = user.FindFirst(ClaimTypes.GivenName)?.Value ?? "User";
-        var lastName = user.FindFirst(ClaimTypes.Surname)?.Value ?? userId;
+        var email = User.FindFirst(ClaimTypes.Email)?.Value ?? $"{userId}@eshop.local";
+        var firstName = User.FindFirst(ClaimTypes.GivenName)?.Value ?? "User";
+        var lastName = User.FindFirst(ClaimTypes.Surname)?.Value ?? userId;
 
-        var plan = await maxioApi.GetProductByHandleAsync(request.PlanHandle);
+        var plan = await _maxioApi.GetProductByHandleAsync(request.PlanHandle);
         if (plan == null)
         {
             response.Success = false;
             response.ErrorMessage = "Plan not found";
-            return Results.BadRequest(response);
+            return BadRequest(response);
         }
 
-        var customer = await maxioApi.GetOrCreateCustomerAsync(userId, firstName, lastName, email);
+        var customer = await _maxioApi.GetOrCreateCustomerAsync(userId, firstName, lastName, email);
         if (customer == null)
         {
             response.Success = false;
             response.ErrorMessage = "Failed to create or retrieve customer";
-            return Results.BadRequest(response);
+            return BadRequest(response);
         }
 
-        var subscription = await maxioApi.CreateSubscriptionAsync(customer.Id, plan.Id, plan.Handle ?? "");
+        var subscription = await _maxioApi.CreateSubscriptionAsync(customer.Id, plan.Id, plan.Handle ?? "");
         if (subscription == null)
         {
             response.Success = false;
             response.ErrorMessage = "Failed to create subscription";
-            return Results.BadRequest(response);
+            return BadRequest(response);
         }
 
         response.Success = true;
@@ -82,7 +87,7 @@ public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionR
         response.NextBillingAt = subscription.NextBillingAt;
         response.Message = $"Successfully subscribed to {plan.Name}";
 
-        return Results.Ok(response);
+        return response;
     }
 }
 

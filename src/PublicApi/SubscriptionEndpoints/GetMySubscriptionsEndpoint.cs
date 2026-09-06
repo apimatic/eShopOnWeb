@@ -1,54 +1,58 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Ardalis.ApiEndpoints;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.eShopWeb.Infrastructure.Services;
-using MinimalApi.Endpoint;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-public class GetMySubscriptionsEndpoint : IEndpoint<IResult, IMaxioApiService, IHttpContextAccessor>
+[Authorize]
+public class GetMySubscriptionsEndpoint : EndpointBaseAsync
+    .WithoutRequest
+    .WithActionResult<GetMySubscriptionsResponse>
 {
-    public void AddRoute(IEndpointRouteBuilder app)
+    private readonly IMaxioApiService _maxioApi;
+
+    public GetMySubscriptionsEndpoint(IMaxioApiService maxioApi)
     {
-        app.MapGet("api/my-subscriptions",
-            async (IMaxioApiService maxioApi, IHttpContextAccessor httpContextAccessor) =>
-            {
-                return await HandleAsync(maxioApi, httpContextAccessor);
-            })
-            .RequireAuthorization()
-            .Produces<GetMySubscriptionsResponse>()
-            .WithTags("SubscriptionEndpoints");
+        _maxioApi = maxioApi;
     }
 
-    public async Task<IResult> HandleAsync(IMaxioApiService maxioApi, IHttpContextAccessor httpContextAccessor)
+    [HttpGet("api/my-subscriptions")]
+    [SwaggerOperation(
+        Summary = "Get current user's subscriptions",
+        Description = "Returns list of subscriptions for the authenticated user",
+        OperationId = "subscriptions.getMySubscriptions",
+        Tags = new[] { "SubscriptionEndpoints" })
+    ]
+    [ProducesResponseType(typeof(GetMySubscriptionsResponse), 200)]
+    public override async Task<ActionResult<GetMySubscriptionsResponse>> HandleAsync(CancellationToken cancellationToken = default)
     {
         var response = new GetMySubscriptionsResponse(Guid.NewGuid());
         response.Subscriptions = new List<MySubscriptionDto>();
 
-        var httpContext = httpContextAccessor.HttpContext;
-        var user = httpContext!.User;
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
             response.Success = false;
             response.ErrorMessage = "User not authenticated";
-            return Results.Unauthorized();
+            return Unauthorized();
         }
 
-        var customer = await maxioApi.LookupCustomerByReferenceAsync(userId);
+        var customer = await _maxioApi.LookupCustomerByReferenceAsync(userId);
         if (customer == null)
         {
             response.Success = true;
             response.Message = "No subscriptions found";
-            return Results.Ok(response);
+            return response;
         }
 
-        var subscriptions = await maxioApi.ListCustomerSubscriptionsAsync(customer.Id);
+        var subscriptions = await _maxioApi.ListCustomerSubscriptionsAsync(customer.Id);
         if (subscriptions?.Subscriptions != null)
         {
             foreach (var sub in subscriptions.Subscriptions)
@@ -71,7 +75,7 @@ public class GetMySubscriptionsEndpoint : IEndpoint<IResult, IMaxioApiService, I
             ? $"Found {response.Subscriptions.Count} subscription(s)"
             : "No active subscriptions";
 
-        return Results.Ok(response);
+        return response;
     }
 }
 

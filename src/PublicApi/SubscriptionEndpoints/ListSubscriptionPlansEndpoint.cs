@@ -1,34 +1,41 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Ardalis.ApiEndpoints;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.eShopWeb.Infrastructure.Services;
-using MinimalApi.Endpoint;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-public class ListSubscriptionPlansEndpoint : IEndpoint<IResult, IMaxioApiService>
+[Authorize]
+public class ListSubscriptionPlansEndpoint : EndpointBaseAsync
+    .WithoutRequest
+    .WithActionResult<ListSubscriptionPlansResponse>
 {
-    public void AddRoute(IEndpointRouteBuilder app)
+    private readonly IMaxioApiService _maxioApi;
+
+    public ListSubscriptionPlansEndpoint(IMaxioApiService maxioApi)
     {
-        app.MapGet("api/subscription-plans",
-            async (IMaxioApiService maxioApi) =>
-            {
-                return await HandleAsync(maxioApi);
-            })
-            .RequireAuthorization()
-            .Produces<ListSubscriptionPlansResponse>()
-            .WithTags("SubscriptionEndpoints");
+        _maxioApi = maxioApi;
     }
 
-    public async Task<IResult> HandleAsync(IMaxioApiService maxioApi)
+    [HttpGet("api/subscription-plans")]
+    [SwaggerOperation(
+        Summary = "List available subscription plans",
+        Description = "Returns a list of subscription plans available for purchase",
+        OperationId = "subscriptions.listPlans",
+        Tags = new[] { "SubscriptionEndpoints" })
+    ]
+    [ProducesResponseType(typeof(ListSubscriptionPlansResponse), 200)]
+    public override async Task<ActionResult<ListSubscriptionPlansResponse>> HandleAsync(CancellationToken cancellationToken = default)
     {
         var response = new ListSubscriptionPlansResponse(Guid.NewGuid());
         response.Plans = new List<SubscriptionPlanDto>();
 
-        var proPlan = await maxioApi.GetProductByHandleAsync("eshop-pro");
+        var proPlan = await _maxioApi.GetProductByHandleAsync("eshop-pro");
         if (proPlan != null)
         {
             response.Plans.Add(new SubscriptionPlanDto
@@ -44,7 +51,7 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult, IMaxioApiService
             });
         }
 
-        var basicPlan = await maxioApi.GetProductByHandleAsync("basic-plan");
+        var basicPlan = await _maxioApi.GetProductByHandleAsync("basic-plan");
         if (basicPlan != null)
         {
             response.Plans.Add(new SubscriptionPlanDto
@@ -60,7 +67,7 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult, IMaxioApiService
             });
         }
 
-        return Results.Ok(response);
+        return response;
     }
 }
 
