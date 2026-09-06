@@ -22,6 +22,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +32,10 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -84,6 +91,48 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio Advanced Billing client
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var apiKey = builder.Configuration["Maxio:ApiKey"];
+    var subdomain = builder.Configuration["Maxio:Subdomain"];
+    var environment = builder.Configuration["Maxio:Environment"] ?? "US";
+    var baseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    options.Environment = environment.Equals("eu", StringComparison.OrdinalIgnoreCase)
+        ? ServerEnvironment.Eu
+        : ServerEnvironment.Us;
+
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        if (options.Environment == ServerEnvironment.Us)
+        {
+            options.Server.Production.Us.BaseUrl = baseUrl;
+        }
+        else
+        {
+            options.Server.Production.Eu.BaseUrl = baseUrl;
+        }
+    }
+    else
+    {
+        if (options.Environment == ServerEnvironment.Us)
+        {
+            options.Server.Production.Us.Site = subdomain;
+        }
+        else
+        {
+            options.Server.Production.Eu.Site = subdomain;
+        }
+    }
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
