@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +15,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +48,9 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -171,6 +178,155 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
 });
+
+// Test endpoint to verify routing works
+app.MapGet("api/test", () => Results.Ok(new { message = "Test endpoint works" }))
+    .WithName("Test")
+    .WithTags("Test");
+
+// Add subscription endpoints (MUST be before MapEndpoints)
+app.MapGet("api/subscription-plans",
+    async (IMaxioBillingService billingService) =>
+    {
+        try
+        {
+            var plans = await billingService.GetSubscriptionPlansAsync();
+            return Results.Ok(new
+            {
+                plans = plans.Select(p => new
+                {
+                    p.Id,
+                    p.Handle,
+                    p.Name,
+                    p.Description,
+                    p.Price,
+                    p.Interval,
+                    p.IntervalCount,
+                    p.MaxioProductId
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    })
+    .RequireAuthorization()
+    .WithName("GetSubscriptionPlans")
+    .WithTags("Subscriptions");
+
+app.MapPost("api/subscriptions",
+    async (Microsoft.eShopWeb.PublicApi.CreateSubscriptionRequest request,
+           HttpContext context,
+           IMaxioBillingService billingService,
+           Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager) =>
+    {
+        try
+        {
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return Results.NotFound("User not found");
+            }
+
+            var (customerId, _) = await billingService.EnsureMaxioCustomerAsync(
+                userId,
+                user.Email ?? "",
+                user.UserName ?? "",
+                user.UserName ?? "",
+                context.RequestAborted);
+
+            var subscription = await billingService.CreateSubscriptionAsync(
+                customerId,
+                request.MaxioProductId,
+                context.RequestAborted);
+
+            return Results.Created($"/api/subscriptions/{subscription.MaxioSubscriptionId}", new
+            {
+                subscription = new
+                {
+                    subscription.Id,
+                    subscription.MaxioSubscriptionId,
+                    subscription.State,
+                    subscription.ProductName,
+                    subscription.SubscriptionHandle,
+                    subscription.MonthlyPrice,
+                    subscription.CurrentPeriodEndsAt,
+                    subscription.NextAssessmentAt,
+                    subscription.CreatedAt
+                },
+                message = "Subscription created successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    })
+    .RequireAuthorization()
+    .WithName("CreateSubscription")
+    .WithTags("Subscriptions");
+
+app.MapGet("api/my-subscriptions",
+    async (HttpContext context,
+           IMaxioBillingService billingService,
+           Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager) =>
+    {
+        try
+        {
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return Results.NotFound("User not found");
+            }
+
+            var (customerId, _) = await billingService.EnsureMaxioCustomerAsync(
+                userId,
+                user.Email ?? "",
+                user.UserName ?? "",
+                user.UserName ?? "",
+                context.RequestAborted);
+
+            var subscriptions = await billingService.GetCustomerSubscriptionsAsync(
+                customerId,
+                context.RequestAborted);
+
+            return Results.Ok(new
+            {
+                subscriptions = subscriptions.Select(s => new
+                {
+                    s.Id,
+                    s.MaxioSubscriptionId,
+                    s.State,
+                    s.ProductName,
+                    s.SubscriptionHandle,
+                    s.MonthlyPrice,
+                    s.CurrentPeriodEndsAt,
+                    s.NextAssessmentAt,
+                    s.CreatedAt
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    })
+    .RequireAuthorization()
+    .WithName("GetMySubscriptions")
+    .WithTags("Subscriptions");
 
 app.MapControllers();
 app.MapEndpoints();
