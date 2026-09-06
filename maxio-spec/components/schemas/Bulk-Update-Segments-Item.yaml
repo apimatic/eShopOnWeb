@@ -1,0 +1,16 @@
+title: Bulk Update Segments Item
+type: object
+properties:
+  id:
+    type: integer
+    description: The ID of the segment you want to update.
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Create-Or-Update-Segment-Price.yaml"
+required:
+  - id
+  - pricing_scheme
+  - prices
