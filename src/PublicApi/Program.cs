@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -68,6 +70,10 @@ builder.Services.AddAuthentication(config =>
         ValidateAudience = false
     };
 });
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 const string CORS_POLICY = "CorsPolicy";
 builder.Services.AddCors(options =>
@@ -174,6 +180,11 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Register subscription endpoints
+ListSubscriptionPlansEndpoint.AddRoute(app);
+CreateSubscriptionEndpoint.AddRoute(app);
+ListUserSubscriptionsEndpoint.AddRoute(app);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
