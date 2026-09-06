@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +48,32 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Configure Maxio client
+var apiKey = builder.Configuration["Maxio:ApiKey"];
+var subdomain = builder.Configuration["Maxio:Subdomain"];
+if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(subdomain))
+{
+    builder.Services.AddMaxioAdvancedBillingClient(options =>
+    {
+        options.BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        };
+        options.Environment = ServerEnvironment.Us;
+        options.Server.Production.Us.Site = subdomain;
+
+        // Check for optional base URL override
+        var baseUrl = builder.Configuration["Maxio:BaseUrl"];
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            options.Server.Production.Us.BaseUrl = baseUrl;
+        }
+    });
+
+    builder.Services.AddScoped<MaxioSubscriptionService>();
+}
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
