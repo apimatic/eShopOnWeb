@@ -21,9 +21,9 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult, ListSubscription
     public void AddRoute(IEndpointRouteBuilder app)
     {
         app.MapGet("api/subscription-plans",
-            async (ListSubscriptionPlansRequest request, CancellationToken ct) =>
+            async (CancellationToken ct) =>
             {
-                return await HandleAsyncInternal(request, ct);
+                return await HandleAsyncInternal(new ListSubscriptionPlansRequest(), ct);
             })
             .Produces<ListSubscriptionPlansResponse>()
             .WithTags("SubscriptionEndpoints")

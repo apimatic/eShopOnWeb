@@ -30,9 +30,9 @@ public class ListUserSubscriptionsEndpoint : IEndpoint<IResult, ListUserSubscrip
     {
         app.MapGet("api/my-subscriptions",
             [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-            async (ListUserSubscriptionsRequest request, HttpContext httpContext, CancellationToken ct) =>
+            async (HttpContext httpContext, CancellationToken ct) =>
             {
-                return await HandleAsyncInternal(request, httpContext, ct);
+                return await HandleAsyncInternal(new ListUserSubscriptionsRequest(), httpContext, ct);
             })
             .Produces<ListUserSubscriptionsResponse>()
             .WithTags("SubscriptionEndpoints")
