@@ -1,0 +1,6 @@
+schema:
+  type: string
+  default: Bearer <<apiKey>>
+in: header
+name: Authorization
+description: For authorization use user API key. See details [here](https://developers.chargify.com/docs/developer-docs/ZG9jOjMyNzk5NTg0-2020-04-20-new-api-authentication).
