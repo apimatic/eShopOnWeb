@@ -1,0 +1,9 @@
+title: Coupon Currency Request
+type: object
+properties:
+  currency_prices:
+    type: array
+    items:
+      $ref: "./Update-Coupon-Currency.yaml"
+required:
+  - currency_prices
