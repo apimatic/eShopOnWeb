@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +54,7 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -84,6 +89,47 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Register Maxio Advanced Billing client
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var config = builder.Configuration;
+    var apiKey = config["Maxio:ApiKey"];
+    var subdomain = config["Maxio:Subdomain"];
+    var environment = config["Maxio:Environment"] ?? "Us";
+
+    if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(subdomain))
+    {
+        throw new InvalidOperationException("Maxio API key and subdomain must be configured via Maxio:ApiKey and Maxio:Subdomain.");
+    }
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    options.Environment = environment.Equals("Eu", StringComparison.OrdinalIgnoreCase)
+        ? ServerEnvironment.Eu
+        : ServerEnvironment.Us;
+    options.Server.Production.Us.Site = subdomain;
+
+    // Optional: override base URL if provided
+    var baseUrl = config["Maxio:BaseUrl"];
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = baseUrl;
+    }
+
+    // Set resilience options
+    var retryOptions = RetryOptions.Default();
+    retryOptions = retryOptions with
+    {
+        Timeout = TimeSpan.FromSeconds(30),
+        MaxRetries = 2
+    };
+    options.Retry = retryOptions;
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
