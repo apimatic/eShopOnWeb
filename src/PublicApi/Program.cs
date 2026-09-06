@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +85,33 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Load Maxio settings from environment variables
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSiteSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+var maxioBaseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL");
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSiteSubdomain))
+{
+    builder.Configuration["Maxio:ApiKey"] = maxioApiKey;
+    builder.Configuration["Maxio:Subdomain"] = maxioSiteSubdomain;
+    if (!string.IsNullOrEmpty(maxioProductFamily))
+    {
+        builder.Configuration["Maxio:ProductFamilyHandle"] = maxioProductFamily;
+    }
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        builder.Configuration["Maxio:BaseUrl"] = maxioBaseUrl;
+    }
+}
+
+// Configure Maxio settings after environment variables are loaded
+var maxioConfig = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+var maxioSettings = maxioConfig.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
