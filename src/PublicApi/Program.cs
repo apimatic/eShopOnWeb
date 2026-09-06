@@ -33,6 +33,37 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+var maxioConfig = new Microsoft.eShopWeb.ApplicationCore.Services.MaxioConfiguration();
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioEnvironment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+
+if (!string.IsNullOrEmpty(maxioApiKey))
+{
+    maxioConfig.ApiKey = maxioApiKey;
+    maxioConfig.Subdomain = maxioSubdomain ?? "cp-exp-2";
+    maxioConfig.ProductFamilyHandle = maxioProductFamily ?? "eshop-subscribe";
+}
+
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+if (!string.IsNullOrEmpty(maxioBaseUrl))
+{
+    maxioConfig.BaseUrl = maxioBaseUrl;
+}
+
+builder.Services.Configure<Microsoft.eShopWeb.ApplicationCore.Services.MaxioConfiguration>(
+    options =>
+    {
+        options.ApiKey = maxioConfig.ApiKey;
+        options.Subdomain = maxioConfig.Subdomain;
+        options.ProductFamilyHandle = maxioConfig.ProductFamilyHandle;
+        options.BaseUrl = maxioConfig.BaseUrl;
+    });
+
+builder.Services.AddSingleton(maxioConfig);
+builder.Services.AddHttpClient<Microsoft.eShopWeb.ApplicationCore.Services.IMaxioApiClient, Microsoft.eShopWeb.ApplicationCore.Services.MaxioApiClient>();
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
