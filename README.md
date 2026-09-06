@@ -1,4 +1,4 @@
-# Microsoft eShopOnWeb ASP.NET Core Reference Application
+﻿# Microsoft eShopOnWeb ASP.NET Core Reference Application
 
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
 
@@ -163,6 +163,18 @@ docker-compose up
 You should be able to make requests to localhost:5106 for the Web project, and localhost:5200 for the Public API project once these commands complete. If you have any problems, especially with login, try from a new guest or incognito browser instance.
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
+
+## Recurring subscriptions (Maxio Advanced Billing)
+
+Alongside the one-time Catalog/Basket/Order flow, `src/PublicApi` exposes recurring-subscription
+billing backed by Maxio Advanced Billing: `GET /api/subscription-plans`, `POST /api/subscriptions`
+and `GET /api/my-subscriptions`.
+
+- Design notes: [docs/maxio-subscriptions.md](./docs/maxio-subscriptions.md)
+- Step-by-step verification: [docs/verify-maxio-subscriptions.md](./docs/verify-maxio-subscriptions.md)
+
+Credentials are read from the `Maxio:` configuration section and are never committed - load them
+from the environment with `pwsh ./scripts/set-maxio-user-secrets.ps1`.
 
 ## Community Extensions
 
