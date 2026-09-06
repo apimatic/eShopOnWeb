@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,12 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Maps MAXIO_* environment variables onto the Maxio:* configuration keys. Added after the default
+// sources so it keeps the precedence environment variables normally have; secret values are read
+// from the environment or user-secrets and are never stored in the repository.
+builder.Configuration.AddMaxioEnvironmentVariables();
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +51,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing backed by Maxio Advanced Billing. Additive: it runs alongside the
+// existing catalog/basket/order flow and replaces none of it.
+builder.Services.AddMaxioSubscriptions(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

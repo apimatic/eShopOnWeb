@@ -1,4 +1,4 @@
-# Microsoft eShopOnWeb ASP.NET Core Reference Application
+﻿# Microsoft eShopOnWeb ASP.NET Core Reference Application
 
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
 
@@ -142,6 +142,104 @@ You can also run the samples in Docker (see below).
 
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
+
+## Recurring subscriptions (Maxio Advanced Billing)
+
+Alongside the one-time Catalog → Basket → Order flow, the PublicApi project exposes a recurring
+subscription capability backed by [Maxio Advanced Billing](https://www.maxio.com/), built against the
+OpenAPI specification in `maxio-spec/`. Maxio is the system of record; eShopOnWeb stores no
+subscription state of its own.
+
+```
+GET  /api/subscription-plans   list the plans on offer
+POST /api/subscriptions        subscribe the signed-in shopper to a plan
+GET  /api/my-subscriptions     list what the signed-in shopper holds
+```
+
+Design, configuration keys, idempotency guarantees and error mapping are documented in
+[MAXIO-SUBSCRIPTIONS.md](./MAXIO-SUBSCRIPTIONS.md).
+
+### Verify the Maxio subscription integration
+
+1. **Load the sandbox credentials into user-secrets.** They are read from the environment and are
+   never written into the repository.
+
+    ```bash
+    dotnet user-secrets --project src/PublicApi set "Maxio:ApiKey"              "$MAXIO_API_KEY"
+    dotnet user-secrets --project src/PublicApi set "Maxio:Subdomain"           "$MAXIO_SITE_SUBDOMAIN"
+    dotnet user-secrets --project src/PublicApi set "Maxio:ProductFamilyHandle" "$MAXIO_DEFAULT_PRODUCT_FAMILY"
+    ```
+
+2. **Run the tests.** These never call Maxio, so they run offline.
+
+    ```bash
+    dotnet test tests/UnitTests/UnitTests.csproj
+    dotnet test tests/PublicApiIntegrationTests/PublicApiIntegrationTests.csproj
+    ```
+
+3. **Start PublicApi.** `UseOnlyInMemoryDatabase=true` avoids the LocalDB dependency; drop it if you
+   have run the EF migrations described above.
+
+    ```bash
+    UseOnlyInMemoryDatabase=true dotnet run --project src/PublicApi
+    ```
+
+    The log line `Maxio subscriptions are configured for site '<subdomain>' ...` confirms the
+    settings were picked up. Take the HTTPS address from the `Now listening on:` line:
+
+    ```bash
+    BASE=https://localhost:5001   # replace with the address the app printed
+    ```
+
+4. **Get a bearer token.** The storefront cookie does not work against PublicApi.
+
+    ```bash
+    TOKEN=$(curl -sk -X POST $BASE/api/authenticate -H "Content-Type: application/json" -d '{"username":"demouser@microsoft.com","password":"Pass@word1"}' | jq -r .token)
+    ```
+
+5. **List the plans.** Prices, currency and billing period come straight from Maxio.
+
+    ```bash
+    curl -sk $BASE/api/subscription-plans -H "Authorization: Bearer $TOKEN" | jq
+    ```
+
+6. **Subscribe.** Answers **201 Created** with plan, price, state and next billing date.
+
+    ```bash
+    curl -sk -X POST $BASE/api/subscriptions -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"planHandle":"eshop-pro"}' | jq
+    ```
+
+7. **Subscribe again — the double-click case.** Answers **200 OK** with `"alreadySubscribed": true`
+   and the *same* subscription id. Firing several at once behaves the same way: exactly one `201`,
+   the rest `200`, all for one subscription.
+
+    ```bash
+    for i in 1 2 3 4 5; do
+      curl -sk -X POST $BASE/api/subscriptions -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"planHandle":"basic-plan"}' -o /dev/null -w '%{http_code}\n' &
+    done; wait
+    ```
+
+8. **See it on the account.**
+
+    ```bash
+    curl -sk $BASE/api/my-subscriptions -H "Authorization: Bearer $TOKEN" | jq
+    ```
+
+9. **Check the failure paths.**
+
+    ```bash
+    # 404 - and the message lists the handles that do exist
+    curl -sk -X POST $BASE/api/subscriptions -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"planHandle":"does-not-exist"}'
+
+    # 400 - no plan named, and no Maxio:DefaultPlanHandle configured
+    curl -sk -X POST $BASE/api/subscriptions -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+
+    # 401 - identity comes from the token, so there is no anonymous subscribe
+    curl -sk $BASE/api/my-subscriptions -o /dev/null -w '%{http_code}\n'
+    ```
+
+10. **Confirm in Maxio.** The shopper appears exactly once, under the reference
+    `eshoponweb-demouser@microsoft.com`, holding the subscriptions created above.
 
 ## Running the sample in the dev container
 
