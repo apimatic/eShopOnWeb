@@ -85,6 +85,10 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Settings bind from the "Maxio"
+// configuration section; supply them through user-secrets or environment variables, never the repo.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -159,6 +163,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
