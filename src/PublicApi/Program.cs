@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +45,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddSingleton<SubscriptionEnrollmentCoordinator>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .Validate(MaxioOptions.IsValid, "Maxio configuration requires ApiKey, Subdomain, ProductFamilyHandle, and an HTTPS BaseUrl when supplied.");
+builder.Services.AddHttpClient<IMaxioAdvancedBillingClient, MaxioAdvancedBillingClient>((serviceProvider, client) =>
+{
+    var maxio = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = new Uri(maxio.GetBaseUrl(), UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
