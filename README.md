@@ -30,6 +30,13 @@ The goal for this sample is to demonstrate some of the principles and patterns d
 > #### The `main` branch is currently running ASP.NET Core 8.0.
 > #### Older versions are tagged.
 
+## Subscription billing
+
+Alongside the one-time Catalog/Basket/Order flow, this fork adds recurring-subscription billing
+backed by [Maxio Advanced Billing](https://developers.maxio.com/), exposed on `src/PublicApi` as
+`GET /api/subscription-plans`, `POST /api/subscriptions` and `GET /api/my-subscriptions`.
+See [SUBSCRIPTION-BILLING.md](./SUBSCRIPTION-BILLING.md) for configuration and design notes.
+
 ## Topics (eBook TOC)
 
 - Introduction
