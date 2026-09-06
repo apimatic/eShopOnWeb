@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Api;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +54,28 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var maxioConfig = builder.Configuration.GetSection("Maxio");
+    var apiKey = maxioConfig["ApiKey"];
+    var subdomain = maxioConfig["Subdomain"];
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    options.Environment = ServerEnvironment.Us;
+
+    if (!string.IsNullOrEmpty(maxioConfig["BaseUrl"]))
+    {
+        options.Server.Production.Us.BaseUrl = maxioConfig["BaseUrl"];
+    }
+});
+
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
