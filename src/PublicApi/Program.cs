@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +53,49 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Register Maxio Advanced Billing client
+builder.Services.AddAdvancedBillingClient(options =>
+{
+    var apiKey = builder.Configuration["Maxio:ApiKey"]
+        ?? throw new InvalidOperationException("Maxio:ApiKey configuration is required");
+    var subdomain = builder.Configuration["Maxio:Subdomain"]
+        ?? throw new InvalidOperationException("Maxio:Subdomain configuration is required");
+    var environment = builder.Configuration["Maxio:Environment"] ?? "US";
+    var baseUrlOverride = builder.Configuration["Maxio:BaseUrl"];
+
+    options.BasicAuthCredentials = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    // Set environment (defaults to US)
+    options.Environment = environment switch
+    {
+        "US" => ServerEnvironment.Default(),
+        "Custom" => ServerEnvironment.Default(),
+        _ => ServerEnvironment.Default()
+    };
+
+    // Override base URL if provided
+    if (!string.IsNullOrWhiteSpace(baseUrlOverride))
+    {
+        options.Server.ChargifyUrl.Default.BaseUrl = baseUrlOverride;
+    }
+    else
+    {
+        // Set the sandbox subdomain
+        options.Server.ChargifyUrl.Default.BaseUrl = $"https://{subdomain}.chargify.com";
+    }
+
+    // Configure retries and timeouts for resilience
+    options.Retry = RetryOptions.Default() with
+    {
+        MaxRetries = 2,
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
