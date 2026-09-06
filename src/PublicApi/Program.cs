@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -85,6 +86,10 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring-subscription billing, delegated to Maxio Advanced Billing. Additive: it runs
+// alongside the existing catalog/basket/order flow and shares no state with it.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +130,22 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SectionName).Get<MaxioSettings>() ?? new MaxioSettings();
+var maxioProblems = maxioSettings.Validate();
+
+if (maxioProblems.Count > 0)
+{
+    // Never fatal: the rest of the API must still serve. The subscription endpoints answer 503
+    // naming these same problems.
+    app.Logger.LogWarning("Subscription billing is disabled - {Problems}. Set them via user-secrets or Maxio__* environment variables.",
+        string.Join("; ", maxioProblems));
+}
+else
+{
+    app.Logger.LogInformation("Subscription billing enabled against {BaseAddress} (product family '{ProductFamily}').",
+        maxioSettings.ResolveBaseAddress(), maxioSettings.ProductFamilyHandle);
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
