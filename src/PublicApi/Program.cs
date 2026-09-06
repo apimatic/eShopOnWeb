@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -49,6 +50,14 @@ var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguratio
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
+// Configure Maxio settings
+var maxioConfigSection = builder.Configuration.GetSection("Maxio");
+var maxioSettings = maxioConfigSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+
+// Register HttpClient for Maxio API
+builder.Services.AddHttpClient<IMaxioSubscriptionService, MaxioSubscriptionService>();
+
 builder.Services.AddMemoryCache();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
@@ -83,6 +92,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+builder.Services.AddHttpContextAccessor();
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
