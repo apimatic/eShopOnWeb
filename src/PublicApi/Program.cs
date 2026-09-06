@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.ApplicationCore.Settings;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -51,6 +52,20 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+builder.Services.AddHttpContextAccessor();
+
+builder.Configuration.AddEnvironmentVariables();
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = builder.Configuration["MAXIO_API_KEY"] ?? throw new InvalidOperationException("MAXIO_API_KEY not configured"),
+    Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? throw new InvalidOperationException("MAXIO_SITE_SUBDOMAIN not configured"),
+    ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? throw new InvalidOperationException("MAXIO_DEFAULT_PRODUCT_FAMILY not configured"),
+    Environment = builder.Configuration["MAXIO_ENVIRONMENT"] ?? "sandbox",
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"]
+};
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -83,7 +98,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
