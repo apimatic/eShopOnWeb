@@ -143,6 +143,92 @@ You can also run the samples in Docker (see below).
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
 
+## Subscription billing (Maxio Advanced Billing)
+
+The PublicApi project also exposes a recurring-subscription capability backed by
+[Maxio Advanced Billing](https://www.maxio.com/), built against the OpenAPI specification in
+`maxio-spec/`. It runs alongside the one-time catalog/basket/order flow and does not change it.
+
+* `GET /api/subscription-plans` - plans available to a shopper
+* `POST /api/subscriptions` - subscribe the authenticated shopper to a plan (idempotent)
+* `GET /api/my-subscriptions` - the shopper's own subscriptions
+
+Design, configuration keys and idempotency model: [docs/subscription-billing.md](./docs/subscription-billing.md).
+
+### Verify the Maxio subscription flow
+
+1. **Load the Maxio credentials into user-secrets** (they must never be committed). With
+   `MAXIO_API_KEY`, `MAXIO_SITE_SUBDOMAIN` and `MAXIO_DEFAULT_PRODUCT_FAMILY` set in your
+   environment:
+
+   ```powershell
+   ./scripts/Set-MaxioUserSecrets.ps1
+   # optional: the plan used when a request does not name one
+   dotnet user-secrets --project src/PublicApi set "Maxio:DefaultPlanHandle" "eshop-pro"
+   ```
+
+1. **Run the tests** (no network or credentials needed - the Maxio API is stubbed, and the
+   conformance tests read `maxio-spec/openapi.yaml`):
+
+   ```powershell
+   dotnet test tests/UnitTests/UnitTests.csproj --filter FullyQualifiedName~Maxio
+   dotnet test tests/PublicApiIntegrationTests/PublicApiIntegrationTests.csproj --filter FullyQualifiedName~Subscription
+   ```
+
+1. **Start the PublicApi** against the in-memory database (the storefront is not needed):
+
+   ```powershell
+   $env:ASPNETCORE_ENVIRONMENT="Development"   # so user-secrets are loaded
+   $env:UseOnlyInMemoryDatabase="true"
+   dotnet run --project src/PublicApi
+   ```
+
+   The log line `Maxio subscription billing configured for product family '...'` confirms the
+   settings were picked up. (If the SDK complains about `global.json`, add
+   `$env:DOTNET_ROLL_FORWARD="Major"`.)
+
+1. **Get a bearer token** (the storefront cookie does not work here):
+
+   ```powershell
+   $token = (Invoke-RestMethod https://localhost:27263/api/authenticate -Method Post `
+       -ContentType application/json `
+       -Body '{"username":"demouser@microsoft.com","password":"Pass@word1"}').token
+   $headers = @{ Authorization = "Bearer $token" }
+   ```
+
+   The port comes from `src/PublicApi/Properties/launchSettings.json`; use whatever the app
+   printed on startup if you changed it.
+
+1. **Browse the plans, subscribe, and see it on the account:**
+
+   ```powershell
+   Invoke-RestMethod https://localhost:27263/api/subscription-plans -Headers $headers | % plans
+
+   Invoke-RestMethod https://localhost:27263/api/subscriptions -Method Post -Headers $headers `
+       -ContentType application/json -Body '{"planHandle":"eshop-pro"}'
+
+   Invoke-RestMethod https://localhost:27263/api/my-subscriptions -Headers $headers | % subscriptions
+   ```
+
+   The subscribe call returns `201` with the plan, price, `state: active` and `nextBillingAt`.
+
+1. **Check idempotency:** repeat the subscribe call. It returns `200` with
+   `alreadySubscribed: true` and the same subscription `id`, and `/api/my-subscriptions` still
+   shows exactly one subscription. The same holds for simultaneous requests:
+
+   ```powershell
+   1..5 | ForEach-Object -Parallel {
+       (Invoke-RestMethod https://localhost:27263/api/subscriptions -Method Post -Headers $using:headers `
+           -ContentType application/json -Body '{"planHandle":"eshop-pro"}').subscription.id
+   } | Sort-Object -Unique
+   ```
+
+1. Optionally confirm the same subscription in the Maxio UI, or with
+   `GET /subscriptions/lookup.json?reference=eshoponweb:sub:demouser@microsoft.com:eshop-pro`.
+
+Swagger (`/swagger`) lists the endpoints under **SubscriptionEndpoints**; use *Authorize* with
+`Bearer <token>` to call them from there.
+
 ## Running the sample in the dev container
 
 This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
