@@ -68,5 +68,6 @@
     <PackageVersion Include="MSTest.TestAdapter" Version="3.2.2" />
     <PackageVersion Include="MSTest.TestFramework" Version="3.2.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
   </ItemGroup>
 </Project>
