@@ -10,10 +10,16 @@
     },
     "PublicApi": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MAXIO_API_KEY": "",
+        "MAXIO_SITE_SUBDOMAIN": "",
+        "MAXIO_ENVIRONMENT": "US",
+        "MAXIO_DEFAULT_PRODUCT_FAMILY": "",
+        "UseOnlyInMemoryDatabase": "true",
+        "DOTNET_ROLL_FORWARD": "Major"
       },
       "applicationUrl": "https://localhost:25363;http://localhost:25364"
     },
