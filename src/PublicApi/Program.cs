@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -39,6 +42,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
@@ -50,6 +54,32 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio Advanced Billing client
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"];
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? "cp-exp-1";
+var maxioEnvironment = builder.Configuration["Maxio:Environment"] ?? "US";
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioApiKey ?? throw new InvalidOperationException("Maxio:ApiKey is required"),
+        Password = "x"
+    };
+
+    options.Environment = maxioEnvironment == "EU"
+        ? ServerEnvironment.Eu
+        : ServerEnvironment.Us;
+
+    options.Server.Production.Us.Site = maxioSubdomain;
+
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioBaseUrl;
+    }
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
