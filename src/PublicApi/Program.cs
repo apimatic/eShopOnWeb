@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +89,62 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Register Maxio Advanced Billing client
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>((sp, client) =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigureHttpClient((sp, client) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["Maxio:ApiKey"];
+    var subdomain = config["Maxio:Subdomain"] ?? "cp-exp-1";
+    var environment = config["Maxio:Environment"] ?? "Us";
+
+    // Client configuration happens in the factory below
+}).ConfigurePrimaryHttpMessageHandler(() =>
+    new HttpClientHandler { AllowAutoRedirect = true });
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient();
+
+    var apiKey = config["Maxio:ApiKey"];
+    var subdomain = config["Maxio:Subdomain"] ?? "cp-exp-1";
+    var environment = config["Maxio:Environment"] ?? "Us";
+    var baseUrl = config["Maxio:BaseUrl"];
+
+    var serverEnv = environment == "Eu" ? ServerEnvironment.Eu : ServerEnvironment.Us;
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = serverEnv,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey ?? "",
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        if (serverEnv == ServerEnvironment.Eu)
+        {
+            options.Server.Production.Eu.BaseUrl = baseUrl;
+        }
+        else
+        {
+            options.Server.Production.Us.BaseUrl = baseUrl;
+        }
+    }
+
+    httpClient.Timeout = TimeSpan.FromSeconds(30);
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
