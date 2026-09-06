@@ -6,14 +6,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -68,6 +71,26 @@ builder.Services.AddAuthentication(config =>
         ValidateAudience = false
     };
 });
+
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    Subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    ProductFamilyHandle = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+    Environment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT"),
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"]
+};
+
+builder.Services.Configure<MaxioSettings>(options =>
+{
+    options.ApiKey = maxioSettings.ApiKey ?? options.ApiKey;
+    options.Subdomain = maxioSettings.Subdomain ?? options.Subdomain;
+    options.ProductFamilyHandle = maxioSettings.ProductFamilyHandle ?? options.ProductFamilyHandle;
+    options.Environment = maxioSettings.Environment ?? options.Environment;
+    options.BaseUrl = maxioSettings.BaseUrl ?? options.BaseUrl;
+});
+
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
 
 const string CORS_POLICY = "CorsPolicy";
 builder.Services.AddCors(options =>
@@ -174,6 +197,10 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+app.AddSubscriptionPlansListRoute();
+app.AddSubscriptionCreateRoute();
+app.AddSubscriptionListRoute();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
