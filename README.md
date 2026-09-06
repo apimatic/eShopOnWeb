@@ -44,6 +44,16 @@ The goal for this sample is to demonstrate some of the principles and patterns d
 - Development Process for Azure-Hosted ASP.NET Core Apps
 - Azure Hosting Recommendations for ASP.NET Core Web Apps
 
+## Recurring subscriptions (Maxio Advanced Billing)
+
+This repository adds an **additive** recurring-subscription capability alongside the original
+Catalog → Basket → Order flow, with Maxio Advanced Billing as the billing system of record. It is exposed as
+three JWT-authenticated endpoints on `src/PublicApi` — `GET /api/subscription-plans`,
+`POST /api/subscriptions` and `GET /api/my-subscriptions`.
+
+See **[SUBSCRIPTIONS.md](SUBSCRIPTIONS.md)** for the endpoint contracts, the `Maxio:*` configuration keys,
+and how the idempotent subscribe guarantee is built.
+
 ## Running the sample using Azd template
 
 The store's home page should look like this:

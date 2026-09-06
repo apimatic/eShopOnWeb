@@ -32,7 +32,18 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingException billingException)
+        {
+            // A billing failure that escaped an endpoint's own handling. Only the caller-safe message
+            // crosses the wire; the provider detail stays in the log.
+            context.Response.StatusCode = (int)StatusFor(billingException.Kind);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -51,4 +62,13 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static HttpStatusCode StatusFor(BillingFailureKind kind) => kind switch
+    {
+        BillingFailureKind.InvalidRequest => HttpStatusCode.BadRequest,
+        BillingFailureKind.NotFound => HttpStatusCode.NotFound,
+        BillingFailureKind.Rejected => HttpStatusCode.UnprocessableEntity,
+        BillingFailureKind.Configuration or BillingFailureKind.Unavailable => HttpStatusCode.ServiceUnavailable,
+        _ => HttpStatusCode.BadGateway
+    };
 }
