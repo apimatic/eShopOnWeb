@@ -59,13 +59,8 @@ var maxioSettings = new MaxioSettings
     BaseUrl = builder.Configuration["Maxio:BaseUrl"]
 };
 
-if (!string.IsNullOrEmpty(maxioSettings.ApiKey) &&
-    !string.IsNullOrEmpty(maxioSettings.Subdomain) &&
-    !string.IsNullOrEmpty(maxioSettings.ProductFamilyHandle))
-{
-    builder.Services.AddSingleton(maxioSettings);
-    builder.Services.AddHttpClient<IMaxioService, MaxioService>();
-}
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 builder.Services.AddMemoryCache();
 
