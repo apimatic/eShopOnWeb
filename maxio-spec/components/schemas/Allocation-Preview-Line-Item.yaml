@@ -1,0 +1,26 @@
+title: Allocation Preview Line Item
+type: object
+properties:
+  transaction_type:
+    $ref: "./Line-Item-Transaction-Type.yaml"
+  kind:
+    $ref: "./Allocation-Preview-Line-Item-Kind.yaml"
+  amount_in_cents:
+    type: integer
+    format: int64
+  memo:
+    type: string
+  discount_amount_in_cents:
+    type: integer
+    format: int64
+  taxable_amount_in_cents:
+    type: integer
+    format: int64
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  direction:
+    allOf:
+      - $ref: "./Allocation-Preview-Direction.yaml"
+    description: Visible when using Fine-grained Component Control
