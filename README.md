@@ -102,6 +102,13 @@ To use the sample with a persistent database, you will need to run its Entity Fr
 
 You can also run the samples in Docker (see below).
 
+### Recurring subscriptions
+
+Alongside the one-time Catalog → Basket → Order flow, the PublicApi project exposes a recurring-subscription
+capability backed by [Maxio Advanced Billing](https://www.maxio.com/) — `GET /api/subscription-plans`,
+`POST /api/subscriptions` and `GET /api/my-subscriptions`. It needs a `Maxio:` configuration section; see
+[SUBSCRIPTIONS.md](./SUBSCRIPTIONS.md) for setup, design and troubleshooting.
+
 ### Configuring the sample to use SQL Server
 
 1. By default, the project uses a real database. If you want an in memory database, you can add in the `appsettings.json` file in the Web folder
