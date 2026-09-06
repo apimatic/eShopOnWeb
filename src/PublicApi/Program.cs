@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,8 +18,10 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -44,6 +50,44 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio SDK Configuration
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "eshop-subscribe";
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+if (string.IsNullOrEmpty(maxioApiKey) || string.IsNullOrEmpty(maxioSubdomain))
+{
+    throw new InvalidOperationException("Maxio API key and subdomain must be configured via appsettings or environment variables (MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN)");
+}
+
+var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+var maxioOptions = new MaxioAdvancedBillingClientOptions
+{
+    BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioApiKey,
+        Password = "x"
+    },
+    Environment = ServerEnvironment.Us
+};
+
+if (!string.IsNullOrEmpty(maxioBaseUrl))
+{
+    maxioOptions.Server.Production.Us.BaseUrl = maxioBaseUrl;
+}
+
+builder.Services.AddSingleton(new MaxioAdvancedBillingClient(httpClient, maxioOptions));
+
+builder.Services.AddScoped<MaxioSubscriptionService>(sp =>
+{
+    var client = sp.GetRequiredService<MaxioAdvancedBillingClient>();
+    var maxioCustomerRepo = sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate.MaxioCustomer>>();
+    var userSubscriptionRepo = sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate.UserSubscription>>();
+    return new MaxioSubscriptionService(client, maxioCustomerRepo, userSubscriptionRepo, maxioProductFamilyHandle);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -174,6 +218,11 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Map subscription endpoints
+app.MapListSubscriptionPlansEndpoint();
+app.MapCreateSubscriptionEndpoint();
+app.MapListUserSubscriptionsEndpoint();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
