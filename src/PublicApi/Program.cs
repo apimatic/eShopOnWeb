@@ -25,6 +25,11 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
