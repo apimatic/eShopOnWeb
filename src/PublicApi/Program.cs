@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,10 +23,48 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options => Uri.TryCreate(options.BaseUrl ?? "https://placeholder.invalid", UriKind.Absolute, out _), "Maxio:BaseUrl must be an absolute URI when supplied.");
+
+builder.Services.AddTransient<MaxioWriteOnceHandler>();
+builder.Services.AddHttpClient("MaxioAdvancedBilling", client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    })
+    .AddHttpMessageHandler<MaxioWriteOnceHandler>();
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var clientOptions = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials { Username = options.ApiKey, Password = "x" },
+        Retry = RetryOptions.Default() with { MaxRetries = 1, Timeout = TimeSpan.FromSeconds(10) }
+    };
+    clientOptions.Server.Production.Us.Site = options.Subdomain;
+    if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+    {
+        clientOptions.Server.Production.Us.BaseUrl = options.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("MaxioAdvancedBilling"),
+        clientOptions);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -160,6 +199,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
