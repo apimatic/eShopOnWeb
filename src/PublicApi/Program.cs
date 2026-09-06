@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,12 +13,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +53,19 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+
+var maxioConfigSection = builder.Configuration.GetSection(MaxioConfiguration.ConfigName);
+builder.Services.Configure<MaxioConfiguration>(maxioConfigSection);
+
+builder.Services.AddScoped<IMaxioService>(sp =>
+{
+    var config = sp.GetRequiredService<IOptions<MaxioConfiguration>>().Value;
+    var httpClient = new HttpClient();
+    var logger = sp.GetRequiredService<ILogger<MaxioService>>();
+    var baseUrl = config.BaseUrl ?? $"https://{config.Subdomain}.chargify.com";
+    return new MaxioService(httpClient, config.ApiKey, baseUrl, logger);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +190,11 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+var subscriptionUserManager = app.Services.GetRequiredService<UserManager<ApplicationUser>>();
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.ListSubscriptionPlansEndpoint.MapEndpoint(app);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint.MapEndpoint(app, subscriptionUserManager);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.ListUserSubscriptionsEndpoint.MapEndpoint(app, subscriptionUserManager);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();

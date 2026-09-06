@@ -1,0 +1,191 @@
+═══════════════════════════════════════════════════════════════════════════════
+  MAXIO SUBSCRIPTION BILLING INTEGRATION - QUICK VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Set Maxio API Key in User-Secrets
+────────────────────────────────────────────────────────────────────────────────
+From src/PublicApi directory, run:
+  cd src\PublicApi
+  dotnet user-secrets set "Maxio:ApiKey" "<YOUR_API_KEY>"
+
+(Replace <YOUR_API_KEY> with your actual Maxio sandbox API key)
+
+✓ Verify: No errors in command output
+
+
+STEP 2: Build the Project
+────────────────────────────────────────────────────────────────────────────────
+From repo root:
+  dotnet build src/PublicApi/PublicApi.csproj -c Debug
+
+✓ Expected: "0 Error(s)" in output
+✗ If fails: Check error messages for missing using statements or compilation errors
+
+
+STEP 3: Start the PublicApi Service
+────────────────────────────────────────────────────────────────────────────────
+From repo root, with in-memory database enabled:
+
+  PowerShell:
+    $env:UseOnlyInMemoryDatabase="true"
+    dotnet run --project src/PublicApi/PublicApi.csproj
+
+  Command Prompt:
+    set UseOnlyInMemoryDatabase=true
+    dotnet run --project src/PublicApi/PublicApi.csproj
+
+✓ Expected: App starts, listens on https://localhost:25803
+✗ If fails: Check port availability or certificate trust (dotnet dev-certs https --check)
+
+
+STEP 4: Authenticate and Get JWT Token
+────────────────────────────────────────────────────────────────────────────────
+From another terminal:
+
+  curl -X POST https://localhost:25803/api/authenticate \
+    -H "Content-Type: application/json" \
+    --insecure \
+    -d "{\"username\":\"demouser@example.com\",\"password\":\"DemoUser@123\"}"
+
+✓ Expected: Response with "result": true and "token": "eyJ..."
+✗ If "result": false: User doesn't exist; create one or use different credentials
+✗ If 401/404: Check that authentication endpoint is working
+
+SAVE THE TOKEN VALUE for next steps (without "Bearer" prefix)
+
+
+STEP 5: List Subscription Plans
+────────────────────────────────────────────────────────────────────────────────
+Replace <TOKEN> with the token from Step 4:
+
+  curl -X GET https://localhost:25803/api/subscription-plans \
+    -H "Authorization: Bearer <TOKEN>" \
+    --insecure
+
+✓ Expected: 200 OK with plans including:
+  - eshop-pro (Pro Plan, $299.00)
+  - basic-plan (Basic Plan, $29.00)
+
+✗ If 401: Token is invalid or expired
+✗ If 400: Maxio API key not set or invalid
+✗ If empty list: Plans not seeded in Maxio sandbox
+
+
+STEP 6: Create a Subscription
+────────────────────────────────────────────────────────────────────────────────
+Replace <TOKEN> with your token:
+
+  curl -X POST https://localhost:25803/api/subscriptions \
+    -H "Authorization: Bearer <TOKEN>" \
+    -H "Content-Type: application/json" \
+    --insecure \
+    -d "{\"productHandle\":\"eshop-pro\"}"
+
+✓ Expected: 201 Created with subscription object containing:
+  - id: <subscription ID>
+  - state: "active"
+  - productHandle: "eshop-pro"
+
+✗ If 401: Token is invalid
+✗ If 400: Maxio customer creation failed (check API key)
+✗ If 404: User not found (authentication issue)
+
+
+STEP 7: List Your Subscriptions
+────────────────────────────────────────────────────────────────────────────────
+Replace <TOKEN> with your token:
+
+  curl -X GET https://localhost:25803/api/my-subscriptions \
+    -H "Authorization: Bearer <TOKEN>" \
+    --insecure
+
+✓ Expected: 200 OK with array containing the subscription created in Step 6
+✓ Subscription state should be "active"
+✓ Product name should be "Pro Plan"
+✓ Price should be 299.00
+
+✗ If empty array: Subscription wasn't created (check Step 6)
+✗ If 401: Token invalid
+
+
+STEP 8: Test Idempotency (Subscribe Again)
+────────────────────────────────────────────────────────────────────────────────
+Repeat Step 6 (create subscription) with same token:
+
+  curl -X POST https://localhost:25803/api/subscriptions \
+    -H "Authorization: Bearer <TOKEN>" \
+    -H "Content-Type: application/json" \
+    --insecure \
+    -d "{\"productHandle\":\"eshop-pro\"}"
+
+✓ Expected: 201 Created with SAME subscription ID as Step 6
+  (This proves idempotency is working - no duplicate created)
+
+
+STEP 9: Create Second Subscription (Different Plan)
+────────────────────────────────────────────────────────────────────────────────
+Replace <TOKEN> with your token:
+
+  curl -X POST https://localhost:25803/api/subscriptions \
+    -H "Authorization: Bearer <TOKEN>" \
+    -H "Content-Type: application/json" \
+    --insecure \
+    -d "{\"productHandle\":\"basic-plan\"}"
+
+✓ Expected: 201 Created with NEW subscription (different ID)
+✓ productHandle should be "basic-plan"
+
+
+STEP 10: Verify Both Subscriptions Appear
+────────────────────────────────────────────────────────────────────────────────
+Repeat Step 7 (list subscriptions):
+
+  curl -X GET https://localhost:25803/api/my-subscriptions \
+    -H "Authorization: Bearer <TOKEN>" \
+    --insecure
+
+✓ Expected: 200 OK with array containing TWO subscriptions:
+  - Pro Plan (eshop-pro) subscription
+  - Basic Plan (basic-plan) subscription
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  INTEGRATION VERIFIED ✓
+═══════════════════════════════════════════════════════════════════════════════
+
+If all steps passed, the Maxio subscription billing integration is working!
+
+Next steps:
+1. Review MAXIO_INTEGRATION_GUIDE.md for detailed documentation
+2. Review IMPLEMENTATION_SUMMARY.md for architecture details
+3. Check src/PublicApi/SubscriptionEndpoints/ for endpoint implementation
+4. For production: See "Production Considerations" in IMPLEMENTATION_SUMMARY.md
+
+═══════════════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+HTTPS Certificate Issues:
+  - Run: dotnet dev-certs https --check
+  - Trust cert: dotnet dev-certs https --trust
+  - In curl: Add --insecure flag (or -k)
+
+Maxio API Key Not Set:
+  - Verify: dotnet user-secrets list (from src/PublicApi directory)
+  - Set key: dotnet user-secrets set "Maxio:ApiKey" "<KEY>"
+
+Port 25803 Already in Use:
+  - Find process: netstat -ano | findstr :25803 (Windows)
+  - Kill process: taskkill /PID <PID> /F
+  - Or change port in launchSettings.json
+
+Invalid Token:
+  - Re-authenticate to get new token
+  - Tokens are valid for 7 days
+
+User Not Found:
+  - Ensure user exists in eShopOnWeb database
+  - Default test user: demouser@example.com / DemoUser@123
+  - Create new user via Web app before testing API
+
+═══════════════════════════════════════════════════════════════════════════════
