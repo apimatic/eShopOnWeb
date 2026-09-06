@@ -1,6 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +24,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +40,15 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        var maxioConfig = new MaxioConfiguration
+        {
+            ApiKey = configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? string.Empty,
+            Subdomain = configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? string.Empty,
+            BaseUrl = configuration["Maxio:BaseUrl"] ?? Environment.GetEnvironmentVariable("MAXIO_BASE_URL"),
+            ProductFamilyHandle = configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? string.Empty
+        };
+
+        services.AddSingleton(maxioConfig);
     }
 }
