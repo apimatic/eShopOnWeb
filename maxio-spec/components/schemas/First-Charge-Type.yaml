@@ -1,0 +1,6 @@
+title: First Charge Type
+type: string
+enum:
+  - prorated
+  - immediate
+  - delayed
