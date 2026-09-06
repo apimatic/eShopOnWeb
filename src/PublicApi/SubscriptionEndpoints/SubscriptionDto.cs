@@ -5,7 +5,7 @@ namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 public class SubscriptionDto
 {
-    public int MaxioSubscriptionId { get; set; }
+    public int? MaxioSubscriptionId { get; set; }
     public string ProductHandle { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
     public decimal MonthlyPrice { get; set; }

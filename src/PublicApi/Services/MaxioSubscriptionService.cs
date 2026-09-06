@@ -61,7 +61,7 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
                     Handle = p.Product!.Handle ?? "",
                     Name = p.Product.Name ?? "",
                     MonthlyPrice = (p.Product.PriceInCents ?? 0) / 100m,
-                    IntervalMonths = p.Product.Interval.HasValue ? (int)p.Product.Interval.Value : 1
+                    IntervalMonths = (int?)(p.Product.Interval ?? 1)
                 })
                 .ToList();
 
@@ -96,7 +96,7 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
             var subscription = response.Subscription;
             var dto = new SubscriptionDto
             {
-                MaxioSubscriptionId = subscription.Id ?? 0,
+                MaxioSubscriptionId = (int?)subscription.Id,
                 ProductHandle = productHandle,
                 State = subscription.State?.ToString() ?? "unknown",
                 MonthlyPrice = (subscription.ProductPriceInCents ?? 0) / 100m,
@@ -144,7 +144,7 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
                 .Where(s => s.Subscription != null && s.Subscription.Customer?.Id == userMapping.MaxioCustomerId)
                 .Select(s => new SubscriptionDto
                 {
-                    MaxioSubscriptionId = s.Subscription!.Id ?? 0,
+                    MaxioSubscriptionId = (int?)s.Subscription!.Id,
                     ProductHandle = s.Subscription.Product?.Handle ?? "",
                     State = s.Subscription.State?.ToString() ?? "unknown",
                     MonthlyPrice = (s.Subscription.ProductPriceInCents ?? 0L) / 100m,
@@ -173,7 +173,7 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
             var customerResponse = await _maxioClient.Customers.ReadCustomerByReference(userId, ct);
             if (customerResponse?.Customer?.Id.HasValue == true)
             {
-                var customerId = customerResponse.Customer.Id.Value;
+                var customerId = (int)customerResponse.Customer.Id.Value;
                 var mapping = new MaxioCustomerMapping(userId, customerId);
                 await _customerMappingRepository.AddAsync(mapping, ct);
                 return customerId;
@@ -200,7 +200,7 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
         if (createResponse?.Customer?.Id.HasValue != true)
             throw new InvalidOperationException("Failed to create customer");
 
-        var newCustomerId = createResponse.Customer.Id.Value;
+        var newCustomerId = (int)createResponse.Customer.Id.Value;
         var newMapping = new MaxioCustomerMapping(userId, newCustomerId);
         await _customerMappingRepository.AddAsync(newMapping, ct);
 
