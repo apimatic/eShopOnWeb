@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\t1h45ali-none-haiku45high-015\\repo\\.claude\\hooks\\maxio-process-guard.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
