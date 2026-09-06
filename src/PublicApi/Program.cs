@@ -9,11 +9,13 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +86,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing as the system of record.
+// Additive to the one-time Catalog/Basket/Order flow; see src/PublicApi/README.md for setup.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+builder.Services.AddScoped<SubscriberIdentityResolver>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -174,6 +181,25 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Subscription billing is optional: report its readiness at startup rather than refusing to start,
+// so a deployment that does not use it still serves the catalog, basket and order endpoints.
+using (var scope = app.Services.CreateScope())
+{
+    var maxioSettings = scope.ServiceProvider.GetRequiredService<MaxioSettingsProvider>().Current;
+    if (maxioSettings.IsConfigured)
+    {
+        app.Logger.LogInformation(
+            "Subscription billing is configured against Maxio site '{Subdomain}' ({BaseAddress}), product family '{ProductFamilyHandle}'.",
+            maxioSettings.Subdomain, maxioSettings.ResolveBaseAddress(), maxioSettings.ProductFamilyHandle);
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Subscription billing is NOT configured; api/subscription-plans, api/subscriptions and api/my-subscriptions will answer 503. Missing: {MissingSettings}.",
+            string.Join(", ", maxioSettings.DescribeMissingSettings()));
+    }
+}
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
