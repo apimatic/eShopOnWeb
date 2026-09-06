@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +18,18 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // The subscription billing integration validates its settings at start-up. Supply placeholders so
+        // the host boots without live Maxio credentials; no test in this fixture calls the billing API.
+        builder.ConfigureHostConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Maxio:ApiKey"] = "functional-test-placeholder",
+                ["Maxio:Subdomain"] = "functional-test",
+                ["Maxio:ProductFamilyHandle"] = "functional-test-family"
+            });
+        });
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
