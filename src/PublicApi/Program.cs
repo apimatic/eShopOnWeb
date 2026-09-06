@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -80,6 +85,46 @@ builder.Services.AddCors(options =>
             corsPolicyBuilder.AllowAnyHeader();
         });
 });
+
+const string MaxioHttpClientName = "Maxio";
+builder.Services.AddHttpClient(MaxioHttpClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var maxioConfig = config.GetSection("Maxio");
+    var apiKey = maxioConfig["ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey is required");
+    var subdomain = maxioConfig["Subdomain"] ?? "cp-exp-4";
+
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioHttpClientName);
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        },
+        Environment = ServerEnvironment.Us,
+        Server = new()
+    };
+    options.Server.Production.Us.Site = subdomain;
+
+    if (!string.IsNullOrEmpty(maxioConfig["BaseUrl"]))
+    {
+        options.Server.Production.Us.BaseUrl = maxioConfig["BaseUrl"];
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
@@ -173,6 +218,12 @@ app.UseSwaggerUI(c =>
 });
 
 app.MapControllers();
+
+// Register subscription endpoints
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.GetSubscriptionPlansEndpoint.AddRoute(app);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint.AddRoute(app);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.GetMySubscriptionsEndpoint.AddRoute(app);
+
 app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
