@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +16,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +34,7 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddEnvironmentVariables();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -44,6 +50,64 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Configure Maxio SDK client
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey not configured");
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain not configured");
+var maxioEnvironment = builder.Configuration["Maxio:Environment"] ?? "US";
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+var maxioProductFamily = builder.Configuration["Maxio:ProductFamilyHandle"] ?? throw new InvalidOperationException("Maxio:ProductFamilyHandle not configured");
+
+var serverEnv = maxioEnvironment.Equals("EU", StringComparison.OrdinalIgnoreCase)
+    ? ServerEnvironment.Eu
+    : ServerEnvironment.Us;
+
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>((provider, httpClient) =>
+{
+    httpClient.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<HttpClient>();
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioApiKey,
+            Password = "x"
+        },
+        Environment = serverEnv
+    };
+
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        if (serverEnv == ServerEnvironment.Eu)
+        {
+            options.Server ??= new ServerOptions();
+            options.Server.Production ??= new ProductionOptions();
+            options.Server.Production.Eu.BaseUrl = maxioBaseUrl;
+        }
+        else
+        {
+            options.Server ??= new ServerOptions();
+            options.Server.Production ??= new ProductionOptions();
+            options.Server.Production.Us.BaseUrl = maxioBaseUrl;
+        }
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService>(sp =>
+{
+    var client = sp.GetRequiredService<MaxioAdvancedBillingClient>();
+    var repository = sp.GetRequiredService<IRepository<Microsoft.eShopWeb.ApplicationCore.Entities.UserMaxioCustomer>>();
+    return new MaxioSubscriptionService(client, repository, maxioProductFamily);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,7 +147,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
