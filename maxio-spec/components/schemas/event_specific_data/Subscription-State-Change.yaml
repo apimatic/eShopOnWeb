@@ -1,0 +1,12 @@
+title: Subscription State Change
+type: object
+properties:
+  previous_subscription_state:
+    type: string
+    minLength: 1
+  new_subscription_state:
+    type: string
+    minLength: 1
+required:
+  - previous_subscription_state
+  - new_subscription_state
