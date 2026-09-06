@@ -1,0 +1,24 @@
+title: Refund Prepayment
+type: object
+properties:
+  amount_in_cents:
+    type:
+      - number
+      - "null"
+    format: int64
+    description: "`amount` is not required if you pass `amount_in_cents`."
+  amount:
+    type:
+      - string
+      - number
+    description: "`amount_in_cents` is not required if you pass `amount`."
+  memo:
+    type: string
+    minLength: 1
+  external:
+    type: boolean
+    description: "Specify the type of refund you wish to initiate. When the prepayment is external, the `external` flag is optional. But if the prepayment was made through a payment profile, the `external` flag is required."
+required:
+  - amount_in_cents
+  - amount
+  - memo
