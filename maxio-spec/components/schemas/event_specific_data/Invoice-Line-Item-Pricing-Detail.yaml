@@ -1,0 +1,7 @@
+title: Invoice Line Item Pricing Detail
+type: object
+properties:
+  label:
+    type: string
+  amount:
+    type: string

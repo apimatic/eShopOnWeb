@@ -1,0 +1,5 @@
+title: Discount Type
+type: string
+enum:
+  - amount
+  - percent
