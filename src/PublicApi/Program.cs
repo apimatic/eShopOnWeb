@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Models;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
@@ -32,6 +33,17 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = builder.Configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? "",
+    Subdomain = builder.Configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "",
+    ProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "",
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"]
+};
+
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -174,6 +186,11 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Register subscription endpoints
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.ListSubscriptionPlansEndpoint.AddRoute(app);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint.AddRoute(app);
+Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.ListMySubscriptionsEndpoint.AddRoute(app);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
