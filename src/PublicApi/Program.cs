@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +89,60 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio settings from environment variables
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioEnvironment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSubdomain))
+{
+    builder.Configuration["Maxio:ApiKey"] = maxioApiKey;
+    builder.Configuration["Maxio:Subdomain"] = maxioSubdomain;
+    builder.Configuration["Maxio:Environment"] = maxioEnvironment ?? "US";
+    builder.Configuration["Maxio:ProductFamilyHandle"] = maxioProductFamily ?? string.Empty;
+}
+
+var maxioSettings = builder.Configuration.GetSection("Maxio").Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+
+// Register Maxio client
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(typeof(MaxioAdvancedBillingClient).Name);
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey,
+            Password = "x"
+        },
+        Environment = maxioSettings.Environment.Equals("EU", StringComparison.OrdinalIgnoreCase)
+            ? ServerEnvironment.Eu
+            : ServerEnvironment.Us
+    };
+
+    if (!string.IsNullOrEmpty(maxioSettings.Subdomain))
+    {
+        options.Server.Production.Us.Site = maxioSettings.Subdomain;
+    }
+
+    if (!string.IsNullOrEmpty(maxioSettings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
