@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +50,16 @@ var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguratio
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
+// Configure Maxio
+var maxioConfig = new Microsoft.eShopWeb.PublicApi.Maxio.MaxioConfiguration();
+builder.Configuration.GetSection("Maxio").Bind(maxioConfig);
+builder.Services.AddSingleton(maxioConfig);
+
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Maxio.MaxioClient>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Maxio.IMaxioService, Microsoft.eShopWeb.PublicApi.Maxio.MaxioService>();
+
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
