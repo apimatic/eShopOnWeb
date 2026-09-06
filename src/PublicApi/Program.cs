@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +18,13 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +51,40 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio subscription billing configuration
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient(nameof(MaxioAdvancedBillingClient))
+    .ConfigureHttpClient(httpClient =>
+    {
+        // Configure HTTP client timeout (per-attempt)
+        httpClient.Timeout = TimeSpan.FromSeconds(30);
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptionsMonitor<MaxioSettings>>().CurrentValue;
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = factory.CreateClient(nameof(MaxioAdvancedBillingClient));
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey,
+            Password = "x"
+        },
+        Environment = ServerEnvironment.Us
+    };
+
+    // Override BaseUrl if provided, otherwise the default subdomain will be used
+    if (!string.IsNullOrEmpty(maxioSettings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
