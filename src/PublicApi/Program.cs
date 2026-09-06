@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -84,6 +85,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+if (!maxioSection.Exists())
+{
+    // Fallback to environment variables with Maxio: prefix
+    maxioSection = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string>
+        {
+            { $"{MaxioSettings.CONFIG_NAME}:ApiKey", builder.Configuration["MAXIO_API_KEY"] ?? "" },
+            { $"{MaxioSettings.CONFIG_NAME}:Subdomain", builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? "" },
+            { $"{MaxioSettings.CONFIG_NAME}:BaseUrl", builder.Configuration["MAXIO_BASE_URL"] ?? "" },
+            { $"{MaxioSettings.CONFIG_NAME}:ProductFamilyHandle", builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? "" }
+        }!)
+        .Build()
+        .GetSection(MaxioSettings.CONFIG_NAME);
+}
+builder.Services.Configure<MaxioSettings>(maxioSection);
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
