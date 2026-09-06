@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -85,6 +86,23 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = maxioApiKey ?? string.Empty,
+    Subdomain = maxioSubdomain ?? string.Empty,
+    ProductFamilyHandle = maxioProductFamilyHandle ?? string.Empty,
+    BaseUrl = maxioBaseUrl
+};
+
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddScoped<IMaxioService, MaxioService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -123,6 +141,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+if (string.IsNullOrEmpty(maxioApiKey) || string.IsNullOrEmpty(maxioSubdomain) || string.IsNullOrEmpty(maxioProductFamilyHandle))
+{
+    app.Logger.LogWarning("Maxio configuration incomplete. Subscription endpoints will not be available.");
+}
 
 app.Logger.LogInformation("PublicApi App created...");
 
