@@ -30,6 +30,7 @@
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
   </ItemGroup>
 
   <ItemGroup>
