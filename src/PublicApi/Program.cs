@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +34,16 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = builder.Configuration["MAXIO_API_KEY"] ?? builder.Configuration["Maxio:ApiKey"] ?? "",
+    Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? builder.Configuration["Maxio:Subdomain"] ?? "",
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"],
+    ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? builder.Configuration["Maxio:ProductFamilyHandle"] ?? ""
+};
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioApiService, MaxioApiService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
