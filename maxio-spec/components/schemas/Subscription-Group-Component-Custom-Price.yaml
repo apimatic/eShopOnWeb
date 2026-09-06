@@ -1,0 +1,14 @@
+title: Subscription Group Component Custom Price
+type: object
+description: Used in place of `price_point_id` to define a custom price point unique to the subscription. You still need to provide `component_id`.
+properties:
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Price.yaml"
+  overage_pricing:
+    type: array
+    items:
+      $ref: "./Component-Custom-Price.yaml"
