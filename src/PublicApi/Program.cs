@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +55,35 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"];
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"];
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSubdomain))
+{
+    var httpClient = new HttpClient();
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioApiKey,
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(maxioBaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioBaseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.BaseUrl = $"https://{maxioSubdomain}.chargify.com";
+    }
+
+    builder.Services.AddSingleton(new MaxioAdvancedBillingClient(httpClient, options));
+    builder.Services.AddScoped<MaxioSubscriptionService>();
+}
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
