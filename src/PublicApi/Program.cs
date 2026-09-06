@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +17,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -30,6 +35,28 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+// Configure Maxio subscription service
+var maxioConfigSection = builder.Configuration.GetSection("Maxio");
+builder.Services.Configure<MaxioOptions>(maxioConfigSection);
+var maxioOptions = maxioConfigSection.Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioOptions.ApiKey,
+        Password = "x"
+    };
+    options.Environment = ServerEnvironment.Us;
+
+    if (!string.IsNullOrEmpty(maxioOptions.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+});
+
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
