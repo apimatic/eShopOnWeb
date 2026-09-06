@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -85,6 +86,11 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring-subscription billing (Maxio Advanced Billing). Additive to, and independent of, the
+// existing one-time Catalog -> Basket -> Order flow. Registered after every configuration source
+// is in place because the Maxio client options are read once, at registration.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -126,6 +132,22 @@ var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
 
+var maxioSettings = app.Services.GetRequiredService<MaxioSettings>();
+var maxioProblems = maxioSettings.Validate();
+if (maxioProblems.Count > 0)
+{
+    app.Logger.LogWarning(
+        "Maxio subscription billing is NOT configured; the subscription endpoints will answer 503. {Problems}",
+        string.Join(" ", maxioProblems));
+}
+else
+{
+    app.Logger.LogInformation(
+        "Maxio subscription billing enabled for product family {ProductFamilyHandle} against {Target}.",
+        maxioSettings.ProductFamilyHandle,
+        maxioSettings.BaseUrl ?? ("site " + maxioSettings.Subdomain));
+}
+
 app.Logger.LogInformation("Seeding Database...");
 
 using (var scope = app.Services.CreateScope())
@@ -159,6 +181,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

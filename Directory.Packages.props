@@ -8,6 +8,10 @@
     <VSCodeGeneratorVersion>8.0.0</VSCodeGeneratorVersion>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Maxio Advanced Billing SDK (recurring subscription billing). Version pinned deliberately:
+         the package feed publishes 1.0.0-1.0.2 and the SDK source self-reports a different
+         version, so this must never float. -->
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />

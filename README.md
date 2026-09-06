@@ -164,6 +164,72 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Subscription billing (Maxio Advanced Billing)
+
+The sample also ships a **recurring-subscription** capability, backed by
+[Maxio Advanced Billing](https://www.maxio.com/). It is **additive and parallel** to the existing
+one-time Catalog -> Basket -> Order flow, which is unchanged: a shopper browses plans, subscribes,
+and sees the result in their account.
+
+Maxio is the **system of record**. Nothing about a subscription is mirrored in the eShopOnWeb
+database, so what a shopper sees is always what the provider reports.
+
+### Endpoints (PublicApi, JWT-authenticated)
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/subscription-plans` | Plans available in the configured product family, with price and billing interval |
+| `POST` | `/api/subscriptions` | Subscribe the caller to a plan (`{ "planHandle": "..." }`) |
+| `GET` | `/api/my-subscriptions` | The caller's own subscriptions, with state and next billing date |
+
+The subscriber is always taken from the bearer token, never from the request body, so a caller
+cannot enroll or read anybody else.
+
+`POST /api/subscriptions` is **idempotent**. It answers `201` when it creates a subscription and
+`200` with `"alreadySubscribed": true` when the shopper already had a live one, so a double-click
+never produces a second customer or a second subscription.
+
+### Configuration
+
+Bound from the `Maxio:` configuration section. **Never commit these values** - use user-secrets in
+development (`dotnet user-secrets --project src/PublicApi set "Maxio:ApiKey" "<key>"`) or
+environment variables (`Maxio__ApiKey`) elsewhere.
+
+| Key | Required | Meaning |
+|---|---|---|
+| `Maxio:ApiKey` | yes | Maxio API key |
+| `Maxio:Subdomain` | yes, unless `Maxio:BaseUrl` is set | Maxio site subdomain |
+| `Maxio:ProductFamilyHandle` | yes | Product family whose products are offered as plans |
+| `Maxio:BaseUrl` | no | Used **verbatim** as the API base address instead of deriving one from the subdomain |
+| `Maxio:DefaultProductHandle` | no | Plan used when a request names none; unset, such a request is rejected rather than guessed |
+| `Maxio:PaymentCollectionMethod` | no | Forces `automatic`, `remittance`, `invoice` or `prepaid`; unset, it is derived per plan |
+| `Maxio:AttemptTimeoutSeconds` | no (15) | Bound on one HTTP attempt |
+| `Maxio:CallBudgetSeconds` | no (45) | Bound on a whole operation, retries included |
+| `Maxio:PlanCacheSeconds` | no (60) | Plan-catalogue cache window; `0` disables it |
+| `Maxio:LogHttpTraffic` | no (false) | Logs verb, path, status and elapsed per Maxio call - never headers or bodies |
+
+If the section is missing or incomplete the host still starts: only the three subscription
+endpoints answer `503`, and the reason is logged at startup.
+
+### Trying it out
+
+```bash
+dotnet user-secrets --project src/PublicApi set "Maxio:ApiKey" "<your key>"
+dotnet user-secrets --project src/PublicApi set "Maxio:Subdomain" "<your site>"
+dotnet user-secrets --project src/PublicApi set "Maxio:ProductFamilyHandle" "<your family>"
+
+ASPNETCORE_ENVIRONMENT=Development UseOnlyInMemoryDatabase=true   dotnet run --project src/PublicApi
+
+# Get a token, then call the endpoints:
+curl -k -X POST https://localhost:5099/api/authenticate   -H "Content-Type: application/json"   -d '{"username":"demouser@microsoft.com","password":"Pass@word1"}'
+
+curl -k https://localhost:5099/api/subscription-plans -H "Authorization: Bearer $TOKEN"
+curl -k -X POST https://localhost:5099/api/subscriptions -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json" -d '{"planHandle":"<plan handle>"}'
+curl -k https://localhost:5099/api/my-subscriptions -H "Authorization: Bearer $TOKEN"
+```
+
+Substitute the PublicApi port from `src/PublicApi/Properties/launchSettings.json`.
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
