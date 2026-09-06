@@ -30,7 +30,15 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpoints();
+try
+{
+    builder.Services.AddEndpoints();
+}
+catch (System.Reflection.ReflectionTypeLoadException ex)
+{
+    // Handle assembly loading issues from third-party SDKs
+    Console.WriteLine($"Warning: Failed to auto-discover endpoints: {ex.Message}");
+}
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
