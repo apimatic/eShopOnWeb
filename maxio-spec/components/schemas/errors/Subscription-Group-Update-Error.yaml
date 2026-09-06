@@ -1,0 +1,7 @@
+title: Subscription Group Update Error
+type: object
+properties:
+  members:
+    type: array
+    items:
+      type: string
