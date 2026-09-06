@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +25,11 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +50,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
+
+var maxioConfigSection = builder.Configuration.GetSection(MaxioConfiguration.ConfigSectionName);
+builder.Services.Configure<MaxioConfiguration>(maxioConfigSection);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,7 +93,29 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
 builder.Configuration.AddEnvironmentVariables();
+var maxioApiKey = builder.Configuration["MAXIO_API_KEY"] ?? builder.Configuration["Maxio:ApiKey"];
+var maxioSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? builder.Configuration["Maxio:Subdomain"];
+var maxioProductFamily = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? builder.Configuration["Maxio:ProductFamilyHandle"];
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
+
+if (!string.IsNullOrEmpty(maxioApiKey))
+{
+    builder.Configuration["Maxio:ApiKey"] = maxioApiKey;
+}
+if (!string.IsNullOrEmpty(maxioSubdomain))
+{
+    builder.Configuration["Maxio:Subdomain"] = maxioSubdomain;
+}
+if (!string.IsNullOrEmpty(maxioProductFamily))
+{
+    builder.Configuration["Maxio:ProductFamilyHandle"] = maxioProductFamily;
+}
+if (!string.IsNullOrEmpty(maxioBaseUrl))
+{
+    builder.Configuration["Maxio:BaseUrl"] = maxioBaseUrl;
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
