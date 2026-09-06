@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +19,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -81,9 +87,43 @@ builder.Services.AddCors(options =>
         });
 });
 
+// Configure Maxio SDK client
+builder.Configuration.AddEnvironmentVariables();
+var maxioConfig = builder.Configuration.GetSection("Maxio");
+var apiKey = maxioConfig["ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? string.Empty;
+var subdomain = maxioConfig["Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "cp-exp-1";
+var productFamilyHandle = maxioConfig["ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "eshop-subscribe";
+var baseUrl = maxioConfig["BaseUrl"];
+
+var httpClient = new HttpClient();
+var maxioOptions = new MaxioAdvancedBillingClientOptions
+{
+    Environment = ServerEnvironment.Default(),
+    BasicAuth = new BasicAuthCredentials { Username = apiKey, Password = "x" },
+    Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(30) }
+};
+
+// Override base URL if configured
+if (!string.IsNullOrEmpty(baseUrl))
+{
+    maxioOptions.Server.Production.Us.BaseUrl = baseUrl;
+}
+else
+{
+    maxioOptions.Server.Production.Us.Site = subdomain;
+}
+
+var maxioClient = new MaxioAdvancedBillingClient(httpClient, maxioOptions);
+builder.Services.AddSingleton(maxioClient);
+builder.Services.AddScoped(sp =>
+    new MaxioSubscriptionService(
+        sp.GetRequiredService<MaxioAdvancedBillingClient>(),
+        productFamilyHandle,
+        sp.GetRequiredService<UserManager<ApplicationUser>>(),
+        sp.GetRequiredService<ILogger<MaxioSubscriptionService>>()));
+
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
