@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +34,8 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+// Load Maxio configuration from environment variables
+builder.Configuration.AddEnvironmentVariables("MAXIO_");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -50,6 +57,49 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio HTTP client
+builder.Services.AddHttpClient("Maxio");
+
+// Register Maxio client
+builder.Services.AddScoped(provider =>
+{
+    var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
+    var configuration = provider.GetRequiredService<IConfiguration>();
+
+    var maxioConfig = configuration.GetSection("Maxio").Get<MaxioConfiguration>()
+        ?? throw new InvalidOperationException("Maxio configuration not found");
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioConfig.ApiKey,
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(maxioConfig.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioConfig.BaseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.Site = maxioConfig.Subdomain;
+    }
+
+    var httpClient = httpClientFactory.CreateClient("Maxio");
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+// Register Maxio subscription service
+builder.Services.AddScoped<MaxioSubscriptionService>();
+builder.Services.AddScoped(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>().GetSection("Maxio").Get<MaxioConfiguration>()
+        ?? throw new InvalidOperationException("Maxio configuration not found");
+    return config.ProductFamilyHandle;
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
