@@ -1,0 +1,7 @@
+title: Payment Profile Response
+type: object
+properties:
+  payment_profile:
+    $ref: "../../openapi.yaml#/components/schemas/Payment-Profile"
+required:
+  - payment_profile
