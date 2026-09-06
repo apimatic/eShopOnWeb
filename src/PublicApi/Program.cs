@@ -31,6 +31,15 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Load Maxio credentials from environment variables
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    { "Maxio:ApiKey", Environment.GetEnvironmentVariable("MAXIO_API_KEY") },
+    { "Maxio:Subdomain", Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") },
+    { "Maxio:ProductFamilyHandle", Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") },
+    { "Maxio:BaseUrl", Environment.GetEnvironmentVariable("MAXIO_BASE_URL") }
+});
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
