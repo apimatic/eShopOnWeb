@@ -9,6 +9,17 @@ Sample ASP.NET Core reference application, powered by Microsoft, demonstrating a
 
 A list of Frequently Asked Questions about this repository can be found [here](https://github.com/dotnet-architecture/eShopOnWeb/wiki/Frequently-Asked-Questions).
 
+## Subscription billing (Maxio Advanced Billing)
+
+This fork adds recurring-subscription billing alongside the existing one-time catalog/basket/order
+flow, with Maxio Advanced Billing as the system of record. Three JWT-authenticated endpoints on
+`src/PublicApi` — `GET /api/subscription-plans`, `POST /api/subscriptions` and
+`GET /api/my-subscriptions` — let a signed-in shopper browse plans, subscribe idempotently, and see
+the result in their account.
+
+See [docs/subscription-billing.md](docs/subscription-billing.md) for the design, the configuration
+keys, and how to point it at your own Maxio site.
+
 ## Overview Video
 
 [Steve "ardalis" Smith](https://twitter.com/ardalis) recorded [a live stream providing an overview of the eShopOnWeb reference app](https://www.youtube.com/watch?v=vRZ8ucGac8M&ab_channel=Ardalis) in October 2020. 
