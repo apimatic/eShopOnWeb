@@ -12,12 +12,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -85,6 +87,10 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Additive to - and independent of -
+// the one-time Catalog/Basket/Order flow. Settings come from the "Maxio" configuration section.
+builder.Services.AddMaxioBilling(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -147,6 +153,26 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Report whether the subscription-billing capability is usable, without echoing any secret.
+using (var scope = app.Services.CreateScope())
+{
+    var maxioOptions = scope.ServiceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    var maxioFailures = maxioOptions.Validate();
+    if (maxioFailures.Count == 0)
+    {
+        app.Logger.LogInformation(
+            "Maxio subscription billing enabled: base address {BaseAddress}, product family '{ProductFamilyHandle}'.",
+            maxioOptions.ResolveBaseAddress(),
+            maxioOptions.ProductFamilyHandle);
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Maxio subscription billing is not configured, so the subscription endpoints will answer 503. {Failures}",
+            string.Join(" ", maxioFailures));
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -159,6 +185,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

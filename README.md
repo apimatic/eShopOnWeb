@@ -143,6 +143,20 @@ You can also run the samples in Docker (see below).
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
 
+## Recurring subscriptions (Maxio Advanced Billing)
+
+The `PublicApi` project also exposes a recurring-subscription capability, backed by
+[Maxio Advanced Billing](https://www.maxio.com/) as the billing system of record. It runs alongside
+the one-time Catalog/Basket/Order flow rather than replacing it:
+
+* `GET /api/subscription-plans` - plans a shopper can subscribe to
+* `POST /api/subscriptions` - subscribe the authenticated shopper (idempotent)
+* `GET /api/my-subscriptions` - the shopper's subscriptions
+
+Configuration, design notes and a verification walkthrough are in
+[docs/subscriptions-maxio.md](docs/subscriptions-maxio.md). Without a configured `Maxio` section the
+rest of the app is unaffected and these three routes answer `503`.
+
 ## Running the sample in the dev container
 
 This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
