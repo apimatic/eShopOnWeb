@@ -1,0 +1,7 @@
+title: Invoice Display Settings
+type: object
+properties:
+  hide_zero_subtotal_lines:
+    type: boolean
+  include_discounts_on_lines:
+    type: boolean
