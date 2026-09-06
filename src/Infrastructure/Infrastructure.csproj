@@ -6,6 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
@@ -17,5 +18,10 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
+	</ItemGroup>
+	<ItemGroup>
+		<!-- The billing integration's HTTP pipeline is internal; the unit tests exercise it through
+		     the HttpClient seam rather than by widening the public surface. -->
+		<InternalsVisibleTo Include="UnitTests" />
 	</ItemGroup>
 </Project>

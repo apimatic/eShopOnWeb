@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // The billing integration has already converted every provider, transport and deserialization
+            // failure into one of these, with a caller-safe message. All that is left is the status: a
+            // provider rejection the caller can act on stays a 4xx, while anything caused by the billing
+            // system or by us becomes a 5xx.
+            context.Response.StatusCode = (int)MapBillingFailure(billingException.Kind);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +64,23 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static HttpStatusCode MapBillingFailure(BillingFailureKind kind) => kind switch
+    {
+        BillingFailureKind.PlanNotFound => HttpStatusCode.NotFound,
+        BillingFailureKind.Validation => HttpStatusCode.UnprocessableEntity,
+        BillingFailureKind.Conflict => HttpStatusCode.Conflict,
+        BillingFailureKind.RateLimited => HttpStatusCode.TooManyRequests,
+
+        // Not configured, or configured against a site that does not match: the capability is unavailable
+        // until an operator fixes it, and no amount of caller retrying changes that.
+        BillingFailureKind.NotConfigured or BillingFailureKind.Misconfigured => HttpStatusCode.ServiceUnavailable,
+
+        // Transient, and safe for the caller to retry.
+        BillingFailureKind.Unavailable => HttpStatusCode.ServiceUnavailable,
+
+        // Our credentials, our unreadable response, our unresolved write - never the caller's fault, and an
+        // unknown write outcome must never look retryable.
+        _ => HttpStatusCode.BadGateway
+    };
 }
