@@ -8,6 +8,9 @@
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
@@ -18,4 +21,10 @@
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
 	</ItemGroup>
+
+  <ItemGroup>
+    <!-- The Maxio billing test suite exercises internal helpers directly. -->
+    <InternalsVisibleTo Include="MaxioBillingTests" />
+  </ItemGroup>
+
 </Project>
