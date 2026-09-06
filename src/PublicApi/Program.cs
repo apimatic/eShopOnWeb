@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +53,35 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Register Maxio SDK client
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var apiKey = builder.Configuration["Maxio:ApiKey"];
+    var subdomain = builder.Configuration["Maxio:Subdomain"];
+
+    if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(subdomain))
+    {
+        throw new InvalidOperationException("Maxio:ApiKey and Maxio:Subdomain configuration values are required.");
+    }
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    options.Environment = ServerEnvironment.Us;
+    var baseUrl = builder.Configuration["Maxio:BaseUrl"];
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = baseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.Site = subdomain;
+    }
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
