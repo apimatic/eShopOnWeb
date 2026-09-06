@@ -1,0 +1,37 @@
+title: Subscription Group Subscription Error
+type: object
+description: Object which contains subscription errors.
+additionalProperties: true
+properties:
+  product:
+    type: array
+    items:
+      type: string
+  product_price_point_id:
+    type: array
+    items:
+      type: string
+  payment_profile:
+    type: array
+    items:
+      type: string
+  payment_profile.chargify_token:
+    type: array
+    items:
+      type: string
+  base:
+    type: array
+    items:
+      type: string
+  payment_profile.expiration_month:
+    type: array
+    items:
+      type: string
+  payment_profile.expiration_year:
+    type: array
+    items:
+      type: string
+  payment_profile.full_number:
+    type: array
+    items:
+      type: string
