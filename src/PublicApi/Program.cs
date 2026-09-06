@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +32,27 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio settings from environment variables and appsettings
+builder.Services.Configure<MaxioSettings>(options =>
+{
+    options.ApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY")
+        ?? builder.Configuration["Maxio:ApiKey"]
+        ?? string.Empty;
+    options.Subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN")
+        ?? builder.Configuration["Maxio:Subdomain"]
+        ?? string.Empty;
+    options.BaseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+        ?? builder.Configuration["Maxio:BaseUrl"];
+    options.ProductFamilyHandle = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")
+        ?? builder.Configuration["Maxio:ProductFamilyHandle"]
+        ?? string.Empty;
+});
+
+// Register Maxio billing service
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -83,7 +106,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
