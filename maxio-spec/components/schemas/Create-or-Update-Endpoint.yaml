@@ -1,0 +1,14 @@
+title: Create or Update Endpoint
+description: Used to Create or Update Endpoint
+type: object
+properties:
+  url:
+    type: string
+  webhook_subscriptions:
+    type: array
+    description: ""
+    items:
+      $ref: "./Webhook-Subscription.yaml"
+required:
+  - url
+  - webhook_subscriptions
