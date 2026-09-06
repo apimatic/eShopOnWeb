@@ -1,0 +1,16 @@
+title: Issue Invoice Event
+type: object
+allOf:
+  - $ref: "./Invoice-Event-Base.yaml"
+  - type: object
+    properties:
+      event_type:
+        allOf:
+          - $ref: "../Invoice-Event-Type.yaml"
+        default: issue_invoice
+        example: issue_invoice
+      event_data:
+        $ref: "../invoice_event_specific_data/Issue-Invoice-Event-Data.yaml"
+    required:
+      - event_type
+      - event_data

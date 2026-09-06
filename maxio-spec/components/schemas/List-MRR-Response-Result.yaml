@@ -1,0 +1,19 @@
+title: List MRR Response Result
+type: object
+properties:
+  page:
+    type: integer
+  per_page:
+    type: integer
+  total_pages:
+    type: integer
+  total_entries:
+    type: integer
+  currency:
+    type: string
+  currency_symbol:
+    type: string
+  movements:
+    type: array
+    items:
+      $ref: "./Movement.yaml"
