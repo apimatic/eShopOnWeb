@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +34,27 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Configure Maxio settings
+var maxioSettings = new MaxioSettings();
+var maxioConfig = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+if (maxioConfig.Exists())
+{
+    maxioConfig.Bind(maxioSettings);
+}
+else
+{
+    // Load from environment variables
+    maxioSettings.ApiKey = builder.Configuration["MAXIO_API_KEY"] ?? string.Empty;
+    maxioSettings.Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? string.Empty;
+    maxioSettings.ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? string.Empty;
+    maxioSettings.Environment = builder.Configuration["MAXIO_ENVIRONMENT"] ?? "sandbox";
+    maxioSettings.BaseUrl = builder.Configuration["Maxio:BaseUrl"];
+}
+builder.Services.AddSingleton(maxioSettings);
+
+// Register Maxio HTTP client and service
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
