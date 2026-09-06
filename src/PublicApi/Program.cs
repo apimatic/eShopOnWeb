@@ -25,6 +25,23 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load Maxio configuration from environment variables
+if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MAXIO_API_KEY")))
+{
+    var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+    var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "cp-exp-3";
+    var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "eshop-subscribe";
+    var maxioBaseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL");
+
+    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        { "Maxio:ApiKey", maxioApiKey },
+        { "Maxio:Subdomain", maxioSubdomain },
+        { "Maxio:ProductFamilyHandle", maxioProductFamily },
+        { "Maxio:BaseUrl", maxioBaseUrl }
+    }!);
+}
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project

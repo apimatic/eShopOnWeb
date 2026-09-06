@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +21,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -35,6 +36,14 @@ public static class Dependencies
             // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
+        }
+
+        var maxioSection = configuration.GetSection("Maxio");
+        if (maxioSection.Exists())
+        {
+            var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+            services.AddSingleton(maxioSettings);
+            services.AddHttpClient<IMaxioService, MaxioService>();
         }
     }
 }
