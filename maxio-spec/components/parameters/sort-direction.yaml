@@ -1,0 +1,7 @@
+name: direction
+in: query
+description: |-
+  Controls the order in which results are returned.
+  Use in query `direction=asc`.
+schema:
+  $ref: "../schemas/Sort-Direction.yaml"

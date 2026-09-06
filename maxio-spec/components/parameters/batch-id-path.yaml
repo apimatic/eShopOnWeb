@@ -1,0 +1,6 @@
+name: batch_id
+in: path
+required: true
+description: Id of a Batch Job.
+schema:
+  type: string
