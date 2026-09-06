@@ -1,0 +1,9 @@
+title: List Invoices Response
+type: object
+properties:
+  invoices:
+    type: array
+    items:
+      $ref: "./Invoice.yaml"
+required:
+  - invoices
