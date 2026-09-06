@@ -12,8 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +86,18 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var maxioSection = builder.Configuration.GetSection("Maxio");
+builder.Services.Configure<MaxioOptions>(maxioSection);
+var maxioOptions = maxioSection.Get<MaxioOptions>();
+if (maxioOptions != null)
+{
+    builder.Services.AddHttpClient<IMaxioService, MaxioService>();
+}
+
+builder.Services.AddScoped<ListSubscriptionPlansEndpoint>();
+builder.Services.AddScoped<CreateSubscriptionEndpoint>();
+builder.Services.AddScoped<ListMySubscriptionsEndpoint>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -174,6 +188,16 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Register subscription endpoints
+var listPlansEndpoint = app.Services.GetRequiredService<ListSubscriptionPlansEndpoint>();
+listPlansEndpoint.AddRoute(app);
+
+var createSubEndpoint = app.Services.GetRequiredService<CreateSubscriptionEndpoint>();
+createSubEndpoint.AddRoute(app);
+
+var listMySubsEndpoint = app.Services.GetRequiredService<ListMySubscriptionsEndpoint>();
+listMySubsEndpoint.AddRoute(app);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
