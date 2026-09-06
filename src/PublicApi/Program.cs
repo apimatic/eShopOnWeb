@@ -12,12 +12,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -32,6 +34,10 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Recurring-subscription billing, backed by Maxio Advanced Billing. Additive to the existing
+// one-time commerce flow; credentials come from configuration (user-secrets or the environment).
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -147,6 +153,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+LogSubscriptionBillingConfiguration(app);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -177,5 +185,26 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+// Says once, at startup, whether the subscription endpoints will work - and if not, exactly which
+// configuration keys are missing. Key names only; a secret value is never logged.
+static void LogSubscriptionBillingConfiguration(WebApplication app)
+{
+    var settings = app.Services.GetRequiredService<IOptions<MaxioSettings>>().Value;
+
+    if (settings.IsConfigured)
+    {
+        app.Logger.LogInformation(
+            "Subscription billing enabled: Maxio at {BaseAddress}, product family '{ProductFamilyHandle}'.",
+            settings.ResolveBaseAddress(),
+            settings.ProductFamilyHandle);
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Subscription billing is not configured; /api/subscription-plans, /api/subscriptions and /api/my-subscriptions will answer 503. Missing configuration: {MissingSettings}.",
+            string.Join(", ", settings.GetMissingSettings()));
+    }
+}
 
 public partial class Program { }
