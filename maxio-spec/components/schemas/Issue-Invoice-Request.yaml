@@ -1,0 +1,5 @@
+title: Issue Invoice Request
+type: object
+properties:
+  on_failed_payment:
+    $ref: "./Failed-Payment-Action.yaml"
