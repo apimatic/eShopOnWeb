@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using BlazorShared;
-using MaxioAdvancedBilling;
-using MaxioAdvancedBilling.Core.Authentication.Basic;
-using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -107,42 +104,8 @@ if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSubdomain))
 var maxioSettings = builder.Configuration.GetSection("Maxio").Get<MaxioSettings>() ?? new MaxioSettings();
 builder.Services.AddSingleton(maxioSettings);
 
-// Register Maxio client
-builder.Services.AddHttpClient<MaxioAdvancedBillingClient>()
-    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-    {
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-    });
-
-builder.Services.AddSingleton(sp =>
-{
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(typeof(MaxioAdvancedBillingClient).Name);
-    var options = new MaxioAdvancedBillingClientOptions
-    {
-        BasicAuth = new BasicAuthCredentials
-        {
-            Username = maxioSettings.ApiKey,
-            Password = "x"
-        },
-        Environment = maxioSettings.Environment.Equals("EU", StringComparison.OrdinalIgnoreCase)
-            ? ServerEnvironment.Eu
-            : ServerEnvironment.Us
-    };
-
-    if (!string.IsNullOrEmpty(maxioSettings.Subdomain))
-    {
-        options.Server.Production.Us.Site = maxioSettings.Subdomain;
-    }
-
-    if (!string.IsNullOrEmpty(maxioSettings.BaseUrl))
-    {
-        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
-    }
-
-    return new MaxioAdvancedBillingClient(httpClient, options);
-});
-
-builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+// Register Maxio subscription service (using HTTP adapter due to SDK dependency issues)
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionServiceHttpAdapter>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
