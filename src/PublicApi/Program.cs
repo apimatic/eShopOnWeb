@@ -25,6 +25,12 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add user-secrets for development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -44,6 +50,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Register Maxio subscription service
+builder.Services.AddScoped<IMaxioSubscriptionService>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var logger = sp.GetRequiredService<ILogger<MaxioSubscriptionService>>();
+    var apiKey = config["Maxio:ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey is not configured");
+    var subdomain = config["Maxio:Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain is not configured");
+    var productFamilyHandle = config["Maxio:ProductFamilyHandle"] ?? throw new InvalidOperationException("Maxio:ProductFamilyHandle is not configured");
+    var baseUrl = config["Maxio:BaseUrl"];
+
+    return new MaxioSubscriptionService(apiKey, subdomain, productFamilyHandle, baseUrl, logger);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
