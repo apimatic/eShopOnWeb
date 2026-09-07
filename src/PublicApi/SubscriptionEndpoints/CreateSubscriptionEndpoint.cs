@@ -18,7 +18,6 @@ public class CreateSubscriptionRequestBody
     public string? PlanHandle { get; set; }
 }
 
-[Authorize]
 public class CreateSubscriptionEndpoint : EndpointBaseAsync
     .WithRequest<CreateSubscriptionRequestBody>
     .WithActionResult<CreateSubscriptionResponse>

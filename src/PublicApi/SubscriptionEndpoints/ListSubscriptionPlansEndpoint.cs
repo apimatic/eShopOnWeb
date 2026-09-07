@@ -9,7 +9,6 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-[Authorize]
 public class ListSubscriptionPlansEndpoint : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<ListSubscriptionPlansResponse>

@@ -98,16 +98,14 @@ if (!string.IsNullOrEmpty(maxioSettings.ApiKey) && !string.IsNullOrEmpty(maxioSe
 {
     builder.Services.AddScoped<IMaxioApiService>(sp =>
     {
-        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-        var client = httpClientFactory.CreateClient();
         var logger = sp.GetRequiredService<ILogger<MaxioApiService>>();
         var settings = sp.GetRequiredService<MaxioSettings>();
-        return new MaxioApiService(client, settings.ApiKey, settings.GetBaseUrl(), settings.ProductFamilyHandle, logger);
+        var httpClient = new HttpClient();
+        return new MaxioApiService(httpClient, settings.ApiKey, settings.GetBaseUrl(), settings.ProductFamilyHandle, logger);
     });
 }
 else
 {
-    // Register a null service for when Maxio is not configured
     builder.Services.AddScoped<IMaxioApiService>(sp => throw new InvalidOperationException("Maxio is not configured"));
 }
 

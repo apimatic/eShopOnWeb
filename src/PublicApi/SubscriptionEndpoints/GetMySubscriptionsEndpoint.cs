@@ -15,7 +15,6 @@ using Swashbuckle.AspNetCore.Annotations;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-[Authorize]
 public class GetMySubscriptionsEndpoint : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<GetMySubscriptionsResponse>
