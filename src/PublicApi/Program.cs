@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configurations;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -50,6 +51,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var apiKey = builder.Configuration["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? throw new InvalidOperationException("MAXIO_API_KEY is required");
+var subdomain = builder.Configuration["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? throw new InvalidOperationException("MAXIO_SITE_SUBDOMAIN is required");
+var productFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? throw new InvalidOperationException("MAXIO_DEFAULT_PRODUCT_FAMILY is required");
+var baseUrl = builder.Configuration["Maxio:BaseUrl"] ?? Environment.GetEnvironmentVariable("MAXIO_BASE_URL");
+
+var maxioConfig = new MaxioConfiguration
+{
+    ApiKey = apiKey,
+    Subdomain = subdomain,
+    ProductFamilyHandle = productFamilyHandle,
+    BaseUrl = baseUrl
+};
+
+builder.Services.AddHttpClient<IMaxioService, MaxioService>()
+    .ConfigureHttpClient(client =>
+    {
+        var url = maxioConfig.BaseUrl ?? $"https://{maxioConfig.Subdomain}.chargify.com";
+        client.BaseAddress = new Uri(url.TrimEnd('/'));
+    });
+builder.Services.AddScoped(sp => maxioConfig);
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
