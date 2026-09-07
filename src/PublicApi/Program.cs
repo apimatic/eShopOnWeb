@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +19,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +56,61 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Register Maxio client
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"];
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"];
+var maxioEnvironment = builder.Configuration["Maxio:Environment"] ?? "sandbox";
+
+if (string.IsNullOrEmpty(maxioApiKey) || string.IsNullOrEmpty(maxioSubdomain))
+{
+    throw new InvalidOperationException("Maxio credentials (Maxio:ApiKey and Maxio:Subdomain) must be configured in user secrets or environment variables.");
+}
+
+const string MaxioClientName = "MaxioClient";
+builder.Services.AddHttpClient(MaxioClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioClientName);
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["Maxio:ApiKey"]!;
+    var subdomain = config["Maxio:Subdomain"]!;
+    var environment = config["Maxio:Environment"] ?? "sandbox";
+    var baseUrlOverride = config["Maxio:BaseUrl"];
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = environment.Equals("production", StringComparison.OrdinalIgnoreCase)
+            ? ServerEnvironment.Us
+            : ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(baseUrlOverride))
+    {
+        options.Server.Production.Us.BaseUrl = baseUrlOverride;
+    }
+    else
+    {
+        options.Server.Production.Us.Site = subdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
