@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -16,6 +20,7 @@ using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -84,6 +89,40 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio client
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"] ?? builder.Configuration["MAXIO_API_KEY"];
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+var maxioEnvironment = builder.Configuration["Maxio:Environment"] ?? builder.Configuration["MAXIO_ENVIRONMENT"] ?? "US";
+
+if (!string.IsNullOrEmpty(maxioApiKey) && !string.IsNullOrEmpty(maxioSubdomain))
+{
+    builder.Services.AddHttpClient<MaxioAdvancedBillingClient>()
+        .ConfigureHttpClient(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+    builder.Services.AddSingleton(sp =>
+    {
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+        var httpClient = httpClientFactory.CreateClient(nameof(MaxioAdvancedBillingClient));
+
+        var options = new MaxioAdvancedBillingClientOptions
+        {
+            BasicAuth = new BasicAuthCredentials
+            {
+                Username = maxioApiKey,
+                Password = "x"
+            },
+            Environment = maxioEnvironment?.Equals("EU", StringComparison.OrdinalIgnoreCase) == true
+                ? ServerEnvironment.Eu
+                : ServerEnvironment.Us
+        };
+
+        return new MaxioAdvancedBillingClient(httpClient, options);
+    });
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
