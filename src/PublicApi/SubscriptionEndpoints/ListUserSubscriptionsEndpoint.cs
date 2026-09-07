@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,56 +12,38 @@ using MinimalApi.Endpoint;
 
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
-public class ListUserSubscriptionsEndpoint
+public class ListUserSubscriptionsEndpoint : IEndpoint<IResult, ISubscriptionManager>
 {
     public void AddRoute(IEndpointRouteBuilder app)
     {
         app.MapGet("api/my-subscriptions",
             [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-            async (IMaxioService maxioService, IHttpContextAccessor httpContextAccessor) =>
+            async (ISubscriptionManager manager, HttpContext httpContext) =>
             {
-                return await Handle(maxioService, httpContextAccessor);
+                return await HandleAsync(manager, httpContext);
             })
            .Produces<ListUserSubscriptionsResponse>()
            .WithTags("SubscriptionEndpoints");
     }
 
-    private async Task<IResult> Handle(IMaxioService maxioService, IHttpContextAccessor httpContextAccessor)
+    public async Task<IResult> HandleAsync(ISubscriptionManager manager)
     {
-        var httpContext = httpContextAccessor.HttpContext;
-        if (httpContext == null)
-        {
-            return Results.Unauthorized();
-        }
+        return Results.Ok();
+    }
 
-        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? httpContext.User.FindFirst("sub")?.Value;
-
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Results.Unauthorized();
-        }
-
+    private async Task<IResult> HandleAsync(ISubscriptionManager manager, HttpContext httpContext)
+    {
         try
         {
-            var customerReference = $"eshop-{userId}";
-            var subscriptions = await maxioService.GetCustomerSubscriptionsAsync(customerReference);
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.User.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
 
-            var subscriptionDtos = subscriptions.Select(s => new UserSubscriptionDto
-            {
-                SubscriptionId = s.Id,
-                CustomerId = s.CustomerId,
-                PlanHandle = s.ProductHandle,
-                State = s.State,
-                PricePerMonth = s.PriceInCents / 100m,
-                NextBillingAt = s.NextBillingAt,
-                CreatedAt = s.CreatedAt,
-                UpdatedAt = s.UpdatedAt,
-            }).ToList();
-
+            var subscriptions = await manager.GetUserSubscriptionsAsync(userId);
             return Results.Ok(new ListUserSubscriptionsResponse
             {
-                Subscriptions = subscriptionDtos
+                Subscriptions = new List<UserSubscriptionDto>(subscriptions)
             });
         }
         catch (Exception ex)
@@ -70,18 +51,6 @@ public class ListUserSubscriptionsEndpoint
             return Results.BadRequest(new { error = ex.Message });
         }
     }
-}
-
-public class UserSubscriptionDto
-{
-    public int SubscriptionId { get; set; }
-    public int CustomerId { get; set; }
-    public string PlanHandle { get; set; }
-    public string State { get; set; }
-    public decimal PricePerMonth { get; set; }
-    public DateTime? NextBillingAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
 }
 
 public class ListUserSubscriptionsResponse : BaseResponse

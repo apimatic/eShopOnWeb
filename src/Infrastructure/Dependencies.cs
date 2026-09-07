@@ -40,5 +40,6 @@ public static class Dependencies
         }
 
         services.AddHttpClient<IMaxioService, MaxioService>();
+        services.AddScoped<ISubscriptionManager, SubscriptionManager>();
     }
 }

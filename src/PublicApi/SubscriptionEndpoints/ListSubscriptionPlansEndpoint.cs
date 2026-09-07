@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,20 +28,27 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult, IMaxioService>
 
     public async Task<IResult> HandleAsync(IMaxioService maxioService)
     {
-        var products = await maxioService.GetProductsAsync();
-
-        var plans = products.Select(p => new SubscriptionPlanDto
+        try
         {
-            Id = p.Id,
-            Name = p.Name,
-            Handle = p.Handle,
-            Description = p.Description,
-            PricePerMonth = p.PriceInCents / 100m,
-            Interval = p.Interval,
-            IntervalUnit = p.IntervalUnit,
-        }).ToList();
+            var products = await maxioService.GetProductsAsync();
 
-        return Results.Ok(new ListSubscriptionPlansResponse { Plans = plans });
+            var plans = products.Select(p => new SubscriptionPlanDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Handle = p.Handle,
+                Description = p.Description,
+                PricePerMonth = p.PriceInCents / 100m,
+                Interval = p.Interval,
+                IntervalUnit = p.IntervalUnit,
+            }).ToList();
+
+            return Results.Ok(new ListSubscriptionPlansResponse { Plans = plans });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 }
 
