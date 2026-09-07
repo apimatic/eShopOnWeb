@@ -13,7 +13,10 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -48,6 +51,29 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Maxio Subscription Billing Configuration
+var maxioConfigSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+var maxioSettings = maxioConfigSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.Configure<MaxioSettings>(maxioConfigSection);
+builder.Services.AddSingleton(maxioSettings);
+
+builder.Services.AddDbContext<MaxioBillingDbContext>(options =>
+{
+    if (bool.TryParse(builder.Configuration["UseOnlyInMemoryDatabase"], out var useInMemory) && useInMemory)
+    {
+        options.UseInMemoryDatabase("MaxioBilling");
+    }
+    else
+    {
+        var connectionString = builder.Configuration.GetConnectionString("MaxioBillingConnection")
+            ?? throw new InvalidOperationException("Connection string 'MaxioBillingConnection' not found.");
+        options.UseSqlServer(connectionString);
+    }
+});
+
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddMemoryCache();
 
@@ -140,6 +166,9 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        var maxioBillingContext = scopedProvider.GetRequiredService<MaxioBillingDbContext>();
+        await maxioBillingContext.Database.EnsureCreatedAsync();
     }
     catch (Exception ex)
     {
@@ -174,6 +203,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapSubscriptionEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
