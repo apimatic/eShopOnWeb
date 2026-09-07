@@ -1,3 +1,5 @@
+using System;
+
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 public class CreateSubscriptionResponse : BaseResponse
@@ -6,7 +8,7 @@ public class CreateSubscriptionResponse : BaseResponse
     {
     }
 
-    public CreateSubscriptionResponse(System.Guid correlationId) : base(correlationId)
+    public CreateSubscriptionResponse(Guid correlationId) : base(correlationId)
     {
     }
 

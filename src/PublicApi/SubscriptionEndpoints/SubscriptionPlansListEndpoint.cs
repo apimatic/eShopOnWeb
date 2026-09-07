@@ -67,11 +67,11 @@ public partial class SubscriptionPlansListEndpoint : IEndpoint<IResult, EmptyReq
 
                 response.Plans.Add(new SubscriptionPlanDto
                 {
-                    Id = productResponse.Product.Id ?? 0,
+                    Id = (int)(productResponse.Product.Id ?? 0),
                     Name = productResponse.Product.Name,
                     Handle = productResponse.Product.Handle,
                     Price = (decimal?)productResponse.Product.PriceInCents / 100m ?? 0m,
-                    Interval = productResponse.Product.Interval ?? 1,
+                    Interval = (int)(productResponse.Product.Interval ?? 1),
                     IntervalUnit = productResponse.Product.IntervalUnit?.ToString()
                 });
             }

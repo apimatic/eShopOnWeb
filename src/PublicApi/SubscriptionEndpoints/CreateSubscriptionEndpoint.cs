@@ -130,7 +130,7 @@ public partial class CreateSubscriptionEndpoint : IEndpoint<IResult, Subscriptio
                 var subscription = subscriptionResponse.Subscription;
                 response.Subscription = new SubscriptionDto
                 {
-                    Id = subscription.Id ?? 0,
+                    Id = (int)(subscription.Id ?? 0),
                     State = subscription.State?.ToString(),
                     ProductName = subscription.Product?.Name,
                     ProductHandle = subscription.Product?.Handle,
