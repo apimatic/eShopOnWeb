@@ -21,7 +21,7 @@ public static class ListSubscriptionPlansEndpoint
                     var plans = await subscriptionService.GetSubscriptionPlansAsync(ct);
                     return Results.Ok(new { plans });
                 }
-                catch (Exception ex)
+                catch
                 {
                     return Results.StatusCode(StatusCodes.Status500InternalServerError);
                 }

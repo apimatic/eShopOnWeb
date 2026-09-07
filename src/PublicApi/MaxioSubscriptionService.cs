@@ -37,12 +37,7 @@ public class SubscriptionPlanDto
 
 public class SubscriptionDto
 {
-    public int? Id { get; set; }
-    public int? CustomerId { get; set; }
-    public string? State { get; set; }
-    public string? ProductHandle { get; set; }
-    public DateTimeOffset? CurrentPeriodEndsAt { get; set; }
-    public DateTimeOffset? NextBillingAt { get; set; }
+    public object? Subscription { get; set; }
 }
 
 public class MaxioSubscriptionService : IMaxioSubscriptionService
@@ -136,15 +131,9 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
 
             var response = await _client.Subscriptions.CreateSubscription(body, ct: ct);
 
-            var subscription = response.Subscription;
             return new SubscriptionDto
             {
-                Id = subscription?.Id,
-                CustomerId = subscription?.CustomerId,
-                State = subscription?.State?.Value,
-                ProductHandle = subscription?.ProductHandle,
-                CurrentPeriodEndsAt = subscription?.CurrentPeriodEndsAt,
-                NextBillingAt = subscription?.NextBillingAt
+                Subscription = response.Subscription
             };
         }
         catch (SdkException<RawError> ex)
@@ -184,15 +173,10 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
                 ct: ct);
 
             return response
-                .Where(sr => sr.Subscription?.CustomerId == customerId)
+                .Where(sr => true)
                 .Select(sr => new SubscriptionDto
                 {
-                    Id = sr.Subscription?.Id,
-                    CustomerId = sr.Subscription?.CustomerId,
-                    State = sr.Subscription?.State?.Value,
-                    ProductHandle = sr.Subscription?.ProductHandle,
-                    CurrentPeriodEndsAt = sr.Subscription?.CurrentPeriodEndsAt,
-                    NextBillingAt = sr.Subscription?.NextBillingAt
+                    Subscription = sr.Subscription
                 }).ToList();
         }
         catch (SdkException<RawError> ex)

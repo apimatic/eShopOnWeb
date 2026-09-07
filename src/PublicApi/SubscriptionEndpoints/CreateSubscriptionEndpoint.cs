@@ -37,14 +37,10 @@ public static class CreateSubscriptionEndpoint
 
                     return Results.Ok(new
                     {
-                        subscriptionId = subscription.Id,
-                        customerId = subscription.CustomerId,
-                        state = subscription.State,
-                        productHandle = subscription.ProductHandle,
-                        nextBillingAt = subscription.NextBillingAt
+                        subscription = subscription.Subscription
                     });
                 }
-                catch (InvalidOperationException ex)
+                catch
                 {
                     return Results.StatusCode(StatusCodes.Status500InternalServerError);
                 }

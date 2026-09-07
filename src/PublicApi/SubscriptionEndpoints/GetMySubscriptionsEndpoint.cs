@@ -32,7 +32,7 @@ public static class GetMySubscriptionsEndpoint
                         subscriptions = subscriptions.ToList()
                     });
                 }
-                catch (InvalidOperationException ex)
+                catch
                 {
                     return Results.StatusCode(StatusCodes.Status500InternalServerError);
                 }
