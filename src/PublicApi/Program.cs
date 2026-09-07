@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -45,6 +48,28 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    var maxioConfig = builder.Configuration.GetSection("Maxio");
+    var apiKey = maxioConfig.GetValue<string>("ApiKey") ?? throw new InvalidOperationException("Maxio:ApiKey is required");
+    var subdomain = maxioConfig.GetValue<string>("Subdomain") ?? throw new InvalidOperationException("Maxio:Subdomain is required");
+    var baseUrl = maxioConfig.GetValue<string>("BaseUrl");
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = apiKey,
+        Password = "x"
+    };
+
+    options.Environment = ServerEnvironment.Us;
+    options.Server.Production.Us.Site = subdomain;
+
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = baseUrl;
+    }
+});
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -85,6 +110,7 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
