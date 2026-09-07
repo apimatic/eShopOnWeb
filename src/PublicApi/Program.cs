@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,30 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Services.AddHttpContextAccessor();
+
+// Configure Maxio
+var maxioSettings = new MaxioSettings();
+builder.Configuration.Bind("Maxio", maxioSettings);
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddSingleton(maxioSettings);
+
+if (!string.IsNullOrEmpty(maxioSettings.ApiKey) && !string.IsNullOrEmpty(maxioSettings.Subdomain))
+{
+    builder.Services.AddScoped<IMaxioApiService>(sp =>
+    {
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+        var client = httpClientFactory.CreateClient();
+        var logger = sp.GetRequiredService<ILogger<MaxioApiService>>();
+        var settings = sp.GetRequiredService<MaxioSettings>();
+        return new MaxioApiService(client, settings.ApiKey, settings.GetBaseUrl(), settings.ProductFamilyHandle, logger);
+    });
+}
+else
+{
+    // Register a null service for when Maxio is not configured
+    builder.Services.AddScoped<IMaxioApiService>(sp => throw new InvalidOperationException("Maxio is not configured"));
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
