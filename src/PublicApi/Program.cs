@@ -1,7 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Models;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -16,8 +22,10 @@ using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +58,79 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio settings from environment variables
+builder.Configuration.AddEnvironmentVariables();
+
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = builder.Configuration["MAXIO_API_KEY"] ?? builder.Configuration["Maxio:ApiKey"],
+    Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? builder.Configuration["Maxio:Subdomain"],
+    ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? builder.Configuration["Maxio:ProductFamilyHandle"],
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"]
+};
+
+builder.Services.Configure<MaxioSettings>(opts =>
+{
+    opts.ApiKey = maxioSettings.ApiKey;
+    opts.Subdomain = maxioSettings.Subdomain;
+    opts.ProductFamilyHandle = maxioSettings.ProductFamilyHandle;
+    opts.BaseUrl = maxioSettings.BaseUrl;
+});
+
+// Register Maxio client
+builder.Services.AddHttpClient<MaxioAdvancedBillingClient>((sp, client) =>
+{
+    var config = sp.GetRequiredService<IOptions<MaxioSettings>>();
+    var opts = config.Value;
+
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IOptions<MaxioSettings>>();
+    var opts = config.Value;
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+    if (string.IsNullOrEmpty(opts.ApiKey) || string.IsNullOrEmpty(opts.Subdomain))
+    {
+        throw new InvalidOperationException("Maxio ApiKey and Subdomain must be configured");
+    }
+
+    var httpClient = httpClientFactory.CreateClient(nameof(MaxioAdvancedBillingClient));
+
+    var clientOptions = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = opts.ApiKey,
+            Password = "x"  // Literal "x" as per Maxio spec
+        }
+    };
+
+    // Configure server - ServerOptions is auto-initialized
+    // Override base URL or site if provided
+    if (!string.IsNullOrEmpty(opts.BaseUrl))
+    {
+        clientOptions.Server.Production.Us.BaseUrl = opts.BaseUrl;
+    }
+    else if (!string.IsNullOrEmpty(opts.Subdomain))
+    {
+        // Set the Site property for the subdomain
+        clientOptions.Server.Production.Us.Site = opts.Subdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, clientOptions);
+});
+
+// Register Maxio service
+builder.Services.AddScoped<IMaxioService, MaxioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
