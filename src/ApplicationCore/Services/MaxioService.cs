@@ -35,18 +35,39 @@ public class MaxioService : IMaxioService
 
     private void ConfigureHttpClient()
     {
-        var baseUrl = _config.BaseUrl ?? $"https://{_config.Subdomain}.chargify.com";
-        _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/'));
+        try
+        {
+            var subdomain = string.IsNullOrEmpty(_config.Subdomain) ? "cp-exp-4" : _config.Subdomain;
+            var baseUrl = _config.BaseUrl ?? $"https://{subdomain}.chargify.com";
 
-        var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_config.ApiKey}:x"));
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            if (!string.IsNullOrEmpty(baseUrl))
+            {
+                _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/'));
+            }
+
+            if (!string.IsNullOrEmpty(_config.ApiKey))
+            {
+                var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_config.ApiKey}:x"));
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
+            }
+
+            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error configuring Maxio HTTP client");
+        }
     }
 
     public async Task<MaxioSubscriptionPlanDto[]> ListSubscriptionPlansAsync()
     {
         try
         {
+            if (_httpClient.BaseAddress == null)
+            {
+                throw new InvalidOperationException("Maxio BaseAddress is not configured. Check MAXIO_API_KEY and MAXIO_SITE_SUBDOMAIN environment variables.");
+            }
+
             var response = await _httpClient.GetAsync("/products.json");
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
