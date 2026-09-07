@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +38,19 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Configure Maxio
+        var maxioSection = configuration.GetSection("Maxio");
+        var maxioSettings = new MaxioSettings
+        {
+            ApiKey = configuration["Maxio:ApiKey"] ?? string.Empty,
+            Subdomain = configuration["Maxio:Subdomain"] ?? string.Empty,
+            ProductFamilyHandle = configuration["Maxio:ProductFamilyHandle"] ?? string.Empty,
+            BaseUrl = configuration["Maxio:BaseUrl"]
+        };
+
+        services.AddSingleton(maxioSettings);
+        services.AddHttpClient<IMaxioClient, MaxioClient>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
     }
 }
