@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,46 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var maxioApiKey = string.IsNullOrEmpty(builder.Configuration["Maxio:ApiKey"])
+    ? Environment.GetEnvironmentVariable("MAXIO_API_KEY")
+    : builder.Configuration["Maxio:ApiKey"];
+
+var maxioSubdomain = string.IsNullOrEmpty(builder.Configuration["Maxio:Subdomain"])
+    ? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN")
+    : builder.Configuration["Maxio:Subdomain"];
+
+var maxioEnvironment = string.IsNullOrEmpty(builder.Configuration["Maxio:Environment"])
+    ? (Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT") ?? "US")
+    : builder.Configuration["Maxio:Environment"];
+
+var maxioBaseUrl = string.IsNullOrEmpty(builder.Configuration["Maxio:BaseUrl"])
+    ? Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+    : builder.Configuration["Maxio:BaseUrl"];
+
+if (string.IsNullOrEmpty(maxioBaseUrl))
+{
+    if (string.IsNullOrEmpty(maxioSubdomain))
+    {
+        throw new InvalidOperationException("MAXIO_SITE_SUBDOMAIN environment variable is required");
+    }
+
+    maxioBaseUrl = maxioEnvironment?.ToUpper() == "EU"
+        ? $"https://{maxioSubdomain}.ebilling.maxio.com"
+        : $"https://{maxioSubdomain}.chargify.com";
+}
+
+builder.Services.AddHttpClient("Maxio");
+
+builder.Services.AddScoped(serviceProvider =>
+{
+    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient("Maxio");
+    var logger = serviceProvider.GetRequiredService<ILogger<MaxioClientService>>();
+    return new MaxioClientService(httpClient, maxioApiKey ?? string.Empty, maxioBaseUrl, logger);
+});
+
+builder.Services.AddScoped<SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -159,6 +201,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
