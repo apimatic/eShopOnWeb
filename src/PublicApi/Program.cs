@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +16,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +89,62 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio subscription service registration
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey not configured");
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain not configured");
+var maxioEnvironment = builder.Configuration["Maxio:Environment"] ?? "Us";
+var maxioProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? "eshop-subscribe";
+
+builder.Services.AddHttpClient("MaxioClient", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient("MaxioClient");
+
+    var environment = maxioEnvironment == "Eu"
+        ? MaxioAdvancedBilling.Servers.ServerEnvironment.Eu
+        : MaxioAdvancedBilling.Servers.ServerEnvironment.Us;
+
+    var options = new MaxioAdvancedBilling.MaxioAdvancedBillingClientOptions
+    {
+        Environment = environment,
+        BasicAuth = new MaxioAdvancedBilling.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = maxioApiKey,
+            Password = "x"
+        }
+    };
+
+    // Override base URL if provided
+    var baseUrl = builder.Configuration["Maxio:BaseUrl"];
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = baseUrl;
+        if (environment == MaxioAdvancedBilling.Servers.ServerEnvironment.Eu)
+        {
+            options.Server.Production.Eu.BaseUrl = baseUrl;
+        }
+    }
+
+    return new MaxioAdvancedBilling.MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService>(sp =>
+{
+    var maxioClient = sp.GetRequiredService<MaxioAdvancedBilling.MaxioAdvancedBillingClient>();
+    var catalogContext = sp.GetRequiredService<CatalogContext>();
+    return new Microsoft.eShopWeb.Infrastructure.Services.MaxioSubscriptionService(
+        maxioClient, catalogContext, maxioProductFamilyHandle);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
