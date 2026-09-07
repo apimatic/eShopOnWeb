@@ -11,11 +11,18 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
+    public DbSet<MaxioCustomerMapping> MaxioCustomerMappings { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        // Customize the ASP.NET Identity model and override the defaults if needed.
-        // For example, you can rename the ASP.NET Identity table names and more.
-        // Add your customizations after calling base.OnModelCreating(builder);
+
+        builder.Entity<MaxioCustomerMapping>()
+            .HasIndex(m => m.UserId)
+            .IsUnique();
+
+        builder.Entity<MaxioCustomerMapping>()
+            .HasIndex(m => m.MaxioCustomerId)
+            .IsUnique();
     }
 }

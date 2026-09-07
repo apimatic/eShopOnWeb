@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,16 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+var maxioConfig = new MaxioConfiguration();
+builder.Configuration.GetSection(MaxioConfiguration.SectionName).Bind(maxioConfig);
+builder.Services.AddSingleton(maxioConfig);
+builder.Services.AddHttpClient<MaxioApiClient>();
+
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionPlansEndpoint>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.GetMySubscriptionsEndpoint>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +185,14 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+using (var scope = app.Services.CreateScope())
+{
+    var sp = scope.ServiceProvider;
+    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionPlansEndpoint>().AddRoute(app);
+    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint>().AddRoute(app);
+    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.GetMySubscriptionsEndpoint>().AddRoute(app);
+}
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
