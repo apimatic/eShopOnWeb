@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,12 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+const string MaxioClientName = "MaxioAdvancedBilling";
+builder.Services.AddHttpClient<MaxioSubscriptionService>(MaxioClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
