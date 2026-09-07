@@ -1,0 +1,52 @@
+title: Create Invoice Item
+type: object
+properties:
+  title:
+    type: string
+  quantity:
+    type:
+      - number
+      - string
+    description: "The quantity can contain up to 8 decimal places. i.e. 1.00 or 0.0012 or 0.00000065. If you submit a value with more than 8 decimal places, we will round it down to the 8th decimal place."
+    minimum: 0
+  unit_price:
+    description: "The unit_price can contain up to 8 decimal places. i.e. 1.00 or 0.0012 or 0.00000065. If you submit a value with more than 8 decimal places, we will round it down to the 8th decimal place."
+    type:
+      - number
+      - string
+  taxable:
+    type: boolean
+    description: |-
+      Set to true to automatically calculate taxes. Site must be configured to use and calculate taxes.
+
+      If using Avalara, a tax_code parameter must also be sent.
+  tax_code:
+    type: string
+  period_range_start:
+    type: string
+    description: YYYY-MM-DD
+  period_range_end:
+    type: string
+    description: YYYY-MM-DD
+  product_id:
+    type:
+      - string
+      - integer
+    description: Product handle or product id.
+  component_id:
+    type:
+      - string
+      - integer
+    description: Component handle or component id.
+  price_point_id:
+    type:
+      - string
+      - integer
+    description: Price point handle or id. For component.
+  product_price_point_id:
+    type:
+      - string
+      - integer
+  description:
+    type: string
+    maxLength: 255

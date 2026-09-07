@@ -1,0 +1,7 @@
+title: List MRR Response
+type: object
+properties:
+  mrr:
+    $ref: "./List-MRR-Response-Result.yaml"
+required:
+  - mrr

@@ -1,0 +1,7 @@
+title: Create Product Price Point Request
+type: object
+properties:
+  price_point:
+    $ref: "./Create-Product-Price-Point.yaml"
+required:
+  - price_point
