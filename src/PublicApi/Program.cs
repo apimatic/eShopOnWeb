@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +17,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -122,6 +127,25 @@ builder.Services.AddSwaggerGen(c =>
             });
 });
 
+// Configure Maxio Advanced Billing
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+var maxioSettings = builder.Configuration.GetSection("Maxio").Get<MaxioSettings>();
+
+if (maxioSettings != null && !string.IsNullOrEmpty(maxioSettings.ApiKey))
+{
+    builder.Services.AddMaxioAdvancedBillingClient(options =>
+    {
+        options.Environment = ServerEnvironment.Us;
+        options.BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey,
+            Password = "x"
+        };
+    });
+}
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
@@ -174,6 +198,11 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Register subscription endpoints
+app.MapGetSubscriptionPlans();
+app.MapCreateSubscription();
+app.MapGetMySubscriptions();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
