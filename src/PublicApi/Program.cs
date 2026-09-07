@@ -2,7 +2,13 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using System.Net.Http;
+using Microsoft.Extensions.Options;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -50,6 +56,47 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio subscription billing
+builder.Configuration.AddEnvironmentVariables();
+var maxioConfig = new MaxioConfiguration();
+var maxioSection = builder.Configuration.GetSection("Maxio");
+if (maxioSection.Exists())
+{
+    maxioSection.Bind(maxioConfig);
+}
+
+// Register Maxio client using built-in extension
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.Environment = ServerEnvironment.Us;
+
+    // Set Basic auth credentials
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioConfig.ApiKey,
+        Password = "x"
+    };
+
+    // Override base URL if provided
+    if (!string.IsNullOrEmpty(maxioConfig.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioConfig.BaseUrl;
+    }
+    else if (!string.IsNullOrEmpty(maxioConfig.Subdomain))
+    {
+        options.Server.Production.Us.BaseUrl = $"https://{maxioConfig.Subdomain}.chargify.com";
+    }
+});
+
+// Configure HTTP client for Maxio
+builder.Services.AddHttpClient(Options.DefaultName).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+// Register subscriptions service
+builder.Services.AddScoped<SubscriptionsService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
