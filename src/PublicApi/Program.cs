@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -25,6 +29,7 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -44,6 +49,37 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Register Maxio Billing client
+builder.Services.Configure<MaxioConfiguration>(builder.Configuration.GetSection("Maxio"));
+var maxioConfig = builder.Configuration.GetSection("Maxio").Get<MaxioConfiguration>();
+
+if (!string.IsNullOrEmpty(maxioConfig?.ApiKey) && !string.IsNullOrEmpty(maxioConfig?.Subdomain))
+{
+    var httpClient = new HttpClient();
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioConfig.ApiKey,
+            Password = "x"
+        },
+        Environment = ServerEnvironment.Us
+    };
+
+    // Configure server options for subdomain
+    options.Server.Production.Us.Site = maxioConfig.Subdomain;
+
+    // Use custom base URL if provided
+    if (!string.IsNullOrEmpty(maxioConfig.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioConfig.BaseUrl;
+    }
+
+    var maxioClient = new MaxioAdvancedBillingClient(httpClient, options);
+    builder.Services.AddSingleton(maxioClient);
+    builder.Services.AddScoped<SubscriptionService>();
+}
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
