@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +31,17 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddEnvironmentVariables();
+
+// Load Maxio settings from environment variables
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    { "Maxio:ApiKey", Environment.GetEnvironmentVariable("MAXIO_API_KEY") },
+    { "Maxio:Subdomain", Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") },
+    { "Maxio:ProductFamilyHandle", Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") },
+    { "Maxio:Environment", Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT") ?? "sandbox" },
+});
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -48,6 +61,11 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+var maxioSection = builder.Configuration.GetSection("Maxio");
+builder.Services.Configure<MaxioSettings>(maxioSection);
+
+builder.Services.AddHttpClient<MaxioSubscriptionService>();
 
 builder.Services.AddMemoryCache();
 
@@ -83,7 +101,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -175,7 +192,13 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+// Map subscription endpoints
+app.MapListSubscriptionPlans();
+app.MapCreateSubscription();
+app.MapGetMySubscriptions();
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
 public partial class Program { }
+

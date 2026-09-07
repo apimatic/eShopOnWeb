@@ -1,13 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>  
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>BlazorShared</RootNamespace>
     <AssemblyName>BlazorShared</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorInputFile" />
-    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="BlazorInputFile" Version="0.2.0" />
+    <PackageReference Include="FluentValidation" Version="11.8.1" />
   </ItemGroup>
 
 </Project>

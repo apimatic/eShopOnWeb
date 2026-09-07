@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <PackageVersion Include="AdvancedBilling.Standard" Version="8.0.0" />
+  </ItemGroup>
+</Project>
