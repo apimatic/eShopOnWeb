@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,6 +19,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +50,56 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Billing Client Setup
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["Maxio:ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey is required");
+    var subdomain = config["Maxio:Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain is required");
+    var baseUrlOverride = config["Maxio:BaseUrl"];
+
+    var environment = (config["Maxio:Environment"]?.ToUpperInvariant()) switch
+    {
+        "EU" => ServerEnvironment.Eu,
+        _ => ServerEnvironment.Us
+    };
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        },
+        Environment = environment
+    };
+
+    if (environment == ServerEnvironment.Us)
+    {
+        options.Server.Production.Us.Site = subdomain;
+        if (!string.IsNullOrEmpty(baseUrlOverride))
+            options.Server.Production.Us.BaseUrl = baseUrlOverride;
+    }
+    else
+    {
+        options.Server.Production.Eu.Site = subdomain;
+        if (!string.IsNullOrEmpty(baseUrlOverride))
+            options.Server.Production.Eu.BaseUrl = baseUrlOverride;
+    }
+
+    var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var productFamilyHandle = config["Maxio:ProductFamilyHandle"]
+        ?? throw new InvalidOperationException("Maxio:ProductFamilyHandle is required");
+    var client = sp.GetRequiredService<MaxioAdvancedBillingClient>();
+    return new MaxioService(client, productFamilyHandle);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -174,6 +230,27 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Subscription endpoints
+app.MapGet("api/subscription-plans",
+    (MaxioService maxioService) => SubscriptionPlansEndpoint.HandleAsync(maxioService))
+    .WithName("GetSubscriptionPlans")
+    .RequireAuthorization()
+    .WithTags("SubscriptionEndpoints");
+
+app.MapPost("api/subscriptions",
+    (SubscribeRequest request, MaxioService maxioService, HttpContext httpContext) =>
+        CreateSubscriptionEndpoint.HandleAsync(request, maxioService, httpContext))
+    .WithName("CreateSubscription")
+    .RequireAuthorization()
+    .WithTags("SubscriptionEndpoints");
+
+app.MapGet("api/my-subscriptions",
+    (MaxioService maxioService, HttpContext httpContext) =>
+        GetMySubscriptionsEndpoint.HandleAsync(maxioService, httpContext))
+    .WithName("GetMySubscriptions")
+    .RequireAuthorization()
+    .WithTags("SubscriptionEndpoints");
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
