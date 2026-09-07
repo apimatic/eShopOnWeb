@@ -1,0 +1,5 @@
+title: Proforma Invoice Tax Source Type
+type: string
+enum:
+  - Tax
+  - Avalara
