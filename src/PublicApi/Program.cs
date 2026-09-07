@@ -2,6 +2,11 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using System.Net.Http;
+using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +19,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +50,8 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+ConfigureMaxioClient(builder.Services, builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -177,5 +185,40 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+void ConfigureMaxioClient(IServiceCollection services, IConfiguration configuration)
+{
+    var apiKey = configuration["Maxio:ApiKey"];
+    var subdomain = configuration["Maxio:Subdomain"];
+
+    if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(subdomain))
+    {
+        throw new InvalidOperationException(
+            "Maxio configuration is missing. Ensure Maxio:ApiKey and Maxio:Subdomain are set in user secrets or environment variables.");
+    }
+
+    const string ClientName = "Maxio";
+    services.AddHttpClient(ClientName, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+    services.AddSingleton(sp =>
+    {
+        var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(ClientName);
+        var options = new MaxioAdvancedBillingClientOptions
+        {
+            Environment = ServerEnvironment.Us
+        };
+
+        return new MaxioAdvancedBillingClient(httpClient, options);
+    });
+
+    services.AddScoped<MaxioSubscriptionService>();
+}
 
 public partial class Program { }
