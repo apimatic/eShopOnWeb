@@ -34,6 +34,13 @@ public class MaxioSubscriptionService : IMaxioSubscriptionService
         _userMaxioCustomerRepository = userMaxioCustomerRepository;
         _logger = logger;
 
+        if (string.IsNullOrEmpty(_config.ApiKey) || string.IsNullOrEmpty(_config.Subdomain))
+        {
+            throw new InvalidOperationException(
+                "Maxio configuration is incomplete. Ensure MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN, " +
+                "and MAXIO_DEFAULT_PRODUCT_FAMILY are set in environment variables or appsettings.json");
+        }
+
         var baseUrl = _config.BaseUrl ?? $"https://{_config.Subdomain}.chargify.com";
         _httpClient.BaseAddress = new Uri(baseUrl);
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_config.ApiKey}");
