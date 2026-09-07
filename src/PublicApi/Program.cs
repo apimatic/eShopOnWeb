@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +55,29 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Configure Maxio Advanced Billing client
+var maxioConfig = builder.Configuration.GetSection("Maxio");
+var apiKey = builder.Configuration["Maxio:ApiKey"];
+var subdomain = maxioConfig["Subdomain"] ?? "cp-exp-1";
+var baseUrl = builder.Configuration["Maxio:BaseUrl"] ?? $"https://{subdomain}.chargify.com";
+
+builder.Services.Configure<MaxioOptions>(maxioConfig);
+builder.Services.AddSingleton<IUserMaxioCustomerMappingCache, InMemoryUserMaxioCustomerMappingCache>();
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials { Username = apiKey ?? string.Empty, Password = "x" },
+        Server = new MaxioAdvancedBilling.ServerOptions()
+    };
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
