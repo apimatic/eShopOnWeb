@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -48,6 +53,63 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Register Maxio Advanced Billing client
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["Maxio:ApiKey"] ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? string.Empty;
+    var subdomain = config["Maxio:Subdomain"] ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "cp-exp-3";
+    var environmentStr = config["Maxio:Environment"] ?? Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT") ?? "US";
+
+    var environment = environmentStr switch
+    {
+        "EU" or "Eu" => ServerEnvironment.Eu,
+        _ => ServerEnvironment.Us
+    };
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        },
+        Environment = environment,
+        Server = new ServerOptions
+        {
+            Production = new MaxioAdvancedBilling.Servers.ProductionOptions
+            {
+                Us = new MaxioAdvancedBilling.Servers.ProductionOptions.UsOptions
+                {
+                    Site = subdomain
+                },
+                Eu = new MaxioAdvancedBilling.Servers.ProductionOptions.EuOptions
+                {
+                    Site = subdomain
+                }
+            }
+        }
+    };
+
+    var baseUrl = config["Maxio:BaseUrl"];
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        if (environment == ServerEnvironment.Us)
+        {
+            options.Server.Production.Us.BaseUrl = baseUrl;
+        }
+        else
+        {
+            options.Server.Production.Eu.BaseUrl = baseUrl;
+        }
+    }
+
+    var httpClient = new HttpClient();
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddMemoryCache();
 
