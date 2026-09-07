@@ -1,0 +1,15 @@
+title: Create Product Family
+type: object
+properties:
+  name:
+    type: string
+  handle:
+    type:
+      - string
+      - "null"
+  description:
+    type:
+      - string
+      - "null"
+required:
+  - name

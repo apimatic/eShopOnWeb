@@ -1,0 +1,8 @@
+title: Enable Webhooks Request
+description: ""
+type: object
+properties:
+  webhooks_enabled:
+    type: boolean
+required:
+  - webhooks_enabled

@@ -1,0 +1,56 @@
+title: Invoice Issued
+type: object
+properties:
+  uid:
+    type: string
+  number:
+    type: string
+  role:
+    type: string
+  due_date:
+    type:
+      - string
+      - "null"
+    format: date
+  issue_date:
+    type: string
+    description: Invoice issue date. Can be an empty string if value is missing.
+  paid_date:
+    type: string
+    description: Paid date. Can be an empty string if value is missing.
+  due_amount:
+    type: string
+  paid_amount:
+    type: string
+  tax_amount:
+    type: string
+  refund_amount:
+    type: string
+  total_amount:
+    type: string
+  status_amount:
+    type: string
+  product_name:
+    type: string
+  consolidation_level:
+    type: string
+  line_items:
+    type: array
+    items:
+      $ref: "./Invoice-Line-Items-Data.yaml"
+required:
+  - uid
+  - number
+  - role
+  - due_date
+  - issue_date
+  - paid_date
+  - due_amount
+  - paid_amount
+  - tax_amount
+  - refund_amount
+  - total_amount
+  - status_amount
+  - product_name
+  - consolidation_level
+  - line_items

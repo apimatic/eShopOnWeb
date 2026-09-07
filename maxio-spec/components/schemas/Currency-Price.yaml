@@ -1,0 +1,19 @@
+title: Currency Price
+type: object
+properties:
+  id:
+    type: integer
+  currency:
+    type: string
+  price:
+    type: number
+  formatted_price:
+    type: string
+  price_id:
+    type: integer
+  price_point_id:
+    type: integer
+  product_price_point_id:
+    type: integer
+  role:
+    $ref: "./Currency-Price-Role.yaml"
