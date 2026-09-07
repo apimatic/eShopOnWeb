@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- .NET 10 SDK installed (with `DOTNET_ROLL_FORWARD=Major` to run on ASP.NET Core 8.0)
+- .NET 8.0+ SDK installed (ASP.NET Core 8.0 runtime recommended)
+  - Note: .NET 10 rollforward may have dependency conflicts with the Maxio SDK (Microsoft.Bcl.AsyncInterfaces version mismatch). Use .NET 8.0 SDK for optimal compatibility.
 - eShopOnWeb solution cloned and built
 - Maxio sandbox account with API credentials
 - Maxio sandbox environment with seeded product family `eshop-subscribe` containing plans `eshop-pro` and `basic-plan`
