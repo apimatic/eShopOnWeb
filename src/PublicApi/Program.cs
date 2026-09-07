@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -68,6 +69,23 @@ builder.Services.AddAuthentication(config =>
         ValidateAudience = false
     };
 });
+
+var maxioConfigSection = builder.Configuration.GetRequiredSection(MaxioConfiguration.CONFIG_NAME);
+var maxioConfig = maxioConfigSection.Get<MaxioConfiguration>() ?? new MaxioConfiguration();
+builder.Services.Configure<MaxioConfiguration>(maxioConfigSection);
+
+var baseUrl = !string.IsNullOrEmpty(maxioConfig.BaseUrl)
+    ? maxioConfig.BaseUrl
+    : $"https://{maxioConfig.Subdomain}.chargify.com";
+
+builder.Services.AddHttpClient<IMaxioService, MaxioService>()
+    .ConfigureHttpClient(client =>
+    {
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
 
 const string CORS_POLICY = "CorsPolicy";
 builder.Services.AddCors(options =>
