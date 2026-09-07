@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Net.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -20,7 +23,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +39,22 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Configure Maxio - read from appsettings and environment
+        var maxioApiKey = configuration["Maxio:ApiKey"] ?? configuration["MAXIO_API_KEY"] ?? string.Empty;
+        var maxioSubdomain = configuration["Maxio:Subdomain"] ?? configuration["MAXIO_SITE_SUBDOMAIN"] ?? string.Empty;
+        var maxioFamily = configuration["Maxio:ProductFamilyHandle"] ?? configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? string.Empty;
+        var maxioBaseUrl = configuration["Maxio:BaseUrl"] ?? configuration["MAXIO_BASE_URL"];
+
+        services.Configure<MaxioConfiguration>(opts =>
+        {
+            opts.ApiKey = maxioApiKey;
+            opts.Subdomain = maxioSubdomain;
+            opts.ProductFamilyHandle = maxioFamily;
+            opts.BaseUrl = maxioBaseUrl;
+        });
+        services.AddScoped<HttpClient>();
+        services.AddScoped<IMaxioApiClient, MaxioApiClient>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
     }
 }
