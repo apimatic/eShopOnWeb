@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +55,36 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+var maxioSection = builder.Configuration.GetSection("Maxio");
+builder.Services.Configure<MaxioOptions>(maxioSection);
+
+var maxioOptions = maxioSection.Get<MaxioOptions>() ?? new MaxioOptions();
+var httpClient = new HttpClient();
+var clientOptions = new MaxioAdvancedBillingClientOptions
+{
+    BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioOptions.ApiKey,
+        Password = "x"
+    },
+    Environment = maxioOptions.Environment == "Eu" ? ServerEnvironment.Eu : ServerEnvironment.Us
+};
+
+if (!string.IsNullOrEmpty(maxioOptions.BaseUrl))
+{
+    clientOptions.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+}
+else if (!string.IsNullOrEmpty(maxioOptions.Subdomain))
+{
+    clientOptions.Server.Production.Us.Site = maxioOptions.Subdomain;
+}
+
+var maxioClient = new MaxioAdvancedBillingClient(httpClient, clientOptions);
+builder.Services.AddSingleton(maxioClient);
+builder.Services.AddScoped<SubscriptionService>();
+
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
