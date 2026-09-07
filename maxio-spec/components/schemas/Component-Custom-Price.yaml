@@ -1,0 +1,43 @@
+title: Component Custom Price
+type: object
+description: |-
+  Create or update custom pricing unique to the subscription. Used in place of `price_point_id`.
+properties:
+  tax_included:
+    type: boolean
+    description: Whether or not the price point includes tax
+  pricing_scheme:
+    allOf:
+      - $ref: "./Pricing-Scheme.yaml"
+    description: Omit for On/Off components
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
+  prices:
+    type: array
+    description: On/off components only need one price bracket starting at 1
+    items:
+      $ref: "./Price.yaml"
+  renew_prepaid_allocation:
+    type: boolean
+    description: "Applicable only to prepaid usage components. Controls whether the allocated quantity renews each period."
+  rollover_prepaid_remainder:
+    type: boolean
+    description: "Applicable only to prepaid usage components. Controls whether remaining units roll over to the next period."
+  expiration_interval:
+    type:
+      - integer
+      - "null"
+    description: "Applicable only when rollover is enabled. Number of `expiration_interval_unit`s after which rollover amounts expire."
+  expiration_interval_unit:
+    oneOf:
+      - $ref: "./Expiration-Interval-Unit.yaml"
+      - type: "null"
+    description: "Applicable only when rollover is enabled. Interval unit for rollover expiration (month or day)."
+required:
+  - prices

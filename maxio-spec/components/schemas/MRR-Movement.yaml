@@ -1,0 +1,11 @@
+title: MRR Movement
+type: object
+properties:
+  amount:
+    type: integer
+  category:
+    type: string
+  subscriber_delta:
+    type: integer
+  lead_delta:
+    type: integer
