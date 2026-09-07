@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -18,6 +21,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Net.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -37,6 +42,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
@@ -44,6 +51,34 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+
+builder.Services.AddSingleton(sp =>
+{
+    var maxioSettings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioSettings.ApiKey ?? throw new InvalidOperationException("Maxio:ApiKey not configured"),
+            Password = "x"
+        }
+    };
+
+    if (!string.IsNullOrEmpty(maxioSettings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+    else if (!string.IsNullOrEmpty(maxioSettings.Subdomain))
+    {
+        options.Server.Production.Us.BaseUrl = $"https://{maxioSettings.Subdomain}.chargify.com";
+    }
+
+    var httpClient = new HttpClient();
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
