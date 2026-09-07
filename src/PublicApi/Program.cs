@@ -45,6 +45,16 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+var maxioSettings = new Microsoft.eShopWeb.ApplicationCore.Entities.MaxioSettings
+{
+    ApiKey = builder.Configuration["Maxio:ApiKey"] ?? "",
+    Subdomain = builder.Configuration["Maxio:Subdomain"] ?? "",
+    ProductFamilyHandle = builder.Configuration["Maxio:ProductFamilyHandle"] ?? "",
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"]
+};
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
