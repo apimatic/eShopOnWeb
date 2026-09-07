@@ -186,15 +186,28 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
-using (var scope = app.Services.CreateScope())
-{
-    var sp = scope.ServiceProvider;
-    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionPlansEndpoint>().AddRoute(app);
-    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.CreateSubscriptionEndpoint>().AddRoute(app);
-    sp.GetRequiredService<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.GetMySubscriptionsEndpoint>().AddRoute(app);
-}
+// Register subscription endpoints manually
+app.MapSubscriptionEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+namespace Microsoft.eShopWeb.PublicApi
+{
+    public partial class Program { }
+
+    public static class SubscriptionEndpointExtensions
+    {
+        public static WebApplication MapSubscriptionEndpoints(this WebApplication app)
+        {
+            using (var scope = app.Services.CreateScope())
+            {
+                var sp = scope.ServiceProvider;
+                sp.GetRequiredService<SubscriptionEndpoints.SubscriptionPlansEndpoint>().AddRoute(app);
+                sp.GetRequiredService<SubscriptionEndpoints.CreateSubscriptionEndpoint>().AddRoute(app);
+                sp.GetRequiredService<SubscriptionEndpoints.GetMySubscriptionsEndpoint>().AddRoute(app);
+            }
+            return app;
+        }
+    }
+}
