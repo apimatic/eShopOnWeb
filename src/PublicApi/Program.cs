@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +21,7 @@ using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -48,6 +53,55 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+
+var maxioSettings = builder.Configuration.GetSection("Maxio").Get<MaxioSettings>();
+if (maxioSettings?.ApiKey != null)
+{
+    builder.Services.AddHttpClient<MaxioAdvancedBillingClient>(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+    builder.Services.AddSingleton(sp =>
+    {
+        var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(MaxioAdvancedBillingClient));
+        var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+
+        var options = new MaxioAdvancedBillingClientOptions
+        {
+            Environment = settings.Environment?.ToLowerInvariant() switch
+            {
+                "eu" => ServerEnvironment.Eu,
+                _ => ServerEnvironment.Us
+            },
+            BasicAuth = new BasicAuthCredentials
+            {
+                Username = settings.ApiKey!,
+                Password = "x"
+            }
+        };
+
+        if (!string.IsNullOrEmpty(settings.Subdomain))
+        {
+            options.Server.Production.Us.Site = settings.Subdomain;
+            options.Server.Production.Eu.Site = settings.Subdomain;
+        }
+
+        if (!string.IsNullOrEmpty(settings.BaseUrl))
+        {
+            options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+            options.Server.Production.Eu.BaseUrl = settings.BaseUrl;
+        }
+
+        return new MaxioAdvancedBillingClient(httpClient, options);
+    });
+}
 
 builder.Services.AddMemoryCache();
 
