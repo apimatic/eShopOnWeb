@@ -34,11 +34,19 @@ public class MaxioApiClient : IMaxioApiClient
         _config = config.Value;
         _logger = logger;
 
-        var baseUrl = _config.BaseUrl ?? $"https://{_config.Subdomain}.maxio.com/";
-        _httpClient.BaseAddress = new Uri(baseUrl);
+        // Only configure if credentials are provided
+        if (!string.IsNullOrEmpty(_config.ApiKey) && !string.IsNullOrEmpty(_config.Subdomain))
+        {
+            var baseUrl = _config.BaseUrl ?? $"https://{_config.Subdomain}.maxio.com/";
+            _httpClient.BaseAddress = new Uri(baseUrl);
 
-        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_config.ApiKey}:x"));
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_config.ApiKey}:x"));
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        }
+        else
+        {
+            _logger.LogWarning("Maxio credentials not configured. Set Maxio:ApiKey and Maxio:Subdomain in user secrets or environment variables.");
+        }
     }
 
     public async Task<MaxioProductResponse[]> GetProductsByFamilyHandleAsync(string familyHandle, CancellationToken cancellationToken = default)
