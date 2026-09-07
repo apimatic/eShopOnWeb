@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -18,6 +21,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +88,63 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Configure Maxio subscription billing
+var maxioSection = builder.Configuration.GetRequiredSection("Maxio");
+var maxioOptions = new MaxioOptions
+{
+    ApiKey = maxioSection["ApiKey"] ?? throw new InvalidOperationException("Maxio:ApiKey is required"),
+    Subdomain = maxioSection["Subdomain"] ?? throw new InvalidOperationException("Maxio:Subdomain is required"),
+    ProductFamilyHandle = maxioSection["ProductFamilyHandle"] ?? throw new InvalidOperationException("Maxio:ProductFamilyHandle is required"),
+    BaseUrl = maxioSection["BaseUrl"]
+};
+
+builder.Services.AddSingleton(maxioOptions);
+
+const string MaxioClientName = "MaxioAdvancedBilling";
+builder.Services
+    .AddHttpClient(MaxioClientName, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioClientName);
+    var isEu = maxioOptions.Subdomain.Contains("eu");
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = maxioOptions.ApiKey,
+            Password = "x"
+        },
+        Environment = isEu ? ServerEnvironment.Eu : ServerEnvironment.Us
+    };
+
+    if (!string.IsNullOrEmpty(maxioOptions.BaseUrl))
+    {
+        if (isEu)
+            options.Server.Production.Eu.BaseUrl = maxioOptions.BaseUrl;
+        else
+            options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+    else
+    {
+        if (isEu)
+            options.Server.Production.Eu.Site = maxioOptions.Subdomain;
+        else
+            options.Server.Production.Us.Site = maxioOptions.Subdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
