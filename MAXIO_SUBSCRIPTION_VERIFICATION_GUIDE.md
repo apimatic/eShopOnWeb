@@ -4,7 +4,8 @@ This guide walks through setting up and testing the Maxio Advanced Billing integ
 
 ## Prerequisites
 
-- .NET 8.0 SDK (or .NET 10 with rollForward enabled in global.json)
+- **.NET Runtime: .NET 10+ required** — The Maxio SDK v1.0.2 is compiled against Microsoft.Bcl.AsyncInterfaces v10.0.0.8, which is not available in .NET 8.0. While the build succeeds, runtime will fail with assembly loading errors on .NET 8.0. Install the .NET 10 runtime or upgrade to a newer Maxio SDK version if available.
+  - Alternatively, run `DOTNET_ROLL_FORWARD=Major dotnet run` to allow the .NET 8 runtime to forward to .NET 10 if installed.
 - Maxio sandbox API key and account (site: `cp-exp-1`)
 - HTTPS dev certificate (run `dotnet dev-certs https --trust`)
 - curl or Postman for API testing
@@ -198,7 +199,13 @@ Then check the console output for request/response details.
 
 ### Common Issues
 
-1. **"Maxio credentials ... must be configured"** 
+1. **"Could not load file or assembly 'Microsoft.Bcl.AsyncInterfaces, Version=10.0.0.8'"** 
+   - The Maxio SDK v1.0.2 requires .NET 10+ runtime. Either:
+     - Install .NET 10 runtime and run with `dotnet run`
+     - Run with `DOTNET_ROLL_FORWARD=Major dotnet run` if .NET 10 is installed
+     - Check for a newer Maxio SDK version that's compatible with .NET 8.0
+
+2. **"Maxio credentials ... must be configured"** 
    - User-secrets not set. Run the `dotnet user-secrets set` commands above.
 
 2. **"HTTP 404" from Maxio**
