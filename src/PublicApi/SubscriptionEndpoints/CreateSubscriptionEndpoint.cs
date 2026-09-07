@@ -25,11 +25,12 @@ public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionR
 
     public void AddRoute(IEndpointRouteBuilder app)
     {
-        app.MapPost("api/subscriptions",
+        app.MapPost("/api/subscriptions",
             async (CreateSubscriptionRequest request, HttpContext httpContext) =>
             {
                 return await HandleAsync(request, httpContext);
             })
+            .Accepts<CreateSubscriptionRequest>("application/json")
             .Produces<CreateSubscriptionResponse>()
             .WithName("CreateSubscription")
             .WithTags("SubscriptionEndpoints")

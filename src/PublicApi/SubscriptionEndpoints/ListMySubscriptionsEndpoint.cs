@@ -27,7 +27,7 @@ public class ListMySubscriptionsEndpoint : IEndpoint<IResult>
 
     public void AddRoute(IEndpointRouteBuilder app)
     {
-        app.MapGet("api/my-subscriptions",
+        app.MapGet("/api/my-subscriptions",
             async (HttpContext httpContext) =>
             {
                 return await HandleAsync(httpContext);

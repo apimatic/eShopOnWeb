@@ -21,7 +21,7 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult>
 
     public void AddRoute(IEndpointRouteBuilder app)
     {
-        app.MapGet("api/subscription-plans",
+        app.MapGet("/api/subscription-plans",
             async () =>
             {
                 return await HandleAsync();
@@ -36,13 +36,15 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult>
     {
         var response = new ListSubscriptionPlansResponse();
 
-        var productsResponse = await _maxioClient.GetAsync<ProductsListResponse>("/products.json");
-        if (productsResponse?.Products == null)
+        var products = await _maxioClient.GetAsync<List<MaxioProductWrapper>>("/products.json");
+        if (products == null || products.Count == 0)
         {
-            return Results.BadRequest(new { error = "Failed to fetch subscription plans" });
+            return Results.Ok(response);
         }
 
-        response.Plans = productsResponse.Products
+        response.Plans = products
+            .Where(w => w.Product != null)
+            .Select(w => w.Product)
             .Where(p => p.ProductFamily?.Handle == "eshop-subscribe")
             .Select(p => new SubscriptionPlanDto
             {
@@ -64,10 +66,10 @@ public class ListSubscriptionPlansEndpoint : IEndpoint<IResult>
         public List<SubscriptionPlanDto> Plans { get; set; } = new();
     }
 
-    private class ProductsListResponse
+    private class MaxioProductWrapper
     {
-        [JsonPropertyName("products")]
-        public List<MaxioProduct>? Products { get; set; }
+        [JsonPropertyName("product")]
+        public MaxioProduct? Product { get; set; }
     }
 
     private class MaxioProduct

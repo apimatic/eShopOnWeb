@@ -20,7 +20,6 @@ public class MaxioApiClient
         _logger = logger;
         _httpClient.BaseAddress = new Uri(_config.GetBaseUrl());
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-        _httpClient.DefaultRequestHeaders.Add("Content-Type", "application/json");
 
         var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_config.ApiKey}:x"));
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
