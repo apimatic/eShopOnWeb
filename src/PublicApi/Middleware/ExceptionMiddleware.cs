@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -30,6 +31,12 @@ public class ExceptionMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        // The client went away - there is nothing to write back.
+        if (exception is OperationCanceledException && context.RequestAborted.IsCancellationRequested)
+        {
+            return;
+        }
+
         context.Response.ContentType = "application/json";
 
         if (exception is DuplicateException duplicationException)
@@ -39,6 +46,24 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioConfigurationException configurationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = configurationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException apiException)
+        {
+            context.Response.StatusCode = apiException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = apiException.StatusCode,
+                Message = apiException.Message
             }.ToString());
         }
         else
