@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.0.1" />
+    <PackageVersion Include="AsadAli.AdvancedBilling.Sdk" Version="1.0.2" />
     <PackageVersion Include="Ardalis.Specification.EntityFrameworkCore" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Result" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Specification" Version="7.0.0" />
@@ -24,6 +25,7 @@
     <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="$(AspNetVersion)" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="$(AspNetVersion)" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="$(AspNetVersion)" />
