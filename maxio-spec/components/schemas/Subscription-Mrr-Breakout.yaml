@@ -1,0 +1,12 @@
+title: Subscription MRR Breakout
+type: object
+properties:
+  plan_amount_in_cents:
+    type: integer
+    format: int64
+  usage_amount_in_cents:
+    type: integer
+    format: int64
+required:
+  - plan_amount_in_cents
+  - usage_amount_in_cents
