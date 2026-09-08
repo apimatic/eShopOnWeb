@@ -1,0 +1,10 @@
+title: Payment Collection Method Changed
+type: object
+properties:
+  previous_value:
+    type: string
+  current_value:
+    type: string
+required:
+  - previous_value
+  - current_value

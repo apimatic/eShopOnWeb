@@ -1,0 +1,7 @@
+title: Create EBB Component
+type: object
+properties:
+  event_based_component:
+    $ref: "./Ebb-Component.yaml"
+required:
+  - event_based_component
