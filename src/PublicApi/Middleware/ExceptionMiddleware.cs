@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            SubscriptionConflictException conflictException => ((int)HttpStatusCode.Conflict, conflictException.Message),
+            SubscriptionPlanNotFoundException notFoundException => ((int)HttpStatusCode.NotFound, notFoundException.Message),
+            InvalidSubscriptionRequestException invalidRequest => ((int)HttpStatusCode.BadRequest, invalidRequest.Message),
+            SubscriptionProviderRejectedException rejected => (ProviderStatus(rejected), rejected.Message),
+            MaxioBillingUnavailableException unavailable => ((int)HttpStatusCode.BadGateway, unavailable.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static int ProviderStatus(SubscriptionProviderRejectedException exception)
+    {
+        var status = exception.ProviderStatusCode;
+        return status is >= 400 and <= 499 ? status : (int)HttpStatusCode.BadRequest;
     }
 }
