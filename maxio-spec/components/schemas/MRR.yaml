@@ -1,0 +1,18 @@
+title: MRR
+type: object
+properties:
+  amount_in_cents:
+    type: integer
+    format: int64
+  amount_formatted:
+    type: string
+  currency:
+    type: string
+  currency_symbol:
+    type: string
+  breakouts:
+    $ref: "./Breakouts.yaml"
+  at_time:
+    type: string
+    format: date-time
+    description: ISO8601 timestamp
