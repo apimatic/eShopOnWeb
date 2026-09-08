@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -20,6 +22,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.eShopWeb.Infrastructure.Services.Maxio;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -84,6 +87,38 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var maxioEnvironmentOverrides = new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+    ["Maxio:BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+}.Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+ .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+if (maxioEnvironmentOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvironmentOverrides);
+}
+
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.SectionName);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddHttpClient<MaxioApiClient>(client =>
+{
+    var isEu = string.Equals(builder.Configuration["MAXIO_ENVIRONMENT"], "EU", StringComparison.OrdinalIgnoreCase);
+    var baseUrl = string.IsNullOrWhiteSpace(maxioSettings.BaseUrl)
+        ? $"https://{maxioSettings.Subdomain}.{(isEu ? "ebilling.maxio.com" : "chargify.com")}"
+        : maxioSettings.BaseUrl.TrimEnd('/');
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+        "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x")));
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
