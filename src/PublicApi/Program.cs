@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +46,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing (subscriptions).
+// The billing service is a singleton so the per-(customer, plan) idempotency lock it holds is
+// shared across concurrent HTTP requests (a double-click cannot create two subscriptions).
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddHttpClient<MaxioApiClient>()
+    // The billing service is a singleton and keeps the typed client for the life of the process, so
+    // never rotate (and dispose) the underlying pooled handler.
+    .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+builder.Services.AddSingleton<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
