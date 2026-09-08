@@ -1,0 +1,12 @@
+title: Subscription Group Signup Event Data
+type: object
+properties:
+  subscription_group:
+    $ref: "./Subscription-Group-Failure-Data.yaml"
+  customer:
+    oneOf:
+      - $ref: "../Customer.yaml"
+      - type: "null"
+required:
+  - subscription_group
+  - customer
