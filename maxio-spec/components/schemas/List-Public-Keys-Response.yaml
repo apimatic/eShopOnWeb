@@ -1,0 +1,9 @@
+title: List Public Keys Response
+type: object
+properties:
+  chargify_js_keys:
+    type: array
+    items:
+      $ref: "./Public-Key.yaml"
+  meta:
+    $ref: "./List-Meta.yaml"
