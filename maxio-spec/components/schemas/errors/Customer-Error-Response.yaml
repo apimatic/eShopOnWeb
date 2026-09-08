@@ -1,0 +1,7 @@
+title: Customer Error Response
+type: object
+properties:
+  errors:
+    oneOf:
+      - $ref: "./Customer-Error.yaml"
+      - $ref: "./Error-Array-Response.yaml"

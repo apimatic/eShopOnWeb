@@ -1,0 +1,9 @@
+title: Component Currency Prices Response
+type: object
+properties:
+  currency_prices:
+    type: array
+    items:
+      $ref: "./Component-Currency-Price.yaml"
+required:
+  - currency_prices
