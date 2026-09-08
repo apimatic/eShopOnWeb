@@ -51,6 +51,9 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Additive recurring-subscription billing capability backed by Maxio Advanced Billing.
+builder.Services.AddMaxioBilling(builder.Configuration);
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
