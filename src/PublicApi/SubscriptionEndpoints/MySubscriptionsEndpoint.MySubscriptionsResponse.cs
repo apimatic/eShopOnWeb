@@ -1,0 +1,18 @@
+using System;
+using System.Collections.Generic;
+using Microsoft.eShopWeb.PublicApi.SubscriptionServices;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public class MySubscriptionsResponse : BaseResponse
+{
+    public MySubscriptionsResponse(Guid correlationId) : base(correlationId)
+    {
+    }
+
+    public MySubscriptionsResponse()
+    {
+    }
+
+    public List<SubscriptionDetailsDto> Subscriptions { get; set; } = new List<SubscriptionDetailsDto>();
+}
