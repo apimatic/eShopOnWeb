@@ -12,12 +12,15 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,24 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Maxio Advanced Billing: subscription capability (billing system of record) ---
+// Settings are bound from the "Maxio:" configuration section (never hard-coded; supplied at
+// runtime, e.g. via user-secrets). The typed HttpClient carries the spec's Basic auth scheme
+// (username = API key, password = "x") and the resolved sandbox/production base address.
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SECTION_NAME));
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((sp, http) =>
+{
+    var maxioOptions = sp.GetRequiredService<IOptions<MaxioSettings>>();
+    var maxioSettings = maxioOptions.Value;
+    maxioSettings.Validate();
+    http.BaseAddress = new Uri(maxioSettings.ResolveBaseUrl().TrimEnd('/') + "/");
+    http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    var basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:x"));
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+    http.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
