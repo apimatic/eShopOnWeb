@@ -1,0 +1,7 @@
+title: Bulk Components Price Point Assignment
+type: object
+properties:
+  components:
+    type: array
+    items:
+      $ref: "./Component-Price-Point-Assignment.yaml"

@@ -1,0 +1,5 @@
+name: status
+in: query
+description: Webhooks with matching status would be returned.
+schema:
+  $ref: "../schemas/Webhook-Status.yaml"
