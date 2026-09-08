@@ -13,17 +13,43 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the Maxio credentials from their environment variables into the Maxio: configuration
+// section. Values are never stored in any file in this repository; they may alternatively be
+// supplied through .NET user-secrets (Maxio:ApiKey, Maxio:Subdomain, Maxio:ProductFamilyHandle,
+// Maxio:BaseUrl). Environment variables win when both are present.
+var maxioEnvironment = new Dictionary<string, string?>();
+foreach (var (configKey, envVar) in new[]
+{
+    ("Maxio:ApiKey", "MAXIO_API_KEY"),
+    ("Maxio:Subdomain", "MAXIO_SITE_SUBDOMAIN"),
+    ("Maxio:ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY"),
+    ("Maxio:BaseUrl", "MAXIO_BASE_URL")
+})
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        maxioEnvironment[configKey] = value;
+    }
+}
+if (maxioEnvironment.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(maxioEnvironment);
+}
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +70,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, httpClient) =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    httpClient.BaseAddress = new Uri(settings.ResolveBaseUrl().TrimEnd('/') + "/");
+    httpClient.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
