@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -48,6 +49,23 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Maxio Advanced Billing (recurring subscription billing) — additive capability.
+// Credentials are supplied via user-secrets / environment variables, never committed.
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+var maxioBuilder = builder.Services.AddOptions<MaxioOptions>().Bind(maxioSection);
+if (maxioSection.Exists())
+{
+    // Fail fast at startup when the integration is configured but incomplete.
+    maxioBuilder
+        .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey), "Maxio:ApiKey is required.")
+        .Validate(o => !string.IsNullOrWhiteSpace(o.Subdomain), "Maxio:Subdomain is required.")
+        .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle), "Maxio:ProductFamilyHandle is required.")
+        .ValidateOnStart();
+}
+builder.Services.AddSingleton<PerUserOperationLocks>();
+builder.Services.AddHttpClient<IMaxioGateway, MaxioGateway>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddMemoryCache();
 
