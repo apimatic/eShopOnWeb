@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -41,6 +43,28 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is InvalidSubscriptionRequestException invalidSubscription)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = invalidSubscription.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException planNotFound)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFound.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioException)
+        {
+            await HandleMaxioExceptionAsync(context, maxioException);
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -50,5 +74,23 @@ public class ExceptionMiddleware
                 Message = exception.Message
             }.ToString());
         }
+    }
+
+    private async Task HandleMaxioExceptionAsync(HttpContext context, MaxioApiException exception)
+    {
+        var (statusCode, message) = exception.StatusCode switch
+        {
+            >= 500 and <= 599 => ((int)HttpStatusCode.BadGateway, "The billing service is temporarily unavailable."),
+            401 or 403 => ((int)HttpStatusCode.BadGateway, "The billing service rejected the configured API credentials."),
+            409 => ((int)HttpStatusCode.Conflict, "The subscription request conflicts with an existing subscription."),
+            _ => (exception.StatusCode, exception.ErrorMessages().FirstOrDefault() ?? exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
