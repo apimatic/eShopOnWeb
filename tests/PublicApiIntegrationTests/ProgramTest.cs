@@ -17,6 +17,9 @@ public class ProgramTest
         }
     }
 
+    /// <summary>The shared test host, e.g. to reach the in-memory identity store.</summary>
+    public static WebApplicationFactory<Program> Application => _application;
+
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
