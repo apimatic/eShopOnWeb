@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.MaxioBilling;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,25 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddHttpContextAccessor();
+
+MapMaxioEnvironmentVariables(builder.Configuration);
+var maxioSection = builder.Configuration.GetRequiredSection(MaxioSettings.CONFIG_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+maxioSettings.Validate();
+builder.Services.AddSingleton<ISubscriptionMappingStore, InMemorySubscriptionMappingStore>();
+builder.Services.AddHttpClient(MaxioBillingService.HttpClientName, httpClient =>
+{
+    httpClient.Timeout = TimeSpan.FromSeconds(15);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+builder.Services.AddSingleton(serviceProvider => MaxioClientFactory.Create(maxioSettings, serviceProvider));
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -177,5 +197,27 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    Map(configuration, MaxioSettings.CONFIG_NAME, nameof(MaxioSettings.ApiKey), "MAXIO_API_KEY");
+    Map(configuration, MaxioSettings.CONFIG_NAME, nameof(MaxioSettings.Subdomain), "MAXIO_SITE_SUBDOMAIN");
+    Map(configuration, MaxioSettings.CONFIG_NAME, nameof(MaxioSettings.ProductFamilyHandle), "MAXIO_DEFAULT_PRODUCT_FAMILY");
+    Map(configuration, MaxioSettings.CONFIG_NAME, nameof(MaxioSettings.BaseUrl), "MAXIO_BASE_URL");
+
+    static void Map(ConfigurationManager configuration, string section, string propertyName, string environmentVariableName)
+    {
+        var key = $"{section}:{propertyName}";
+        if (!string.IsNullOrEmpty(configuration[key]))
+        {
+            return;
+        }
+        var value = Environment.GetEnvironmentVariable(environmentVariableName);
+        if (!string.IsNullOrEmpty(value))
+        {
+            configuration[key] = value;
+        }
+    }
+}
 
 public partial class Program { }
