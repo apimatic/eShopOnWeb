@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,23 +33,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = MapException(exception);
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (HttpStatusCode StatusCode, string Message) MapException(Exception exception)
+    {
+        return exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            DuplicateException duplicate => (HttpStatusCode.Conflict, duplicate.Message),
+            SubscriptionPlanNotFoundException notFound => (HttpStatusCode.NotFound, notFound.Message),
+            MaxioRequestRejectedException rejected => (HttpStatusCode.BadRequest, rejected.Message),
+            MaxioConfigurationException configuration => (HttpStatusCode.InternalServerError, configuration.Message),
+            MaxioUnavailableException unavailable => (HttpStatusCode.BadGateway, unavailable.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
     }
 }
