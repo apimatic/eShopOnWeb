@@ -1,0 +1,26 @@
+title: Metadata
+type: object
+properties:
+  id:
+    type:
+      - integer
+      - "null"
+  value:
+    type:
+      - string
+      - "null"
+  resource_id:
+    type:
+      - integer
+      - "null"
+  name:
+    type: string
+  deleted_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+  metafield_id:
+    type:
+      - integer
+      - "null"

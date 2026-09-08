@@ -1,0 +1,9 @@
+title: List Proforma Invoices Response
+type: object
+properties:
+  proforma_invoices:
+    type: array
+    items:
+      $ref: "./Proforma-Invoice.yaml"
+  meta:
+    $ref: "./List-Proforma-Invoices-Meta.yaml"
