@@ -171,3 +171,44 @@ We have some great contributions from the community, and while these aren't main
 [eShopOnWeb VB.NET](https://github.com/VBAndCs/eShopOnWeb_VB.NET) by Mohammad Hamdy Ghanem
 
 [FShopOnWeb](https://github.com/NitroDevs/FShopOnWeb) An F# take on eShopOnWeb by Sean G. Wright and Kyle McMaster
+
+## Subscription billing (Maxio Advanced Billing)
+
+eShopOnWeb also ships an additive recurring-subscription capability, with [Maxio Advanced Billing](https://max.io) as the billing system of record. It is exposed by the **PublicApi** project (JWT-authenticated) and is fully parallel to the one-time cart/checkout flow — it replaces nothing.
+
+### Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| GET  | `/api/subscription-plans` | Lists the plans in the configured product family (handle, name, price, interval, default flag) |
+| POST | `/api/subscriptions` | Subscribes the authenticated user to a plan. Body: `{ "planHandle": "..." }` (optional — the configured default plan is used when omitted). Idempotent: repeating a call returns the existing subscription (`created: false`) |
+| GET  | `/api/my-subscriptions` | Lists the authenticated user's subscriptions (plan, price, state, next billing date) |
+
+Every call requires a bearer token from `POST /api/authenticate`.
+
+### Configuration
+
+The integration binds the `Maxio` configuration section (values come from user-secrets / environment variables — never commit them):
+
+| Key | Source | Meaning |
+|---|---|---|
+| `Maxio:ApiKey` | `MAXIO_API_KEY` | Maxio API key (sent as the Basic-auth username) |
+| `Maxio:Subdomain` | `MAXIO_SITE_SUBDOMAIN` | Site subdomain; the sandbox base URL is derived from it |
+| `Maxio:ProductFamilyHandle` | `MAXIO_DEFAULT_PRODUCT_FAMILY` | Product family holding the subscription plans |
+| `Maxio:BaseUrl` | — | Optional. When set, used verbatim as the API base address instead of deriving one from the subdomain |
+| `Maxio:DefaultPlanHandle` | — | Optional. Plan subscribed to when none is specified in `POST /api/subscriptions` |
+
+To load credentials into user-secrets for the PublicApi project:
+
+```
+dotnet user-secrets set "Maxio:ApiKey" "<MAXIO_API_KEY>" --project src/PublicApi
+dotnet user-secrets set "Maxio:Subdomain" "<MAXIO_SITE_SUBDOMAIN>" --project src/PublicApi
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "<MAXIO_DEFAULT_PRODUCT_FAMILY>" --project src/PublicApi
+```
+
+### Design notes
+
+- Customers are keyed on the eShopOnWeb user id (Maxio customer `reference`), subscriptions on a deterministic `"{userId}:{planHandle}"` reference — so a double-click never creates a second customer or subscription (plus an in-process lock and lookup-reconcile after transport failures).
+- Plans are always resolved by **handle**; numeric Maxio ids are never hardcoded.
+- Signup uses `payment_collection_method: remittance` (falling back to the legacy `invoice`) so enrollment works without card capture.
+- SDK: `AsadAli.AdvancedBilling.Sdk`; implementation in `src/Infrastructure/Maxio/`, endpoints in `src/PublicApi/SubscriptionEndpoints/`; unit tests stub the SDK's HTTP seam (`tests/UnitTests/Maxio/`).
