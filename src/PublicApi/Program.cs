@@ -13,11 +13,15 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +88,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var maxioSettings = new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = builder.Configuration["MAXIO_API_KEY"],
+    ["Maxio:Subdomain"] = builder.Configuration["MAXIO_SITE_SUBDOMAIN"],
+    ["Maxio:ProductFamilyHandle"] = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"],
+    ["Maxio:BaseUrl"] = builder.Configuration["MAXIO_BASE_URL"]
+};
+builder.Configuration.AddInMemoryCollection(maxioSettings);
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    options.Validate();
+    client.BaseAddress = new Uri(options.ResolvedBaseUrl + "/");
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
