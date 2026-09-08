@@ -1,0 +1,6 @@
+title: Proration
+type: object
+properties:
+  preserve_period:
+    type: boolean
+    description: The alternative to sending preserve_period as a direct attribute to migration

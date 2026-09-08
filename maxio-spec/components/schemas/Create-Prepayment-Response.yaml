@@ -1,0 +1,7 @@
+title: Create Prepayment Response
+type: object
+properties:
+  prepayment:
+    $ref: "./Created-Prepayment.yaml"
+required:
+  - prepayment
