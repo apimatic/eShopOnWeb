@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
@@ -108,6 +111,55 @@ public class MaxioSubscriptionServiceTests
         Assert.Empty(subscriptions);
     }
 
+    [Fact]
+    public async Task ReSubscribeAfterCancellationCreatesANewGeneration()
+    {
+        // Simulates a shopper whose previous subscription to the plan was cancelled on Maxio (which
+        // keeps the old reference), so subscribing again must move to a fresh reference generation.
+        using var host = new MaxioTestHost(ResubscribeResponder());
+
+        var first = await host.Service.SubscribeAsync(
+            new SubscribeToPlanRequest(User, Plan, null, null), CancellationToken.None);
+
+        Assert.True(first.Created);
+        Assert.Equal("active", first.Subscription.State);
+        Assert.EndsWith("-g2", first.Subscription.Reference, StringComparison.Ordinal);
+        Assert.Single(host.Handler.WritesTo("subscriptions.json"));
+
+        // A repeat after the successful re-subscribe is idempotent: no second create.
+        var repeat = await host.Service.SubscribeAsync(
+            new SubscribeToPlanRequest(User, Plan, null, null), CancellationToken.None);
+
+        Assert.False(repeat.Created);
+        Assert.Equal(first.Subscription.Reference, repeat.Subscription.Reference);
+        Assert.Single(host.Handler.WritesTo("subscriptions.json"));
+
+        // My subscriptions shows only the active generation-2 subscription, not the cancelled one.
+        var mine = await host.Service.GetSubscriptionsAsync(User, CancellationToken.None);
+        var visible = Assert.Single(mine);
+        Assert.Equal(Plan, visible.PlanHandle);
+        Assert.Equal("active", visible.State);
+        Assert.Equal(first.Subscription.Reference, visible.Reference);
+    }
+
+    [Fact]
+    public async Task ConcurrentReSubscribeAfterCancellationCreatesExactlyOne()
+    {
+        using var host = new MaxioTestHost(ResubscribeResponder());
+
+        var first = host.Service.SubscribeAsync(
+            new SubscribeToPlanRequest(User, Plan, null, null), CancellationToken.None);
+        var second = host.Service.SubscribeAsync(
+            new SubscribeToPlanRequest(User, Plan, null, null), CancellationToken.None);
+
+        var results = await Task.WhenAll(first, second);
+
+        var createdCount = (results[0].Created ? 1 : 0) + (results[1].Created ? 1 : 0);
+        Assert.Equal(1, createdCount);
+        Assert.Equal(results[0].Subscription.Reference, results[1].Subscription.Reference);
+        Assert.Single(host.Handler.WritesTo("subscriptions.json"));
+    }
+
     // -------- fixtures --------
 
     private static string CustomerReference => MaxioReferenceKeys.CustomerReference(User);
@@ -116,6 +168,105 @@ public class MaxioSubscriptionServiceTests
     private static ScriptedHandler ResponderWithSlowCreate() => BuildHandler(slowCreate: true);
 
     private static ScriptedHandler DefaultResponder() => BuildHandler(slowCreate: false);
+
+    /// <summary>
+    /// A customer that already exists on Maxio with a CANCELLED generation-1 subscription to the plan.
+    /// New creates are honoured with the requested reference (echoed back active).
+    /// </summary>
+    private static ScriptedHandler ResubscribeResponder()
+    {
+        var gen1Reference = MaxioReferenceKeys.SubscriptionReference(User, Plan, 1);
+        var active = new List<(string Reference, int Id)>();
+        var nextId = 8000;
+
+        return new ScriptedHandler(async request =>
+        {
+            var method = request.Method;
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (method == HttpMethod.Get && path == "/product_families.json")
+            {
+                return await MaxioTestResponses.Json(ProductFamiliesJson);
+            }
+
+            if (method == HttpMethod.Get && path.StartsWith("/product_families/", StringComparison.Ordinal) &&
+                path.EndsWith("/products.json", StringComparison.Ordinal))
+            {
+                return await MaxioTestResponses.Json(ProductsJson);
+            }
+
+            if (method == HttpMethod.Get && path == "/components/lookup.json")
+            {
+                return await MaxioTestResponses.Json(ComponentJson);
+            }
+
+            if (method == HttpMethod.Get && path.StartsWith("/products/handle/", StringComparison.Ordinal))
+            {
+                return path.EndsWith("/eshop-pro.json", StringComparison.Ordinal)
+                    ? await MaxioTestResponses.Json(ProProductJson)
+                    : await MaxioTestResponses.NotFound();
+            }
+
+            if (method == HttpMethod.Get && path == "/customers/lookup.json")
+            {
+                return await MaxioTestResponses.Json(CustomerJson);
+            }
+
+            if (method == HttpMethod.Post && path == "/subscriptions.json")
+            {
+                var body = await request.Content!.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(body);
+                var reference = document.RootElement
+                    .GetProperty("subscription")
+                    .GetProperty("reference")
+                    .GetString()!;
+                nextId++;
+                active.Add((reference, nextId));
+                return await MaxioTestResponses.Json(
+                    HttpStatusCode.Created, SubscriptionWireJson(reference, nextId, "active"));
+            }
+
+            if (method == HttpMethod.Get && path.StartsWith("/customers/", StringComparison.Ordinal) &&
+                path.EndsWith("/subscriptions.json", StringComparison.Ordinal))
+            {
+                var items = new List<string>
+                {
+                    SubscriptionWireJson(gen1Reference, 7001, "canceled")
+                };
+                items.AddRange(active.Select(a => SubscriptionWireJson(a.Reference, a.Id, "active")));
+                return await MaxioTestResponses.Json("[" + string.Join(",", items) + "]");
+            }
+
+            return await MaxioTestResponses.NotFound();
+        });
+    }
+
+    private static string SubscriptionWireJson(string reference, int id, string state) =>
+        JsonSerializer.Serialize(new
+        {
+            subscription = new
+            {
+                id,
+                state,
+                reference,
+                product_price_in_cents = 29900L,
+                current_period_ends_at = state == "active"
+                    ? (DateTimeOffset?)DateTimeOffset.UtcNow.AddMonths(1)
+                    : null,
+                next_assessment_at = (DateTimeOffset?)null,
+                created_at = DateTimeOffset.UtcNow,
+                product = new
+                {
+                    id = 200,
+                    name = "Pro Plan",
+                    handle = "eshop-pro",
+                    price_in_cents = 29900L,
+                    interval = 1,
+                    interval_unit = "month",
+                    require_credit_card = false
+                }
+            }
+        });
 
     private static ScriptedHandler BuildHandler(bool slowCreate)
     {

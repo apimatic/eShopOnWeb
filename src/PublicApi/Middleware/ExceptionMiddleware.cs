@@ -35,7 +35,6 @@ public class ExceptionMiddleware
         var (statusCode, message) = exception switch
         {
             DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
-            SubscriptionConflictException conflictException => ((int)HttpStatusCode.Conflict, conflictException.Message),
             SubscriptionPlanNotFoundException notFoundException => ((int)HttpStatusCode.NotFound, notFoundException.Message),
             InvalidSubscriptionRequestException invalidRequest => ((int)HttpStatusCode.BadRequest, invalidRequest.Message),
             SubscriptionProviderRejectedException rejected => (ProviderStatus(rejected), rejected.Message),

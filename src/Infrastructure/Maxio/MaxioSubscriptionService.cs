@@ -125,7 +125,6 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
 
         var planName = plan.Name ?? plan.Handle;
         var customerReference = MaxioReferenceKeys.CustomerReference(userName);
-        var subscriptionReference = MaxioReferenceKeys.SubscriptionReference(userName, planHandle);
 
         var gate = _gates.GetOrAdd(userName + "\n" + planHandle, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);
@@ -134,28 +133,41 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
             var customer = await EnsureCustomerAsync(
                 userName, customerReference, request.FirstName, request.LastName, cancellationToken);
 
-            // Idempotency: if a subscription that occupies this slot already exists, return it
-            // instead of creating a second one (this is what makes a double-click harmless).
-            var existing = await FindSubscriptionByReferenceAsync(customer.Id, subscriptionReference, cancellationToken);
-            if (existing is not null && OccupiesSlot(existing.State))
+            // Read the customer's current Maxio subscriptions once: the idempotency pre-check and the
+            // next-free-reference (generation) decision both come from this list, which is Maxio's own
+            // state (survives a local-store wipe).
+            var customerSubscriptions = await ListCustomerSubscriptionsAsync(customer.Id, cancellationToken);
+
+            // Idempotency: if a subscription that occupies this slot already exists (active/problem
+            // state), return it instead of creating a second one (this is what makes a double-click
+            // harmless). Cancelled/expired subscriptions do NOT occupy the slot.
+            var occupying = customerSubscriptions.FirstOrDefault(s =>
+                OccupiesSlot(s.State) && MatchesPlan(s, planHandle));
+            if (occupying is not null)
             {
-                await PersistEnrollmentAsync(userName, planHandle, customer.Id, existing, cancellationToken);
-                return new SubscribeResult(ToSummary(existing, planHandle, planName), Created: false);
+                await PersistEnrollmentAsync(userName, planHandle, customer.Id, occupying, cancellationToken);
+                return new SubscribeResult(ToSummary(occupying, planHandle, planName), Created: false);
             }
 
+            // Maxio keeps a subscription's reference for life and enforces reference uniqueness, so a
+            // re-subscribe after a previous (now ended) subscription needs a fresh generation.
+            var nextGeneration = NextGeneration(customerSubscriptions, planHandle);
+            var subscriptionReference = MaxioReferenceKeys.SubscriptionReference(
+                userName, planHandle, nextGeneration);
+
             var claim = await ClaimEnrollmentAsync(
-                userName, planHandle, customerReference, customer.Id, cancellationToken);
+                userName, planHandle, customerReference, customer.Id, subscriptionReference, cancellationToken);
             if (claim.Existing is not null)
             {
                 await PersistEnrollmentAsync(userName, planHandle, customer.Id, claim.Existing, cancellationToken);
                 return new SubscribeResult(ToSummary(claim.Existing, planHandle, planName), Created: false);
             }
 
-            var subscription = await CreateSubscriptionSettledAsync(
+            var (subscription, created) = await CreateSubscriptionSettledAsync(
                 customer.Id, customerReference, subscriptionReference, planHandle, cancellationToken);
 
             await PersistEnrollmentAsync(userName, planHandle, customer.Id, subscription, cancellationToken);
-            return new SubscribeResult(ToSummary(subscription, planHandle, planName), Created: true);
+            return new SubscribeResult(ToSummary(subscription, planHandle, planName), Created: created);
         }
         finally
         {
@@ -456,7 +468,7 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
         }
     }
 
-    private async Task<Subscription> CreateSubscriptionSettledAsync(
+    private async Task<(Subscription Subscription, bool Created)> CreateSubscriptionSettledAsync(
         int? customerId,
         string customerReference,
         string subscriptionReference,
@@ -467,8 +479,9 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
         {
             try
             {
-                return await CreateSubscriptionGuardedAsync(
+                var created = await CreateSubscriptionGuardedAsync(
                     customerReference, subscriptionReference, planHandle, ct);
+                return (created, Created: true);
             }
             catch (Exception ex) when (ex is SubscriptionCreateOutcomeUnknownException or MaxioBillingUnavailableException)
             {
@@ -478,17 +491,18 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
                 var reconciled = await FindSubscriptionByReferenceAsync(customerId, subscriptionReference, ct);
                 if (reconciled is not null)
                 {
-                    return reconciled;
+                    return (reconciled, Created: false);
                 }
             }
             catch (SdkException<CreateSubscriptionError> ex)
             {
-                // A deterministic rejection. If Maxio ever enforces reference uniqueness a duplicate
-                // would land here; reconcile before treating it as a hard validation error.
+                // Maxio enforces subscription-reference uniqueness server-side, so a concurrent request
+                // that computed the same (deterministic) generation collides here with a 422. That is
+                // the idempotency backstop, not an error: reconcile and return the winner's subscription.
                 var reconciled = await FindSubscriptionByReferenceAsync(customerId, subscriptionReference, ct);
                 if (reconciled is not null)
                 {
-                    return reconciled;
+                    return (reconciled, Created: false);
                 }
 
                 throw TranslateCreateSubscriptionError(ex);
@@ -559,7 +573,8 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
     // -------- Local enrollment store (idempotency gate) --------
 
     private async Task<(SubscriptionEnrollment Enrollment, Subscription? Existing)> ClaimEnrollmentAsync(
-        string userName, string planHandle, string customerReference, int? customerId, CancellationToken ct)
+        string userName, string planHandle, string customerReference, int? customerId,
+        string subscriptionReference, CancellationToken ct)
     {
         var existingEnrollment = await FindEnrollmentAsync(userName, planHandle, ct);
         if (existingEnrollment is not null)
@@ -582,7 +597,6 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
             // Another instance won the unique (BuyerId, PlanHandle) race. Wait for its subscription to
             // appear; only take over once its claim looks stale.
             var deadline = DateTimeOffset.UtcNow + ClaimWaitTimeout;
-            var subscriptionReference = MaxioReferenceKeys.SubscriptionReference(userName, planHandle);
 
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -634,7 +648,27 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
 
         if (enrollment.Id == 0)
         {
-            await _enrollments.AddAsync(enrollment);
+            try
+            {
+                await _enrollments.AddAsync(enrollment);
+            }
+            catch (DbUpdateException)
+            {
+                // A concurrent request inserted the row first; fall through to an update of that row.
+                var existing = await FindEnrollmentAsync(userName, planHandle, ct);
+                if (existing is null)
+                {
+                    throw;
+                }
+
+                existing.MarkSubscribed(
+                    subscription.Id,
+                    subscription.Reference,
+                    Wire(subscription.State),
+                    subscription.ProductPriceInCents,
+                    NextBillingDate(subscription));
+                await _enrollments.UpdateAsync(existing);
+            }
         }
         else
         {
@@ -643,6 +677,40 @@ public sealed class MaxioSubscriptionService : ISubscriptionService
     }
 
     // -------- Mapping + helpers --------
+
+    /// <summary>
+    /// Whether a Maxio subscription is for the given plan, matched by the nested product handle or by
+    /// the reference this application assigned (works even when the nested product is absent and the
+    /// local enrollment store has been wiped).
+    /// </summary>
+    private static bool MatchesPlan(Subscription subscription, string planHandle) =>
+        string.Equals(subscription.Product?.Handle, planHandle, StringComparison.Ordinal) ||
+        (MaxioReferenceKeys.TryParseSubscriptionReference(
+            subscription.Reference, out var parsedPlan, out _) &&
+         string.Equals(parsedPlan, planHandle, StringComparison.Ordinal));
+
+    /// <summary>
+    /// The next free generation for a (shopper, plan) subscription: one more than the highest
+    /// generation Maxio already holds for that plan. Deterministic under concurrency (two requests
+    /// that both read the same list choose the same generation), so a double-click still collides on
+    /// Maxio's unique reference and resolves to a single subscription.
+    /// </summary>
+    private static int NextGeneration(IEnumerable<Subscription> subscriptions, string planHandle)
+    {
+        var max = 0;
+        foreach (var subscription in subscriptions)
+        {
+            if (MaxioReferenceKeys.TryParseSubscriptionReference(
+                    subscription.Reference, out var parsedPlan, out var generation) &&
+                string.Equals(parsedPlan, planHandle, StringComparison.Ordinal) &&
+                generation > max)
+            {
+                max = generation;
+            }
+        }
+
+        return max + 1;
+    }
 
     private static SubscriptionSummary ToSummary(Subscription subscription, string? planHandle, string? planName)
     {
