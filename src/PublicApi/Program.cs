@@ -7,11 +7,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,33 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SECTION_NAME));
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SECTION_NAME).Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+string? maxioBaseUrl = null;
+try
+{
+    maxioBaseUrl = maxioSettings.GetApiBaseUrl();
+}
+catch (MaxioConfigurationException)
+{
+    // Surfaced when a subscription endpoint is called rather than failing app startup
+    // (the app must still boot when Maxio is not configured, e.g. for unrelated tests).
+}
+builder.Services.AddHttpClient<IMaxioAdvancedBillingClient, MaxioAdvancedBillingClient>(client =>
+{
+    if (maxioBaseUrl != null)
+    {
+        client.BaseAddress = new Uri(maxioBaseUrl.TrimEnd('/') + "/");
+    }
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionService>(services => new SubscriptionService(
+    services.GetRequiredService<IMaxioAdvancedBillingClient>(),
+    services.GetRequiredService<IRepository<MaxioSubscription>>(),
+    services.GetRequiredService<IAppLogger<SubscriptionService>>(),
+    maxioSettings));
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
