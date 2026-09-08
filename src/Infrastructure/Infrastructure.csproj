@@ -1,15 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>		
+	<PropertyGroup>
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+		<NoWarn>$(NoWarn);NU1605</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<!-- NU1605: the SDK is a netstandard2.0 build that declares M.E.* 10.0.8 dependencies;
+		     pinned to the 8.0.x line this app runs on (the ns2.0 SDK is version-tolerant at runtime). -->
+		<PackageReference Include="AsadAli.AdvancedBilling.Sdk" NoWarn="NU1605" />
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
 	<ItemGroup>

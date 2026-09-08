@@ -1,0 +1,8 @@
+<Project>
+  <!-- NU1605: AsadAli.AdvancedBilling.Sdk (netstandard2.0) declares Microsoft.Extensions.* 10.0.8
+       dependencies; this app pins the 8.0.x line everywhere for a consistent, framework-matched
+       compile and runtime. The SDK is version-tolerant across these abstractions. -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
+  </PropertyGroup>
+</Project>
