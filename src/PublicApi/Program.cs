@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +86,29 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map the MAXIO_* environment variables into the "Maxio" configuration section. No Maxio
+// credential value is stored in the repository; the same build can point at any Maxio site
+// and catalog by exporting different values (see also user secrets, keys "Maxio:ApiKey" etc.).
+foreach (var (environmentVariable, configurationKey) in new[]
+         {
+             ("MAXIO_API_KEY", "Maxio:ApiKey"),
+             ("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain"),
+             ("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle"),
+         })
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        builder.Configuration[configurationKey] = value;
+    }
+}
+
+// Maxio Advanced Billing (the billing system of record for subscriptions).
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.CONFIG_SECTION_NAME);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+builder.Services.AddHttpClient<MaxioBillingClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
