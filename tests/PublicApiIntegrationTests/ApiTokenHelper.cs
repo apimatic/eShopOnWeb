@@ -26,6 +26,15 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        /// <summary>
+        /// Returns a signed JWT for an arbitrary user name. Used by the subscription tests
+        /// so each test exercises a fresh, isolated Maxio customer identity.
+        /// </summary>
+        public static string GetUserToken(string userName)
+        {
+            return CreateToken(userName, Array.Empty<string>());
+        }
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
