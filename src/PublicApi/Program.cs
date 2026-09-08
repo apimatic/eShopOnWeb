@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,19 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing configuration.
+//
+// Credentials never live in this repository. Values come from configuration: the MAXIO_*
+// environment variables are mapped onto the "Maxio" section below, and the same keys are also
+// read from .NET user-secrets (dotnet user-secrets set "Maxio:ApiKey" <value> --project src/PublicApi).
+// appsettings*.json intentionally contains no Maxio section.
+AddMaxioConfiguration(builder.Configuration);
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+builder.Services.AddHttpClient<MaxioClient>();
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -178,4 +192,29 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void AddMaxioConfiguration(ConfigurationManager configuration)
+    {
+        // User secrets are normally only loaded in the Development environment; load them
+        // explicitly so the Maxio credentials are available in every environment.
+        configuration.AddUserSecrets<Program>();
+
+        // Map the documented MAXIO_* environment variables onto the Maxio: configuration keys.
+        var values = new Dictionary<string, string?>
+        {
+            [MaxioOptions.SectionName + ":ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+            [MaxioOptions.SectionName + ":Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+            [MaxioOptions.SectionName + ":ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+            [MaxioOptions.SectionName + ":BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+        };
+
+        foreach (var pair in values)
+        {
+            if (!string.IsNullOrWhiteSpace(pair.Value))
+            {
+                configuration[pair.Key] = pair.Value;
+            }
+        }
+    }
+}
