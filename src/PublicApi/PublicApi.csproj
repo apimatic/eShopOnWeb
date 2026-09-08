@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ardalis.ApiEndpoints" />
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="MinimalApi.Endpoint" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
@@ -29,6 +30,10 @@
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PublicApiIntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>
