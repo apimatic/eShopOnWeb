@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +86,24 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Populate the "Maxio" configuration section from the MAXIO_* environment variables (the same build must
+// run against different Maxio sites/catalogs, so no Maxio value is ever hard-coded). The optional
+// Maxio:BaseUrl override is honoured as-is when provided.
+var maxioEnvironmentValues = new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY")
+};
+builder.Configuration.AddInMemoryCollection(
+    maxioEnvironmentValues.Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value)));
+
+// Subscription billing (Maxio Advanced Billing) services. Configured options are validated lazily by the
+// MaxioApiClient, which throws MaxioConfigurationException with an actionable message when a value is missing.
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.ConfigurationSectionName));
+builder.Services.AddHttpClient<MaxioApiClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
