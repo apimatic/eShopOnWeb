@@ -32,23 +32,35 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
+            case DuplicateException duplicationException:
+                await WriteErrorAsync(context, HttpStatusCode.Conflict, duplicationException.Message);
+                break;
+            case SubscriptionPlanNotFoundException planNotFound:
+                await WriteErrorAsync(context, HttpStatusCode.NotFound, planNotFound.Message);
+                break;
+            case MaxioApiException maxioException when maxioException.StatusCode == 409:
+                // Maxio treats some conflicts (e.g. duplicate customer reference) as 422; a 409 is rare.
+                await WriteErrorAsync(context, HttpStatusCode.Conflict, maxioException.Message);
+                break;
+            case MaxioApiException maxioException:
+                // The billing provider rejected/failed the request; this is a gateway problem, not a bug here.
+                await WriteErrorAsync(context, HttpStatusCode.BadGateway, maxioException.Message);
+                break;
+            default:
+                await WriteErrorAsync(context, HttpStatusCode.InternalServerError, exception.Message);
+                break;
         }
-        else
+    }
+
+    private static async Task WriteErrorAsync(HttpContext context, HttpStatusCode statusCode, string message)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }

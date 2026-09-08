@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,32 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing integration. Settings bind from the "Maxio:" section (keys injected at
+// deploy time via user-secrets/environment); no Maxio credential values live in this repository.
+// The host is allowed to start without any Maxio settings (so unrelated hosts/tests can still run);
+// it must be fully configured when Maxio is enabled, and a partial configuration fails fast.
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+static bool HasMaxioCredentials(MaxioOptions options) =>
+    !string.IsNullOrWhiteSpace(options.ApiKey) &&
+    !string.IsNullOrWhiteSpace(options.ProductFamilyHandle) &&
+    (!string.IsNullOrWhiteSpace(options.Subdomain) || !string.IsNullOrWhiteSpace(options.BaseUrl));
+static bool HasNoMaxioConfiguration(MaxioOptions options) =>
+    string.IsNullOrWhiteSpace(options.ApiKey) &&
+    string.IsNullOrWhiteSpace(options.ProductFamilyHandle) &&
+    string.IsNullOrWhiteSpace(options.Subdomain) &&
+    string.IsNullOrWhiteSpace(options.BaseUrl);
+
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(maxioSection)
+    .Validate(options => HasMaxioCredentials(options) || HasNoMaxioConfiguration(options),
+        "Maxio is partially configured. Supply Maxio:ApiKey, Maxio:ProductFamilyHandle, and Maxio:Subdomain (or Maxio:BaseUrl).")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioBillingGateway, MaxioBillingGateway>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
