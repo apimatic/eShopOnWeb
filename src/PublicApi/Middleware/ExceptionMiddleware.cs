@@ -54,7 +54,12 @@ public class ExceptionMiddleware
         }
         else if (exception is MaxioApiException maxioApiException)
         {
-            context.Response.StatusCode = maxioApiException.StatusCode is >= 400 and < 500
+            // Forward genuine upstream client errors (e.g. 422 validation) so callers can
+            // react to them, but treat authentication/authorization failures against the
+            // billing provider (401/403) as a server-side integration problem.
+            var isUpstreamClientError = maxioApiException.StatusCode is >= 400 and < 500
+                and not 401 and not 403;
+            context.Response.StatusCode = isUpstreamClientError
                 ? maxioApiException.StatusCode
                 : (int)HttpStatusCode.BadGateway;
             await context.Response.WriteAsync(new ErrorDetails()

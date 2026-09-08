@@ -46,14 +46,6 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
-// Maxio Advanced Billing (recurring subscription billing). Settings are bound from the
-// "Maxio" configuration section (api key/subdomain/handle come from environment
-// variables via .NET user-secrets; see MaxioOptions). Nothing is hard-coded here.
-var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
-builder.Services.AddSingleton(maxioOptions);
-builder.Services.AddHttpClient<MaxioApiClient>();
-builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionService>();
-
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -93,6 +85,33 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio Advanced Billing (recurring subscription billing). Settings bind from the
+// "Maxio" configuration section. The sandbox credentials arrive as environment
+// variables (MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN, MAXIO_DEFAULT_PRODUCT_FAMILY), which
+// do not map onto the "Maxio:" section by name, so map them explicitly. Values loaded
+// into .NET user-secrets (Maxio:ApiKey etc.) are picked up automatically; environment
+// variables take precedence. Nothing is hard-coded here.
+static void MapMaxioEnvironmentVariable(ConfigurationManager configuration, string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [configurationKey] = value
+        });
+    }
+}
+
+MapMaxioEnvironmentVariable(builder.Configuration, "MAXIO_API_KEY", "Maxio:ApiKey");
+MapMaxioEnvironmentVariable(builder.Configuration, "MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+MapMaxioEnvironmentVariable(builder.Configuration, "MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddSingleton(maxioOptions);
+builder.Services.AddHttpClient<MaxioApiClient>();
+builder.Services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
