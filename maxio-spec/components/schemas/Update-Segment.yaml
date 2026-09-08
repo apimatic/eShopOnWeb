@@ -1,0 +1,11 @@
+title: Update Segment
+type: object
+properties:
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Create-Or-Update-Segment-Price.yaml"
+required:
+  - pricing_scheme

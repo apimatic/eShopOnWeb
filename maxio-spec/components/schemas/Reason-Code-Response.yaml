@@ -1,0 +1,7 @@
+title: Reason Code Response
+type: object
+properties:
+  reason_code:
+    $ref: "./Reason-Code.yaml"
+required:
+  - reason_code
