@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,8 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+MapMaxioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +48,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.CONFIG_SECTION_NAME));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -177,5 +185,22 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+void MapMaxioEnvironmentVariables(IConfiguration configuration)
+{
+    SetConfigurationValueFromEnvironment(configuration, "MAXIO_API_KEY", "Maxio:ApiKey");
+    SetConfigurationValueFromEnvironment(configuration, "MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain");
+    SetConfigurationValueFromEnvironment(configuration, "MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle");
+    SetConfigurationValueFromEnvironment(configuration, "MAXIO_ENVIRONMENT", "Maxio:Environment");
+}
+
+void SetConfigurationValueFromEnvironment(IConfiguration configuration, string environmentKey, string configurationKey)
+{
+    string? value = Environment.GetEnvironmentVariable(environmentKey);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        configuration[configurationKey] = value;
+    }
+}
 
 public partial class Program { }
