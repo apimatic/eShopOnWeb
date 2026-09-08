@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +85,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio Advanced Billing (subscription billing). Settings bind from the "Maxio:" section
+// (user-secrets/environment); the API client is intentionally optional so the rest of the API
+// still starts when billing is not configured.
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.AddOptions<MaxioOptions>().Bind(maxioSection);
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>();
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
