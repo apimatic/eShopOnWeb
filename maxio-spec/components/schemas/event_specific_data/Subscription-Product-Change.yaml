@@ -1,0 +1,10 @@
+title: Subscription Product Change
+type: object
+properties:
+  previous_product_id:
+    type: integer
+  new_product_id:
+    type: integer
+required:
+  - previous_product_id
+  - new_product_id
