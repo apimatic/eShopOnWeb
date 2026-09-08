@@ -1,0 +1,6 @@
+title: Enable Webhooks Response
+description: ""
+type: object
+properties:
+  webhooks_enabled:
+    type: boolean
