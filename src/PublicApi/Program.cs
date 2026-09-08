@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,18 +14,33 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the Maxio sandbox credentials from the environment into the "Maxio:" configuration section.
+// The values are read at run time from MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN and
+// MAXIO_DEFAULT_PRODUCT_FAMILY (plus the optional MAXIO_BASE_URL override) and are never written
+// to disk by the application.
+var maxioEnvironment = new Dictionary<string, string?>
+{
+    [MaxioOptions.SectionName + ":ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    [MaxioOptions.SectionName + ":Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    [MaxioOptions.SectionName + ":ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+    [MaxioOptions.SectionName + ":BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+};
+builder.Configuration.AddInMemoryCollection(maxioEnvironment.Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value)));
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +67,33 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<MaxioApiClient>((sp, httpClient) =>
+{
+    var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    // Defer configuration errors to request time (the endpoints surface them as clear 503s) so a
+    // host without Maxio credentials can still start and serve the rest of the API.
+    string baseUrl;
+    try
+    {
+        baseUrl = options.ResolveBaseUrl();
+    }
+    catch (MaxioConfigurationException)
+    {
+        baseUrl = "https://invalid.maxio.local";
+    }
+    httpClient.BaseAddress = new Uri(baseUrl);
+    httpClient.Timeout = TimeSpan.FromSeconds(100);
+
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
+    {
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:X"));
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    }
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -157,6 +201,8 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseAuthentication();
 
 app.UseCors(CORS_POLICY);
 
