@@ -1,0 +1,28 @@
+title: Create Subscription Component
+type: object
+properties:
+  component_id:
+    type:
+      - integer
+      - string
+  enabled:
+    type: boolean
+    description: Used for on/off components only.
+  unit_balance:
+    type: integer
+    description: Used for metered and events based components.
+  allocated_quantity:
+    oneOf:
+      - type: integer
+      - type: string
+    description: Used for quantity based components.
+  quantity:
+    type: integer
+    deprecated: true
+    description: Deprecated. Use `allocated_quantity` instead.
+  price_point_id:
+    type:
+      - integer
+      - string
+  custom_price:
+    $ref: "./Component-Custom-Price.yaml"

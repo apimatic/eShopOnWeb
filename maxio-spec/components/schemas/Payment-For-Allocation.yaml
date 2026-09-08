@@ -1,0 +1,13 @@
+title: Payment for Allocation
+type: object
+description: "Information for captured payment, if applicable"
+properties:
+  id:
+    type: integer
+  amount_in_cents:
+    type: integer
+    format: int64
+  success:
+    type: boolean
+  memo:
+    type: string
