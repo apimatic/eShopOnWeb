@@ -1,0 +1,14 @@
+title: Line Item Kind
+type: string
+description: A handle for the line item kind
+enum:
+  - baseline
+  - initial
+  - trial
+  - quantity_based_component
+  - prepaid_usage_component
+  - on_off_component
+  - metered_component
+  - event_based_component
+  - coupon
+  - tax

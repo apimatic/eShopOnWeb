@@ -1,0 +1,25 @@
+title: Site Statistics
+type: object
+properties:
+  total_subscriptions:
+    type: integer
+  subscriptions_today:
+    type: integer
+  total_revenue:
+    type: string
+  revenue_today:
+    type: string
+  revenue_this_month:
+    type: string
+  revenue_this_year:
+    type: string
+  total_canceled_subscriptions:
+    type: integer
+  total_active_subscriptions:
+    type: integer
+  total_past_due_subscriptions:
+    type: integer
+  total_unpaid_subscriptions:
+    type: integer
+  total_dunning_subscriptions:
+    type: integer
