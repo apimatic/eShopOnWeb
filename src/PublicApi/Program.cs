@@ -12,6 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Maxio;
+using Microsoft.eShopWeb.Maxio.Configuration;
+using Microsoft.eShopWeb.Maxio.Http;
+using Microsoft.eShopWeb.Maxio.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +88,15 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio subscription billing. Credentials and catalog come from the Maxio: configuration
+// section (ApiKey/Subdomain/ProductFamilyHandle from their MAXIO_* environment variables,
+// BaseUrl as an optional verbatim override). No Maxio value is hard-coded in this repository.
+builder.Configuration.AddMaxioEnvironmentVariables();
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddSingleton(maxioOptions);
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddSingleton<IMaxioBillingService, MaxioBillingService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
