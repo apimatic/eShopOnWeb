@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,7 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +34,10 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Map the Maxio credentials supplied via environment variables into the Maxio: configuration
+// section. Only the variable names are referenced here; their values never touch the repository.
+builder.Configuration.AddMaxioEnvironment();
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -44,6 +51,31 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- Maxio Advanced Billing (subscriptions) ---
+builder.Services.AddSingleton(sp =>
+{
+    var options = new MaxioOptions();
+    var section = builder.Configuration.GetSection(MaxioOptions.SectionName);
+    options.ApiKey = section["ApiKey"];
+    options.Subdomain = section["Subdomain"];
+    options.ProductFamilyHandle = section["ProductFamilyHandle"];
+    options.BaseUrl = section["BaseUrl"];
+    options.EnvironmentName = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+    return options;
+});
+
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((sp, httpClient) =>
+{
+    var options = sp.GetRequiredService<MaxioOptions>();
+    httpClient.BaseAddress = new Uri(options.ResolveBaseUrl());
+    httpClient.Timeout = TimeSpan.FromSeconds(60);
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddScoped<SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -125,6 +157,20 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+// Report the Maxio configuration status once at startup. Missing/partial configuration does not
+// prevent the host from running; the Maxio-backed subscription endpoints will report 503 until it
+// is corrected. No secret values are logged.
+var maxioSettings = app.Services.GetRequiredService<MaxioOptions>();
+if (maxioSettings.ConfigurationError is string configError)
+{
+    app.Logger.LogWarning("Maxio billing is not fully configured: {ConfigError}. Subscription endpoints will return 503 until resolved.", configError);
+}
+else
+{
+    app.Logger.LogInformation("Maxio billing configured against {MaxioBaseUrl} (product family handle: {MaxioProductFamilyHandle}).",
+        maxioSettings.ResolveBaseUrl(), maxioSettings.ProductFamilyHandle);
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
