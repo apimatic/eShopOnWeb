@@ -1,0 +1,8 @@
+title: Auto Resume
+type: object
+properties:
+  automatically_resume_at:
+    type:
+      - string
+      - "null"
+    format: date-time

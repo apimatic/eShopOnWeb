@@ -1,0 +1,5 @@
+title: Allocation Preview Direction
+type: string
+enum:
+  - upgrade
+  - downgrade

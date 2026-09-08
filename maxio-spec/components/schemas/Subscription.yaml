@@ -1,0 +1,277 @@
+title: Subscription
+type: object
+properties:
+  id:
+    type: integer
+    description: The subscription unique id within Chargify.
+  state:
+    $ref: "./Subscription-State.yaml"
+  balance_in_cents:
+    type: integer
+    format: int64
+    description: Gives the current outstanding subscription balance in the number of cents.
+  total_revenue_in_cents:
+    type: integer
+    format: int64
+    description: Gives the total revenue from the subscription in the number of cents.
+  product_price_in_cents:
+    type: integer
+    format: int64
+    description: "(Added Nov 5 2013) The recurring amount of the product (and version),currently subscribed. NOTE: this may differ from the current price of,the product, if you’ve changed the price of the product but haven’t,moved this subscription to a newer version."
+  product_version_number:
+    type: integer
+    description: The version of the product for the subscription. Note that this is a deprecated field kept for backwards-compatibility.
+  current_period_ends_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: "Timestamp relating to the end of the current (recurring) period (i.e.,when the next regularly scheduled attempted charge will occur)"
+  next_assessment_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: "Timestamp that indicates when capture of payment will be tried or,retried. This value will usually track the current_period_ends_at, but,will diverge if a renewal payment fails and must be retried. In that,case, the current_period_ends_at will advance to the end of the next,period (time doesn’t stop because a payment was missed) but the,next_assessment_at will be scheduled for the auto-retry time (i.e. 24,hours in the future, in some cases)"
+  trial_started_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: Timestamp for when the trial period (if any) began
+  trial_ended_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: Timestamp for when the trial period (if any) ended
+  activated_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: "Timestamp for when the subscription began (i.e. when it came out of trial, or when it began in the case of no trial)"
+  expires_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: Timestamp giving the expiration date of this subscription (if any)
+  created_at:
+    type: string
+    format: date-time
+    description: The creation date for this subscription
+  updated_at:
+    type: string
+    format: date-time
+    description: The date of last update for this subscription
+  cancellation_message:
+    type:
+      - string
+      - "null"
+    description: "Seller-provided reason for, or note about, the cancellation."
+  cancellation_method:
+    $ref: "./Cancellation-Method.yaml"
+  cancel_at_end_of_period:
+    type:
+      - boolean
+      - "null"
+    description: Whether or not the subscription will (or has) canceled at the end of the period.
+  canceled_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: The timestamp of the most recent cancellation
+  current_period_started_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: Timestamp relating to the start of the current (recurring) period
+  previous_state:
+    allOf:
+      - $ref: "./Subscription-State.yaml"
+    description: "Only valid for webhook payloads The previous state for webhooks that have indicated a change in state. For normal API calls, this will always be the same as the state (current state)"
+  signup_payment_id:
+    type: integer
+    description: The ID of the transaction that generated the revenue
+  signup_revenue:
+    type: string
+    description: "The revenue, formatted as a string of decimal separated dollars and,cents, from the subscription signup ($50.00 would be formatted as,50.00)"
+  delayed_cancel_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+    description: Timestamp for when the subscription is currently set to cancel.
+  coupon_code:
+    type:
+      - string
+      - "null"
+    description: (deprecated) The coupon code of the single coupon currently applied to the subscription. See coupon_codes instead as subscriptions can now have more than one coupon.
+    deprecated: true
+  snap_day:
+    oneOf:
+      - type: integer
+        minimum: 1
+        maximum: 28
+      - type: string
+        enum:
+          - end
+      - type: "null"
+    description: "The day of the month that the subscription will charge according to calendar billing rules, if used."
+  payment_collection_method:
+    $ref: "./Collection-Method.yaml"
+  customer:
+    $ref: "./Customer.yaml"
+  product:
+    $ref: "./Product.yaml"
+  credit_card:
+    $ref: "./Credit-Card-Payment-Profile.yaml"
+  group:
+    oneOf:
+      - $ref: "./Nested-Subscription-Group.yaml"
+      - type: "null"
+  bank_account:
+    $ref: "./Bank-Account-Payment-Profile.yaml"
+  payment_type:
+    type:
+      - string
+      - "null"
+    description: The payment profile type for the active profile on file.
+  referral_code:
+    type:
+      - string
+      - "null"
+    description: The subscription's unique code that can be given to referrals.
+  next_product_id:
+    type:
+      - integer
+      - "null"
+    description: "If a delayed product change is scheduled, the ID of the product that the subscription will be changed to at the next renewal."
+  next_product_handle:
+    type:
+      - string
+      - "null"
+    description: "If a delayed product change is scheduled, the handle of the product that the subscription will be changed to at the next renewal."
+  coupon_use_count:
+    type:
+      - integer
+      - "null"
+    description: (deprecated) How many times the subscription's single coupon has been used. This field has no replacement for multiple coupons.
+    deprecated: true
+  coupon_uses_allowed:
+    type:
+      - integer
+      - "null"
+    description: (deprecated) How many times the subscription's single coupon may be used. This field has no replacement for multiple coupons.
+    deprecated: true
+  reason_code:
+    type:
+      - string
+      - "null"
+    description: "If the subscription is canceled, this is their churn code."
+  automatically_resume_at:
+    type:
+      - string
+      - "null"
+    description: The date the subscription is scheduled to automatically resume from the on_hold state.
+    format: date-time
+  coupon_codes:
+    type: array
+    description: An array for all the coupons attached to the subscription.
+    items:
+      type: string
+  offer_id:
+    type:
+      - integer
+      - "null"
+    description: The ID of the offer associated with the subscription.
+  payer_id:
+    type:
+      - integer
+      - "null"
+    description: "On Relationship Invoicing, the ID of the individual paying for the subscription. Defaults to the Customer ID unless the 'Customer Hierarchies & WhoPays' feature is enabled."
+  current_billing_amount_in_cents:
+    type: integer
+    format: int64
+    description: The balance in cents plus the estimated renewal amount in cents. Returned ONLY for the readSubscription operation as it's a compute intensive operation.
+  product_price_point_id:
+    type: integer
+    description: The product price point currently subscribed to.
+  product_price_point_type:
+    $ref: "./Price-Point-Type.yaml"
+  next_product_price_point_id:
+    type:
+      - integer
+      - "null"
+    description: "If a delayed product change is scheduled, the ID of the product price point that the subscription will be changed to at the next renewal."
+  net_terms:
+    type:
+      - integer
+      - "null"
+    description: "On Relationship Invoicing, the number of days before a renewal invoice is due."
+  stored_credential_transaction_id:
+    type:
+      - integer
+      - "null"
+    description: "For European sites subject to PSD2 and using 3D Secure, this can be used to reference a previous transaction for the customer. This will ensure the card will be charged successfully at renewal."
+  reference:
+    type:
+      - string
+      - "null"
+    description: The reference value (provided by your app) for the subscription itelf.
+  on_hold_at:
+    type:
+      - string
+      - "null"
+    description: The timestamp of the most recent on hold action.
+    format: date-time
+  prepaid_dunning:
+    type: boolean
+    description: Boolean representing whether the subscription is prepaid and currently in dunning. Only returned for Relationship Invoicing sites with the feature enabled
+  coupons:
+    type: array
+    description: |-
+      Additional coupon data. To use this data you also have to include the following param in the request`include[]=coupons`.
+      Only in Read Subscription Endpoint.
+    items:
+      $ref: "Subscription-Included-Coupon.yaml"
+  dunning_communication_delay_enabled:
+    type: boolean
+    description: "Enable Communication Delay feature, making sure no communication (email or SMS) is sent to the Customer between 9PM and 8AM in time zone set by the `dunning_communication_delay_time_zone` attribute."
+  dunning_communication_delay_time_zone:
+    type:
+      - string
+      - "null"
+    example: '"Eastern Time (US & Canada)"'
+    description: Time zone for the Dunning Communication Delay feature.
+  receives_invoice_emails:
+    type:
+      - boolean
+      - "null"
+  locale:
+    type:
+      - string
+      - "null"
+  currency:
+    type: string
+  scheduled_cancellation_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+  credit_balance_in_cents:
+    type: integer
+    format: int64
+  prepayment_balance_in_cents:
+    type: integer
+    format: int64
+  prepaid_configuration:
+    oneOf:
+      - $ref: "./Prepaid-Configuration.yaml"
+      - type: "null"
+  self_service_page_token:
+    type: string
+    description: Returned only for list/read Subscription operation when `include[]=self_service_page_token` parameter is provided.
