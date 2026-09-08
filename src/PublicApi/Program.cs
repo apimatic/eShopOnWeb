@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +89,54 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio Advanced Billing — recurring subscriptions.
+// Settings come from the "Maxio" configuration section (user-secrets backed by MAXIO_API_KEY,
+// MAXIO_SITE_SUBDOMAIN, MAXIO_DEFAULT_PRODUCT_FAMILY and optionally MAXIO_BASE_URL). Nothing is
+// hard-coded; the same build can target a different Maxio site/catalog purely via configuration.
+const string MaxioHttpClientName = "Maxio";
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.ConfigurationSectionName);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddHttpClient(MaxioHttpClientName, client =>
+{
+    // Bounds one attempt. The SDK's own per-attempt timeout is 10s (see below); this is the
+    // backstop for anything the SDK pipeline declares retry-ineligible.
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // The SDK client is a singleton holding one HttpClient; keep DNS fresh behind it.
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(MaxioHttpClientName);
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        // Maxio HTTP Basic auth: username = API key, password is the literal "x".
+        BasicAuth = new BasicAuthCredentials { Username = maxioSettings.ApiKey, Password = "x" },
+        // Per-attempt bound. Status retries stay on idempotent verbs only (SDK default), so a
+        // POST is not re-sent on a 5xx; the whole-call budget lives in MaxioSubscriptionService.
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(10) }
+    };
+
+    if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+    {
+        // Verbatim override wins over the subdomain-derived template.
+        options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+    else
+    {
+        // Default template is https://{site}.chargify.com (US environment).
+        options.Server.Production.Us.Site = maxioSettings.Subdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
