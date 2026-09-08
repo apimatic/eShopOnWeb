@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
+using Microsoft.eShopWeb.PublicApi.Subscriptions.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +34,38 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        (int statusCode, string message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            // Storefront-level conflicts (existing convention).
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+
+            // The requested plan is not offered by the configured product family.
+            SubscriptionPlanNotFoundException planNotFound => ((int)HttpStatusCode.NotFound, planNotFound.Message),
+
+            // The token is valid but the shopper record is gone.
+            ShopperNotFoundException shopperNotFound => ((int)HttpStatusCode.Unauthorized, shopperNotFound.Message),
+
+            // The Maxio integration is not configured for this deployment.
+            MaxioConfigurationException configurationException => ((int)HttpStatusCode.InternalServerError, configurationException.Message),
+
+            // Maxio refused the request. Surface 4xx as-is; convert transient 5xx/429 to 502.
+            MaxioApiException apiException when IsServerSide(apiException.StatusCode) => ((int)HttpStatusCode.BadGateway, apiException.Message),
+            MaxioApiException apiException => ((int)apiException.StatusCode, apiException.Message),
+
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static bool IsServerSide(HttpStatusCode statusCode)
+    {
+        int code = (int)statusCode;
+        return code >= 500 || statusCode == HttpStatusCode.TooManyRequests;
     }
 }
