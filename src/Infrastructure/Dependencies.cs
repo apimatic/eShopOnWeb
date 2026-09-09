@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +38,13 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Maxio Advanced Billing (subscription billing system of record).
+        // Configuration values come from user secrets / environment variables
+        // via the "Maxio" configuration section.
+        services.AddOptions<MaxioOptions>()
+            .Bind(configuration.GetSection(MaxioOptions.SectionName));
+        services.AddSingleton<MaxioApiClient>();
+        services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
     }
 }
