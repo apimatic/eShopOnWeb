@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +33,20 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Maxio Advanced Billing (recurring subscriptions) — this host is the only
+// consumer, so its settings are validated and registered here.
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey),
+        $"{MaxioOptions.SectionName}:{nameof(MaxioOptions.ApiKey)} is required (e.g. via user-secrets from the MAXIO_API_KEY environment variable).")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Subdomain) || !string.IsNullOrWhiteSpace(o.BaseUrl),
+        $"Either {MaxioOptions.SectionName}:{nameof(MaxioOptions.Subdomain)} or {MaxioOptions.SectionName}:{nameof(MaxioOptions.BaseUrl)} is required.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle),
+        $"{MaxioOptions.SectionName}:{nameof(MaxioOptions.ProductFamilyHandle)} is required (e.g. via user-secrets from the MAXIO_DEFAULT_PRODUCT_FAMILY environment variable).")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
