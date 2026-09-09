@@ -1,0 +1,11 @@
+title: Component Allocation Error Item
+type: object
+properties:
+  component_id:
+    type: integer
+  message:
+    type: string
+  kind:
+    type: string
+  "on":
+    type: string
