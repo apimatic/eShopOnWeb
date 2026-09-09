@@ -1,0 +1,6 @@
+title: List Subscription Components Sort
+type: string
+enum:
+  - id
+  - updated_at
+example: updated_at

@@ -1,0 +1,5 @@
+schema:
+  type: boolean
+in: query
+name: live_mode
+description: This parameter indicates if records should be fetched from live mode sites. Default value is true.

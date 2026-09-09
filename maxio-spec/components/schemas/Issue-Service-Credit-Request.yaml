@@ -1,0 +1,7 @@
+title: Issue Service Credit Request
+type: object
+properties:
+  service_credit:
+    $ref: "./Issue-Service-Credit.yaml"
+required:
+  - service_credit
