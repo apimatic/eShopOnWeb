@@ -1,0 +1,8 @@
+title: Update Product Price Point
+type: object
+properties:
+  handle:
+    type: string
+  price_in_cents:
+    type: integer
+    format: int64

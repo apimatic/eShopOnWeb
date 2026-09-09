@@ -1,0 +1,6 @@
+title: Pause Request
+description: Allows to pause a Subscription
+type: object
+properties:
+  hold:
+    $ref: "./Auto-Resume.yaml"
