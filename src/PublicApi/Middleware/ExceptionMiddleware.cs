@@ -32,23 +32,66 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case PaymentResourceNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            // A challenge is a distinct, actionable condition (it derives from PaymentGatewayException,
+            // so it must be matched before it).
+            case PaymentChallengeRequiredException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case PaymentConflictException:
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case PaymentGatewayException gateway:
+                return MapGateway(gateway);
+
+            case UnauthorizedAccessException:
+                return ((int)HttpStatusCode.Unauthorized, exception.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
+    }
+
+    private static (int StatusCode, string Message) MapGateway(PaymentGatewayException gateway)
+    {
+        var status = gateway.StatusCode.HasValue ? (int)gateway.StatusCode.Value : 0;
+
+        // OUR credentials or OUR quota — the caller did nothing wrong and cannot fix it.
+        if (status is 401 or 403 or 429)
+        {
+            return ((int)HttpStatusCode.BadGateway, "The payment provider is currently unavailable.");
+        }
+
+        // The provider rejected the caller's request with a status they can act on.
+        if (status is >= 400 and < 500)
+        {
+            return (status, gateway.Message);
+        }
+
+        // A typed provider rejection with no HTTP status (e.g. a declined card) is still the
+        // caller's to act on — surface it as Unprocessable Entity rather than a generic 502.
+        if (gateway.DebugId is not null)
+        {
+            return ((int)HttpStatusCode.UnprocessableEntity, gateway.Message);
+        }
+
+        // Transport failure, provider 5xx, or unknown — no meaningful caller status.
+        return ((int)HttpStatusCode.BadGateway, gateway.Message);
     }
 }
