@@ -1,0 +1,6 @@
+title: List Prepayment Date Field
+type: string
+enum:
+  - created_at
+  - application_at
+example: created_at

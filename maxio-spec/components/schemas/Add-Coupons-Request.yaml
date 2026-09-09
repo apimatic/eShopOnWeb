@@ -1,0 +1,7 @@
+title: Add Coupons Request
+type: object
+properties:
+  codes:
+    type: array
+    items:
+      type: string
