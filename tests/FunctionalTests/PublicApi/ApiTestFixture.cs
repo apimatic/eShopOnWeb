@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -35,6 +36,18 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
                 .UseInMemoryDatabase("IdentityDbForPublicApi")
                 .UseApplicationServiceProvider(sp)
                 .Options;
+            });
+        });
+
+        // Placeholder Maxio settings so the host's startup validation passes;
+        // no subscription endpoint is exercised by these tests.
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Maxio:ApiKey"] = "test-api-key-placeholder",
+                ["Maxio:Subdomain"] = "test-site-placeholder",
+                ["Maxio:ProductFamilyHandle"] = "test-family-placeholder"
             });
         });
 
