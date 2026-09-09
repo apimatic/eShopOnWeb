@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentException paymentException)
+        {
+            // Actionable payment/business errors carry their own status (400/402/404/409/422).
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalApiException)
+        {
+            // The upstream payment gateway rejected or failed the request.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"PayPal error: {payPalApiException.Message}"
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

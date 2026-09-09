@@ -23,16 +23,28 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Where the order sits in the pay / fulfil / cancel / refund lifecycle.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// Stable unique reference sent to PayPal (invoice_id / custom_id) so a transaction PayPal
+    /// reports can be lined back up against this order during reconciliation.
+    /// </summary>
+    public string PaymentReference { get; private set; } = Guid.NewGuid().ToString("N");
+
+    /// <summary>The money movement for this order. Null until the order is paid.</summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
     // but only through the method Order.AddOrderItem() which includes behavior.
     private readonly List<OrderItem> _orderItems = new List<OrderItem>();
 
-    // Using List<>.AsReadOnly() 
+    // Using List<>.AsReadOnly()
     // This will create a read only wrapper around the private list so is protected against "external updates".
     // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
-    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
+    //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public decimal Total()
@@ -43,5 +55,49 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attach the authorized payment (funds held) and advance the order.</summary>
+    public void SetAuthorizedPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+        }
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    /// <summary>Mark the order fulfilled once its held funds have been captured.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Cancel the order before fulfilment (any hold is released by the caller).</summary>
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
+    /// <summary>Reflect a refund of the captured payment onto the order status.</summary>
+    public void ApplyRefundStatus()
+    {
+        if (Payment is null)
+        {
+            return;
+        }
+        Status = Payment.Status == PaymentStatus.Refunded
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }

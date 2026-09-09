@@ -10,6 +10,8 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.Extensions.Options;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -44,6 +46,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal payment integration: bind PayPal:* settings, wire the typed HTTP client and the
+// application services for orders/payments, saved cards and reconciliation.
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<PayPalSettings>>().Value;
+    client.BaseAddress = new Uri(settings.ResolveBaseUrl().TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
