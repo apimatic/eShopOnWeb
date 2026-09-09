@@ -1,0 +1,11 @@
+title: Record Payment Response
+type: object
+properties:
+  paid_invoices:
+    type: array
+    items:
+      $ref: "./Paid-Invoice.yaml"
+  prepayment:
+    oneOf:
+      - type: "null"
+      - $ref: "./Invoice-Prepayment.yaml"
