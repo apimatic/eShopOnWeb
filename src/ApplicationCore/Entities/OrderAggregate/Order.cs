@@ -23,6 +23,26 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The payment that funds this order. Null until the order is paid (authorized). Owned by the
+    /// order aggregate, so it is loaded and saved with the order.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>
+    /// Attaches the payment created when the order is paid. An order can only be paid once; a second
+    /// attempt is rejected so a double-click never authorizes the shopper twice.
+    /// </summary>
+    public void SetPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Payment is not null)
+        {
+            throw new Exceptions.PaymentStateException("This order has already been paid.");
+        }
+        Payment = payment;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
