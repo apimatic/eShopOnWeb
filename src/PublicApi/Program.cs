@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing (subscription billing) integration.
+// Credentials come from user-secrets or environment variables - never from
+// files inside the repository.
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(o => o.IsConfigured,
+        "Maxio configuration is incomplete: Maxio:ApiKey, Maxio:Subdomain and Maxio:ProductFamilyHandle are required.")
+    .ValidateOnStart();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -84,6 +97,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+MapMaxioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -177,5 +191,28 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+// Bridges the MAXIO_* environment variables onto the Maxio configuration
+// section so the integration works with or without user-secrets.
+static void MapMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var mappings = new (string EnvVar, string ConfigKey)[]
+    {
+        ("MAXIO_API_KEY", "Maxio:ApiKey"),
+        ("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain"),
+        ("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle"),
+        ("MAXIO_BASE_URL", "Maxio:BaseUrl"),
+        ("MAXIO_DEFAULT_PLAN_HANDLE", "Maxio:DefaultPlanHandle")
+    };
+
+    foreach (var (envVar, configKey) in mappings)
+    {
+        var value = Environment.GetEnvironmentVariable(envVar);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
