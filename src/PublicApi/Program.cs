@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
+using Microsoft.eShopWeb.ApplicationCore.PaymentGateway;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -44,6 +47,36 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- PayPal payments integration ---------------------------------------------------------
+// Allow the flat PAYPAL_* environment variables to populate the PayPal: section, so the app
+// works whether credentials were loaded into user-secrets or supplied as environment variables.
+// Only variable NAMES appear here; no secret values are written to the repository.
+var payPalEnv = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY"),
+    ["PayPal:BaseUrl"] = Environment.GetEnvironmentVariable("PAYPAL_BASEURL")
+};
+builder.Configuration.AddInMemoryCollection(
+    payPalEnv.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)));
+
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddSingleton<PayPalTokenStore>();
+builder.Services.AddHttpClient<IPayPalPaymentGateway, PayPalClient>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl() + "/");
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+// -----------------------------------------------------------------------------------------
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

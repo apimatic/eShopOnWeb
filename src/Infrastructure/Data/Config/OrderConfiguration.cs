@@ -41,5 +41,19 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(o => o.PublicId).IsRequired();
+        builder.HasIndex(o => o.PublicId).IsUnique();
+
+        // One order has at most one payment (the hold/capture/refunds live on the payment).
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<ApplicationCore.Entities.OrderAggregate.Payment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

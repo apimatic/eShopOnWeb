@@ -23,6 +23,43 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// A stable, globally-unique token for this order instance. Used to derive the PayPal
+    /// idempotency key for authorization, so a retry/double-click de-duplicates at PayPal while
+    /// two genuinely different orders never collide (important because the int Id is only unique
+    /// within a single database; the in-memory provider reuses ids across process restarts).
+    /// </summary>
+    public Guid PublicId { get; private set; } = Guid.NewGuid();
+
+    // --- Payment / fulfilment state (additive to the original eShopOnWeb model) ---
+
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// PayPal-owned payment state for this order. Null until the order is paid (authorized).
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Records the hold placed on funds when the order is authorized.</summary>
+    public void MarkAuthorized(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>Fulfilment: the money has been captured.</summary>
+    public void MarkFulfilled()
+    {
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Cancellation before fulfilment: the held funds were released.</summary>
+    public void MarkCancelled()
+    {
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
