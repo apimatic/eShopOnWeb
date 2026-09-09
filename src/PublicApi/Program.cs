@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +46,12 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Maxio Advanced Billing (recurring-subscription billing system of record).
+// Credentials come from user-secrets / environment variables — never from the repository.
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -55,6 +62,9 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    // AddIdentity registers a cookie challenge scheme by default; API clients must get 401, not a login redirect.
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -159,6 +169,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
