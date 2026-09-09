@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,39 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>
+    /// Fulfilment lifecycle of the order. New orders start awaiting payment; the money-movement
+    /// state (holds, captures, refunds) is tracked on the associated Payment aggregate.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        RequireStatus(OrderStatus.AwaitingPayment, "authorize payment for");
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        RequireStatus(OrderStatus.PaymentAuthorized, "fulfil");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        RequireStatus(OrderStatus.PaymentAuthorized, "cancel");
+        Status = OrderStatus.Cancelled;
+    }
+
+    private void RequireStatus(OrderStatus expected, string action)
+    {
+        if (Status != expected)
+        {
+            throw new InvalidPaymentStateException(
+                $"Cannot {action} order {Id}: it is {Status}, but must be {expected}.");
+        }
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
