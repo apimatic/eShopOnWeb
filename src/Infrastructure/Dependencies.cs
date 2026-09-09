@@ -1,6 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +25,7 @@ public static class Dependencies
         {
             services.AddDbContext<CatalogContext>(c =>
                c.UseInMemoryDatabase("Catalog"));
-         
+
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
         }
@@ -36,5 +41,16 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Maxio Advanced Billing (subscription billing system of record)
+        services.Configure<MaxioSettings>(configuration.GetSection(MaxioSettings.CONFIG_NAME));
+        services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>();
+        var maxioSettings = configuration.GetSection(MaxioSettings.CONFIG_NAME).Get<MaxioSettings>() ?? new MaxioSettings();
+        services.AddScoped<ISubscriptionService>(sp =>
+            new SubscriptionService(sp.GetRequiredService<IMaxioBillingClient>(),
+                sp.GetRequiredService<IRepository<UserSubscription>>(),
+                sp.GetRequiredService<IAppLogger<SubscriptionService>>(),
+                maxioSettings.ProductFamilyHandle
+                    ?? throw new InvalidOperationException("Maxio:ProductFamilyHandle is not configured.")));
     }
 }
