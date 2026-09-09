@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -85,6 +86,9 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Maxio Advanced Billing subscription integration (binds the "Maxio" configuration section).
+builder.Services.AddMaxioSubscriptions(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -144,6 +148,18 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+
+    // Validate Maxio settings up front so misconfiguration surfaces at startup rather than on first call.
+    try
+    {
+        scope.ServiceProvider.ValidateMaxioSettings();
+        app.Logger.LogInformation("Maxio subscription billing configuration validated.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex,
+            "Maxio subscription billing is not fully configured; subscription endpoints will fail until it is.");
     }
 }
 
