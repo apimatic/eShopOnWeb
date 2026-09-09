@@ -1,0 +1,6 @@
+title: Expiration Interval Unit
+type: string
+enum:
+  - day
+  - month
+  - never

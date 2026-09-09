@@ -1,0 +1,18 @@
+title: Create Prepayment
+type: object
+properties:
+  amount:
+    type: number
+  details:
+    type: string
+  memo:
+    type: string
+  method:
+    $ref: "./Create-Prepayment-Method.yaml"
+  payment_profile_id:
+    type: integer
+required:
+  - amount
+  - details
+  - memo
+  - method

@@ -1,0 +1,11 @@
+title: Update Subscription Note
+description: Updatable fields for Subscription Note
+type: object
+required:
+  - body
+  - sticky
+properties:
+  body:
+    type: string
+  sticky:
+    type: boolean
