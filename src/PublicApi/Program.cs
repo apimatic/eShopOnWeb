@@ -45,6 +45,15 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// PayPal payments + saved cards. Settings bind from the PayPal: section (values come from user-secrets
+// / environment, never the repo). The gateway is a typed HttpClient; services orchestrate the flows.
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Payments.PayPalSettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Payments.PayPalSettings.SectionName));
+builder.Services.AddHttpClient<IPayPalPaymentGateway, Microsoft.eShopWeb.Infrastructure.Payments.PayPalClient>();
+builder.Services.AddScoped<IPaymentOrderService, PaymentOrderService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();

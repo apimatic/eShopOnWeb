@@ -23,6 +23,62 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The fulfilment lifecycle state. A new order awaits payment; it never ends checkout with money
+    /// taken. Payment, fulfilment, cancellation and refunds move it through the rest of the lifecycle.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// The money movement for this order (the PayPal hold/capture/refund state). Null until the
+    /// shopper pays. Part of the Order aggregate — mutated only through this root.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Records that a hold has been placed on the shopper's funds for this order.</summary>
+    public void SetAuthorized(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+        }
+
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    /// <summary>Marks the order fulfilled — the point at which the held money is taken.</summary>
+    public void SetFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Cancels the order before fulfilment, releasing the shopper's held funds.</summary>
+    public void Cancel()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    /// <summary>Marks a previously fulfilled order as fully refunded.</summary>
+    public void MarkRefunded()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            Status = OrderStatus.Refunded;
+        }
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
