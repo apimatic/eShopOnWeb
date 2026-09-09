@@ -1,7 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.Extensions.Options;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -84,6 +91,56 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// ---- PayPal payments integration ----
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<PayPalOptions>, PayPalOptionsValidator>();
+
+// A named HttpClient keeps the SDK's pipeline off the shared default client. PooledConnectionLifetime
+// keeps DNS fresh behind the long-lived singleton client below.
+builder.Services.AddHttpClient("PayPal", (sp, http) =>
+{
+    var payPalOptions = sp.GetRequiredService<IOptions<PayPalOptions>>().Value;
+    http.Timeout = TimeSpan.FromSeconds(payPalOptions.RequestTimeoutSeconds + 30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+// Options are captured once, at registration, into the singleton client (a rotated secret takes effect
+// on restart). BaseUrl, when set, overrides every call including the OAuth token request.
+builder.Services.AddSingleton(sp =>
+{
+    var payPalOptions = sp.GetRequiredService<IOptions<PayPalOptions>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    var sdkOptions = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = payPalOptions.ClientId,
+            ClientSecret = payPalOptions.ClientSecret
+        },
+        // Set LoggerFactory explicitly so PAYPALSERVERSDKCLIENT_LOG cannot turn on unredacted body
+        // logging from outside the code; card data flows through request bodies.
+        Logging = new LoggingOptions
+        {
+            LoggerFactory = sp.GetRequiredService<ILoggerFactory>(),
+            LogRequestBody = false
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(payPalOptions.BaseUrl))
+    {
+        sdkOptions.Server.Default.Sandbox.BaseUrl = payPalOptions.BaseUrl;
+    }
+    return new PayPalServerSdkClient(httpClient, sdkOptions);
+});
+
+builder.Services.AddScoped<IPayPalPaymentGateway, PayPalPaymentGateway>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
