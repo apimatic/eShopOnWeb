@@ -1,0 +1,9 @@
+title: Offer Discount
+type: object
+properties:
+  coupon_code:
+    type: string
+  coupon_id:
+    type: integer
+  coupon_name:
+    type: string
