@@ -1,0 +1,5 @@
+title: Ok Response
+type: object
+properties:
+  ok:
+    type: string
