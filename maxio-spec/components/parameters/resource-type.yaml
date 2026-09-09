@@ -1,0 +1,6 @@
+name: resource_type
+in: path
+required: true
+description: The resource type to which the metafields belong.
+schema:
+  $ref: "../schemas/Resource-Type.yaml"
