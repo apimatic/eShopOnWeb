@@ -32,23 +32,30 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException dup => ((int)HttpStatusCode.Conflict, dup.Message),
+            PaymentOperationException payment => (payment.SuggestedStatusCode, payment.Message),
+            PayPalApiException paypal => (MapPayPalStatus(paypal), paypal.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    /// <summary>
+    /// A payer-action/3DS challenge surfaces as 402; a client-actionable PayPal error (e.g. a card
+    /// decline, 4xx) is surfaced with its own status; anything else is an upstream failure (502).
+    /// </summary>
+    private static int MapPayPalStatus(PayPalApiException ex)
+    {
+        if (ex.RequiresBuyerAction) return (int)HttpStatusCode.PaymentRequired;
+        if (ex.StatusCode is >= 400 and < 500) return ex.StatusCode.Value;
+        return (int)HttpStatusCode.BadGateway;
     }
 }

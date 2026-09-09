@@ -41,5 +41,39 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // Payment state (additive to the original order model). Modelled as an owned entity so it
+        // is loaded and persisted with the order aggregate; refunds are an owned collection within it.
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+
+            p.Property(x => x.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30)
+                .IsRequired();
+            p.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            p.Property(x => x.PayPalOrderId).HasMaxLength(64);
+            p.Property(x => x.AuthorizationId).HasMaxLength(64);
+            p.Property(x => x.AuthorizationStatus).HasMaxLength(32);
+            p.Property(x => x.InstrumentDescription).HasMaxLength(64);
+            p.Property(x => x.CaptureId).HasMaxLength(64);
+            p.Property(x => x.CaptureStatus).HasMaxLength(32);
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+
+            p.OwnsMany(x => x.Refunds, r =>
+            {
+                r.WithOwner();
+                r.Property(x => x.PayPalRefundId).HasMaxLength(64).IsRequired();
+                r.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+                r.Property(x => x.Status).HasMaxLength(32);
+                r.Property(x => x.IdempotencyKey).HasMaxLength(128).IsRequired();
+            });
+            p.Navigation(x => x.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        builder.Navigation(x => x.Payment).IsRequired();
     }
 }

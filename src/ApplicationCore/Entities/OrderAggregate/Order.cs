@@ -11,17 +11,31 @@ public class Order : BaseEntity, IAggregateRoot
     private Order() {}
 
     public Order(string buyerId, Address shipToAddress, List<OrderItem> items)
+        : this(buyerId, shipToAddress, items, "USD")
+    {
+    }
+
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, string currency)
     {
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(currency, nameof(currency));
 
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Payment = new OrderPayment(currency);
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>
+    /// The payment attached to this order. Always present (created with the order in the
+    /// <see cref="PaymentStatus.AwaitingPayment"/> state); it accumulates PayPal state as the
+    /// order is paid, fulfilled, cancelled or refunded.
+    /// </summary>
+    public OrderPayment Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
