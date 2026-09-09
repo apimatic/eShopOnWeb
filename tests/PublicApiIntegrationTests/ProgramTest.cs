@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Net.Http;
 
@@ -16,6 +18,8 @@ public class ProgramTest
             return _application.CreateClient();
         }
     }
+
+    public static IConfiguration Configuration => _application.Services.GetRequiredService<IConfiguration>();
 
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
