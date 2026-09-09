@@ -8,8 +8,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -84,6 +86,44 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// PayPal credentials/config are supplied via .NET user-secrets under the "PayPal:" section (loaded
+// automatically in Development). As a convenience for hosts that instead export the flat sandbox
+// environment variables, map those onto the same PayPal: keys when present. Only variable *names*
+// are referenced here — never their values.
+var payPalEnvMap = new Dictionary<string, string?>();
+void MapPayPalEnv(string envName, string configKey)
+{
+    var value = Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        payPalEnvMap[configKey] = value;
+    }
+}
+MapPayPalEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+MapPayPalEnv("PAYPAL_BASEURL", "PayPal:BaseUrl");
+if (payPalEnvMap.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(payPalEnvMap);
+}
+
+// Bind the PayPal settings and register the gateway + orchestration services.
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddSingleton<IPayPalAccessTokenProvider, PayPalAccessTokenProvider>();
+builder.Services.AddHttpClient<IPayPalPaymentGateway, PayPalPaymentGateway>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl() + "/");
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

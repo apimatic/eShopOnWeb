@@ -23,6 +23,38 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Coarse operational lifecycle. Starts awaiting payment; see <see cref="OrderStatus"/>.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The money side of this order. Null until the order is paid (authorized).</summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Attaches the authorization created when the shopper pays, moving the order off awaiting-payment.</summary>
+    public void AuthorizePayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (Status != OrderStatus.AwaitingPayment)
+            throw new InvalidOperationException($"Order {Id} cannot be paid from status {Status}.");
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    /// <summary>Marks the order fulfilled once the capture (money taken) has been recorded on the payment.</summary>
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled from status {Status}.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    /// <summary>Marks the order cancelled once the hold has been released on a cancel-before-fulfilment.</summary>
+    public void MarkCancelled()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled from status {Status}.");
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
