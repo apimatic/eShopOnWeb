@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Shields the vendored Maxio Advanced Billing SDK from the repository-root
+    Directory.Packages.props. MSBuild imports only the nearest Directory.Packages.props
+    walking up from a project, so this file stops that search here: the SDK keeps its own
+    explicit PackageReference versions (central package management is deliberately OFF for it)
+    and its own netstandard2.0 target, independent of the eShopOnWeb build.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

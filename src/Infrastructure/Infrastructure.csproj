@@ -14,6 +14,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Vendored Maxio Advanced Billing .NET SDK (not published to a package feed). It manages its
+		     own package versions and target framework via its shielding Directory.Packages.props. -->
+		<ProjectReference Include="..\..\third-party\maxio-advanced-billing\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
