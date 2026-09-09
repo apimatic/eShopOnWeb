@@ -33,6 +33,8 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+Microsoft.eShopWeb.Infrastructure.Maxio.MaxioDependencies.ConfigureServices(builder.Configuration, builder.Services);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
