@@ -150,6 +150,13 @@ public class MaxioCreateSubscription
 
     [JsonPropertyName("reference")]
     public string Reference { get; set; } = string.Empty;
+
+    /// <summary>
+    /// eShopOnWeb does not capture payment methods for subscriptions, so the
+    /// subscription is billed via invoice collection (spec enum value).
+    /// </summary>
+    [JsonPropertyName("payment_collection_method")]
+    public string PaymentCollectionMethod { get; set; } = "invoice";
 }
 
 /// <summary>

@@ -36,6 +36,12 @@ public class MaxioSubscriptionService : ISubscriptionService
 
     public async Task<IReadOnlyList<SubscriptionPlan>> ListPlansAsync(CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_options.ProductFamilyHandle))
+        {
+            throw new InvalidOperationException(
+                $"Maxio product family is not configured. Set the '{MaxioOptions.SectionName}:{nameof(MaxioOptions.ProductFamilyHandle)}' configuration value (e.g. via user-secrets from the MAXIO_DEFAULT_PRODUCT_FAMILY environment variable).");
+        }
+
         var products = await _maxio.ListProductsForFamilyAsync(_options.ProductFamilyHandle, cancellationToken);
         return products
             .Where(p => p.ArchivedAt is null)

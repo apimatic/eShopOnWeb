@@ -1,3 +1,5 @@
+using System;
+
 namespace Microsoft.eShopWeb.Infrastructure.Maxio;
 
 /// <summary>
@@ -52,7 +54,12 @@ public class MaxioOptions
             return BaseUrl.TrimEnd('/');
         }
 
-        var subdomain = Subdomain.Trim();
+        var subdomain = Subdomain?.Trim();
+        if (string.IsNullOrEmpty(subdomain))
+        {
+            return string.Empty;
+        }
+
         var host = string.Equals(Environment?.Trim(), "EU", StringComparison.OrdinalIgnoreCase)
             ? $"{subdomain}.ebilling.maxio.com"
             : $"{subdomain}.chargify.com";

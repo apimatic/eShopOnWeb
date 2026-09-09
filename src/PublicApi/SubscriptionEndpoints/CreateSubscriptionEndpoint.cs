@@ -1,5 +1,5 @@
+using System;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -17,13 +17,20 @@ namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 /// </summary>
 public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionRequest, ISubscriptionService>
 {
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public CreateSubscriptionEndpoint(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
     public void AddRoute(IEndpointRouteBuilder app)
     {
         app.MapPost("api/subscriptions",
             [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
-            (CreateSubscriptionRequest request, ClaimsPrincipal user, ISubscriptionService subscriptionService) =>
+            (CreateSubscriptionRequest request, ISubscriptionService subscriptionService) =>
             {
-                return await HandleAsync(request, GetUserName(user), subscriptionService);
+                return await HandleAsync(request, subscriptionService);
             })
             .Produces<CreateSubscriptionResponse>()
             .ProducesProblem(401)
@@ -31,8 +38,9 @@ public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionR
             .WithTags("SubscriptionEndpoints");
     }
 
-    public async Task<IResult> HandleAsync(CreateSubscriptionRequest request, string? userName, ISubscriptionService subscriptionService)
+    public async Task<IResult> HandleAsync(CreateSubscriptionRequest request, ISubscriptionService subscriptionService)
     {
+        var userName = _httpContextAccessor.HttpContext?.User.Identity?.Name;
         if (string.IsNullOrEmpty(userName))
         {
             return Results.Unauthorized();
@@ -68,13 +76,8 @@ public class CreateSubscriptionEndpoint : IEndpoint<IResult, CreateSubscriptionR
                 statusCode: ex.StatusCode is >= 400 and < 500 ? 400 : StatusCodes.Status502BadGateway);
         }
 
-        return ToResult(response);
-    }
-
-    private static IResult ToResult(CreateSubscriptionResponse response) =>
-        response.Created
+        return response.Created
             ? Results.Created("api/my-subscriptions", response)
             : Results.Ok(response);
-
-    private static string? GetUserName(ClaimsPrincipal user) => user.Identity?.Name;
+    }
 }

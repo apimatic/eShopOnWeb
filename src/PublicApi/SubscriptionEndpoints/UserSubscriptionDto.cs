@@ -1,3 +1,5 @@
+using System;
+
 namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 /// <summary>

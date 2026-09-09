@@ -35,18 +35,14 @@ builder.Logging.AddConsole();
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 // Maxio Advanced Billing (recurring subscriptions) — this host is the only
-// consumer, so its settings are validated and registered here.
+// consumer, so its settings are registered here. Configuration is validated
+// when the Maxio client is constructed, so hosts that never use subscriptions
+// (e.g. test hosts on a fresh clone without user-secrets) still boot.
 builder.Services.AddOptions<MaxioOptions>()
-    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
-    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey),
-        $"{MaxioOptions.SectionName}:{nameof(MaxioOptions.ApiKey)} is required (e.g. via user-secrets from the MAXIO_API_KEY environment variable).")
-    .Validate(o => !string.IsNullOrWhiteSpace(o.Subdomain) || !string.IsNullOrWhiteSpace(o.BaseUrl),
-        $"Either {MaxioOptions.SectionName}:{nameof(MaxioOptions.Subdomain)} or {MaxioOptions.SectionName}:{nameof(MaxioOptions.BaseUrl)} is required.")
-    .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle),
-        $"{MaxioOptions.SectionName}:{nameof(MaxioOptions.ProductFamilyHandle)} is required (e.g. via user-secrets from the MAXIO_DEFAULT_PRODUCT_FAMILY environment variable).")
-    .ValidateOnStart();
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
 builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
 builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

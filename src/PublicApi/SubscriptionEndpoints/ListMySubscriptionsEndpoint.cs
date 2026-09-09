@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -16,21 +15,29 @@ namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 /// </summary>
 public class ListMySubscriptionsEndpoint : IEndpoint<IResult, ISubscriptionService>
 {
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public ListMySubscriptionsEndpoint(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
     public void AddRoute(IEndpointRouteBuilder app)
     {
         app.MapGet("api/my-subscriptions",
             [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] async
-            (ClaimsPrincipal user, ISubscriptionService subscriptionService) =>
+            (ISubscriptionService subscriptionService) =>
             {
-                return await HandleAsync(user.Identity?.Name, subscriptionService);
+                return await HandleAsync(subscriptionService);
             })
             .Produces<ListMySubscriptionsResponse>()
             .ProducesProblem(401)
             .WithTags("SubscriptionEndpoints");
     }
 
-    public async Task<IResult> HandleAsync(string? userName, ISubscriptionService subscriptionService)
+    public async Task<IResult> HandleAsync(ISubscriptionService subscriptionService)
     {
+        var userName = _httpContextAccessor.HttpContext?.User.Identity?.Name;
         if (string.IsNullOrEmpty(userName))
         {
             return Results.Unauthorized();

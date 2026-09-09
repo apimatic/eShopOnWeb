@@ -42,6 +42,11 @@ public class MaxioApiClient : IMaxioApiClient
             throw new InvalidOperationException(
                 $"Maxio API key is not configured. Set the '{MaxioOptions.SectionName}:{nameof(MaxioOptions.ApiKey)}' configuration value (e.g. via user-secrets from the MAXIO_API_KEY environment variable).");
         }
+        if (string.IsNullOrWhiteSpace(opts.ResolveBaseUrl()))
+        {
+            throw new InvalidOperationException(
+                $"Maxio base address is not configured. Set '{MaxioOptions.SectionName}:{nameof(MaxioOptions.Subdomain)}' (e.g. via user-secrets from the MAXIO_SITE_SUBDOMAIN environment variable) or '{MaxioOptions.SectionName}:{nameof(MaxioOptions.BaseUrl)}'.");
+        }
 
         _httpClient.BaseAddress = new Uri(opts.ResolveBaseUrl());
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{opts.ApiKey}:x"));
