@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Vendored, source-built Maxio Advanced Billing SDK (not published to NuGet).
+    This file stops the walk-up to the repository-root Directory.Packages.props so the
+    SDK keeps its own pinned package versions (declared inline in its .csproj) and its
+    own netstandard2.0 target, isolated from the solution's central package management.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
