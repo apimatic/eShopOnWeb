@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.eShopWeb.ApplicationCore;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -44,6 +47,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// PayPal integration: settings (bound from the PayPal: section), the hand-written PayPal client, and
+// the application services that orchestrate the payment / saved-card flows.
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<PayPalSettings>>().Value);
+builder.Services.AddHttpClient<IPayPalClient, PayPalHttpClient>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
