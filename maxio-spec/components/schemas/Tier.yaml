@@ -1,0 +1,15 @@
+title: Component Cost Data Rate Tier
+type: object
+properties:
+  starting_quantity:
+    type: integer
+  ending_quantity:
+    type:
+      - integer
+      - "null"
+  quantity:
+    type: string
+  unit_price:
+    type: string
+  amount:
+    type: string
