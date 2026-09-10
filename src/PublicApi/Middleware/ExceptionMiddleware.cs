@@ -32,23 +32,36 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException dup => ((int)HttpStatusCode.Conflict, dup.Message),
+
+        // Payment domain errors carry the status a caller should see.
+        PaymentException pe => (pe.StatusCode, pe.Message),
+
+        // Provider failures: our-fault/unknown -> 502; the caller's rejected request -> its own 4xx.
+        PaymentGatewayException ge => (MapGateway(ge), ge.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
+
+    private static int MapGateway(PaymentGatewayException ge) => ge.Kind switch
+    {
+        PaymentGatewayFailureKind.ProviderUnavailable => (int)HttpStatusCode.BadGateway,
+        PaymentGatewayFailureKind.Unreadable => (int)HttpStatusCode.BadGateway,
+        PaymentGatewayFailureKind.RequestRejected => ge.ProviderStatus is HttpStatusCode s
+            && (int)s >= 400 && (int)s < 500
+                ? (int)s
+                : (int)HttpStatusCode.BadRequest,
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }
