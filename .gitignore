@@ -152,6 +152,9 @@ PublishScripts/
 
 # NuGet Packages
 *.nupkg
+# Keep the vendored Maxio Advanced Billing SDK package: the SDK is distributed as source only, so
+# ./libs is a committed local NuGet feed (see nuget.config) that makes restore reproducible.
+!libs/*.nupkg
 # The packages folder can be ignored because of Package Restore
 **/packages/*
 # except build/, which is used as an MSBuild target.
