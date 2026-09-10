@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Services.PayPal;
+using Microsoft.Extensions.Options;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -50,6 +53,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// --- PayPal payments + saved cards (additive capability) ---
+// Settings are bound from the "PayPal:" section using exactly the mandated keys. Values are loaded
+// from the environment into user-secrets and never committed to the repository.
+builder.Services.Configure<PayPalSettings>(builder.Configuration.GetSection(PayPalSettings.SectionName));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<PayPalSettings>>().Value);
+builder.Services.AddHttpClient<IPayPalPaymentService, PayPalPaymentService>((sp, client) =>
+{
+    // PayPal:BaseUrl, when set, is used verbatim for every call (including the token request);
+    // otherwise the sandbox/live host is derived from PayPal:Environment.
+    var settings = sp.GetRequiredService<PayPalSettings>();
+    client.BaseAddress = new Uri(settings.ResolveBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
