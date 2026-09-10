@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring-subscription billing backed by Maxio Advanced Billing. Settings come from the "Maxio"
+// configuration section (loaded from user-secrets in development); no values are hard-coded.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -144,6 +149,25 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+}
+
+// Validate Maxio settings up front so misconfiguration surfaces at startup rather than per-request.
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var maxioOptions = scope.ServiceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+        app.Logger.LogInformation(
+            "Maxio subscription billing configured. Base address: {BaseAddress}, product family: {ProductFamily}.",
+            maxioOptions.ResolveBaseAddress(), maxioOptions.ProductFamilyHandle);
+    }
+    catch (Microsoft.Extensions.Options.OptionsValidationException ex)
+    {
+        app.Logger.LogError(
+            "Maxio subscription billing is misconfigured; subscription endpoints will fail until fixed. {Failures}",
+            string.Join(" ", ex.Failures));
     }
 }
 
