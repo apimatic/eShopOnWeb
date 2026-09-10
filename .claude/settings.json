@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\claude-runs\\t1ptmnameer-maxio-docs-mcp-opus48high-009\\repo\\.claude\\hooks\\maxio-process-guard.ps1\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\claude-runs\\t1ptmnameer-maxio-docs-mcp-opus48high-009\\repo\\.claude\\hooks\\maxio-web-guard.ps1\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "WebSearch|WebFetch"
+      }
+    ]
+  }
+}
