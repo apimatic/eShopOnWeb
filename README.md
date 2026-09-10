@@ -164,6 +164,87 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Subscription billing (Maxio Advanced Billing)
+
+In addition to the one-time Catalog → Basket → Order flow, the **PublicApi** project exposes an
+**additive, parallel** recurring-subscription capability backed by
+[Maxio Advanced Billing](https://www.maxio.com/) as the billing system of record. A logged-in shopper
+can list the available plans, subscribe to one, and see the subscription reflected in their account.
+
+### Endpoints (JWT-authenticated)
+
+All three live on the PublicApi host and take the caller's identity from the bearer token:
+
+| Method & route | Purpose |
+|----------------|---------|
+| `GET  /api/subscription-plans` | List the plans available to subscribe to (products in the configured Maxio product family). |
+| `POST /api/subscriptions`      | Subscribe the caller to a plan (body: `{ "planHandle": "eshop-pro" }`; omit `planHandle` to use the cheapest plan). Idempotent — a repeat/double-click never creates a second customer or a second live subscription. |
+| `GET  /api/my-subscriptions`   | List the caller's subscriptions as reflected in Maxio. |
+
+### Configuration
+
+Settings are bound from the `Maxio` configuration section. **Secret values are never stored in the
+repo** — provide them at runtime via .NET user-secrets (or environment configuration):
+
+| Key | Source env var | Notes |
+|-----|----------------|-------|
+| `Maxio:ApiKey` | `MAXIO_API_KEY` | Maxio API key (HTTP Basic username; password is the literal `X`). |
+| `Maxio:Subdomain` | `MAXIO_SITE_SUBDOMAIN` | Site subdomain; the API base URL is derived as `https://{subdomain}.chargify.com`. |
+| `Maxio:ProductFamilyHandle` | `MAXIO_DEFAULT_PRODUCT_FAMILY` | Product family whose products are offered as plans. |
+| `Maxio:BaseUrl` | *(optional)* | When set, used verbatim as the API base address instead of deriving one from the subdomain. |
+
+Load the sandbox credentials into user-secrets for the PublicApi project (values come from your
+environment, so nothing sensitive is typed or committed):
+
+```bash
+dotnet user-secrets set "Maxio:ApiKey"              "$MAXIO_API_KEY"              --project src/PublicApi
+dotnet user-secrets set "Maxio:Subdomain"           "$MAXIO_SITE_SUBDOMAIN"       --project src/PublicApi
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "$MAXIO_DEFAULT_PRODUCT_FAMILY" --project src/PublicApi
+```
+
+### Verifying the integration locally
+
+1. Run the PublicApi with the in-memory database (no LocalDB required). If only the .NET 10/11 SDK is
+   installed, roll forward to it:
+
+   ```bash
+   DOTNET_ROLL_FORWARD=Major UseOnlyInMemoryDatabase=true \
+     ASPNETCORE_ENVIRONMENT=Development \
+     ASPNETCORE_URLS="https://localhost:30763;http://localhost:30764" \
+     dotnet run --project src/PublicApi --no-launch-profile
+   ```
+
+2. Get a bearer token from the PublicApi's authenticate endpoint (the storefront cookie won't work here):
+
+   ```bash
+   TOKEN=$(curl -sk -X POST https://localhost:30763/api/authenticate \
+     -H "Content-Type: application/json" \
+     -d '{"username":"demouser@microsoft.com","password":"Pass@word1"}' \
+     | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+   ```
+
+3. Exercise the hero flow:
+
+   ```bash
+   # Browse plans
+   curl -sk https://localhost:30763/api/subscription-plans -H "Authorization: Bearer $TOKEN"
+
+   # Subscribe (idempotent — run it twice; the second call returns the same subscription)
+   curl -sk -X POST https://localhost:30763/api/subscriptions \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"planHandle":"eshop-pro"}'
+
+   # See it reflected on the account (plan / price / state / next billing date)
+   curl -sk https://localhost:30763/api/my-subscriptions -H "Authorization: Bearer $TOKEN"
+   ```
+
+The subscription flow is covered by hermetic unit tests (no network) in
+`tests/UnitTests/Infrastructure/Maxio/MaxioBillingServiceTests.cs`:
+
+```bash
+dotnet test tests/UnitTests/UnitTests.csproj --filter FullyQualifiedName~MaxioBillingServiceTests
+```
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
