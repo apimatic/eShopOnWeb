@@ -45,6 +45,10 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Recurring-subscription billing (Maxio Advanced Billing). Additive to the existing one-time
+// commerce flow; settings are bound from the "Maxio" configuration section.
+Microsoft.eShopWeb.Infrastructure.Maxio.MaxioServiceCollectionExtensions.AddMaxioBilling(builder.Services, builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
