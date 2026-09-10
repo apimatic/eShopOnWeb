@@ -23,6 +23,60 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The fulfilment lifecycle of this order. New orders start awaiting payment. This is additive
+    /// to the original eShopOnWeb model, which had no order status.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// The payment (PayPal hold/capture/refund state) for this order, once the shopper has paid.
+    /// Null while the order is still awaiting payment. Part of the Order aggregate.
+    /// </summary>
+    public Payment? Payment { get; private set; }
+
+    /// <summary>Money can only be authorized while the order is still awaiting payment.</summary>
+    public bool CanBeAuthorized() => Status == OrderStatus.AwaitingPayment && Payment is null;
+
+    /// <summary>An order can be fulfilled once (and only once) its funds are held.</summary>
+    public bool CanBeFulfilled() => Status == OrderStatus.PaymentAuthorized && Payment is not null;
+
+    /// <summary>An order can be cancelled any time before it is fulfilled or already cancelled.</summary>
+    public bool CanBeCancelled() => Status is OrderStatus.AwaitingPayment or OrderStatus.PaymentAuthorized;
+
+    /// <summary>Refunds are only possible after fulfilment (once the money has actually been taken).</summary>
+    public bool CanBeRefunded() => Status == OrderStatus.Fulfilled && Payment is not null;
+
+    /// <summary>Attach the authorized payment and move the order into the authorized state.</summary>
+    public void SetAuthorizedPayment(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        if (!CanBeAuthorized())
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be authorized in status {Status}.");
+        }
+        Payment = payment;
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (!CanBeFulfilled())
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled in status {Status}.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (!CanBeCancelled())
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be cancelled in status {Status}.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,

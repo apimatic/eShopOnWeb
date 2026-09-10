@@ -32,23 +32,27 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            NotFoundException => HttpStatusCode.NotFound,
+            DuplicateException => HttpStatusCode.Conflict,
+            // A card challenge / an unrenewable authorization / an invalid state transition are all
+            // conflicts the caller (or operator) must act on, not server faults.
+            PaymentChallengeRequiredException => HttpStatusCode.Conflict,
+            AuthorizationUnrenewableException => HttpStatusCode.Conflict,
+            // A failure reported by PayPal itself is an upstream (bad gateway) condition.
+            PayPalApiException => HttpStatusCode.BadGateway,
+            PaymentException => HttpStatusCode.BadGateway,
+            ArgumentException => HttpStatusCode.BadRequest,
+            InvalidOperationException => HttpStatusCode.Conflict,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }

@@ -41,5 +41,18 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // Additive payment/fulfilment state.
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        // One optional payment per order, part of the Order aggregate (FK on the Payment table).
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<Payment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Payment).IsRequired(false);
     }
 }
