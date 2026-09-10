@@ -32,23 +32,27 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            OrderNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            // A payment/order action attempted in the wrong state (e.g. capture before authorize, refund before fulfil,
+            // or an authorization that can no longer be renewed) is an operator-actionable conflict.
+            InvalidOrderStateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // The card needs a browser approval this integration deliberately does not perform.
+            PayPalChallengeRequiredException => ((int)HttpStatusCode.Conflict, exception.Message),
+            // PayPal itself refused the request (declined card, etc.). Surface it as a gateway error with its detail.
+            PayPalGatewayException gatewayException => ((int)HttpStatusCode.BadGateway,
+                $"PayPal rejected the request: {gatewayException.Message}"),
+            ArgumentException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }

@@ -33,6 +33,9 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Register the PayPal gateway and the payment/saved-card/reconciliation services (settings bound from "PayPal:").
+Microsoft.eShopWeb.Infrastructure.PayPal.PayPalServiceCollectionExtensions.AddPayPalPayments(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
