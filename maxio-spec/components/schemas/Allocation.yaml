@@ -1,0 +1,91 @@
+title: Allocation
+type: object
+properties:
+  allocation_id:
+    type: integer
+    description: The allocation unique id
+  component_id:
+    type: integer
+    description: The integer component ID for the allocation. This references a component that you have created in your Product setup
+  component_handle:
+    type:
+      - string
+      - "null"
+    description: The handle of the component. This references a component that you have created in your Product setup
+  subscription_id:
+    type: integer
+    description: The integer subscription ID for the allocation. This references a unique subscription in your Site
+  quantity:
+    oneOf:
+      - type: integer
+      - type: string
+    description: The allocated quantity set in to effect by the allocation. String for components supporting fractional quantities
+  previous_quantity:
+    oneOf:
+      - type: integer
+      - type: string
+    description: The allocated quantity that was in effect before this allocation was created. String for components supporting fractional quantities
+  memo:
+    type:
+      - string
+      - "null"
+    description: The memo passed when the allocation was created
+  timestamp:
+    type: string
+    format: date-time
+    description: "The time that the allocation was recorded, in format and UTC timezone, i.e. 2012-11-20T22:00:37Z"
+  created_at:
+    type: string
+    format: date-time
+    description: "Timestamp indicating when this allocation was created"
+  proration_upgrade_scheme:
+    type: string
+    deprecated: true
+    description: The scheme used if the proration was an upgrade. This is only present when the allocation was created mid-period.
+  proration_downgrade_scheme:
+    type: string
+    deprecated: true
+    description: The scheme used if the proration was a downgrade. This is only present when the allocation was created mid-period.
+  price_point_id:
+    type: integer
+  price_point_name:
+    type: string
+  price_point_handle:
+    type: string
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
+  previous_price_point_id:
+    type: integer
+  accrue_charge:
+    type: boolean
+    description: "If the change in cost is an upgrade, this determines if the charge should accrue to the next renewal or if capture should be attempted immediately."
+  initiate_dunning:
+    type: boolean
+    description: |-
+      If true, if the immediate component payment fails, initiate dunning for the subscription. 
+      Otherwise, leave the charges on the subscription to pay for at renewal.
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  payment:
+    oneOf:
+      - type: "null"
+      - $ref: "Payment-For-Allocation.yaml"
+  expires_at:
+    type: string
+    format: date-time
+  used_quantity:
+    type: integer
+    format: int64
+    min: 0
+  charge_id:
+    type: integer
+    format: int64
+    min: 1
