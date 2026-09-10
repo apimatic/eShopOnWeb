@@ -32,23 +32,30 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException e => ((int)HttpStatusCode.Conflict, e.Message),
+
+        // Caller can fix these — surface the (caller-safe) message.
+        PaymentValidationException e => ((int)HttpStatusCode.BadRequest, e.Message),
+        PaymentNotFoundException e => ((int)HttpStatusCode.NotFound, e.Message),
+        PaymentChallengeException e => ((int)HttpStatusCode.UnprocessableEntity, e.Message),
+
+        // PayPal's own 4xx the caller can act on passes through; our credential/quota or transport
+        // failures become 502 — never blaming the caller, never leaking internals.
+        PaymentGatewayException e when e.StatusCode is >= 400 and < 500 and not 401 and not 403 and not 429
+            => (e.StatusCode!.Value, e.Message),
+        PaymentGatewayException e => ((int)HttpStatusCode.BadGateway, e.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message),
+    };
 }

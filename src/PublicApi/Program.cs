@@ -45,6 +45,16 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// PayPal: bind + fail-fast-validate credentials (host refuses to boot on a missing/blank value), then
+// register the SDK client and payment services.
+builder.Services.AddOptions<Microsoft.eShopWeb.ApplicationCore.Payments.PayPalSettings>()
+    .Bind(builder.Configuration.GetSection(Microsoft.eShopWeb.ApplicationCore.Payments.PayPalSettings.CONFIG_NAME))
+    .ValidateDataAnnotations()
+    .Validate(s => string.Equals(s.Environment, "sandbox", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be 'sandbox' — this build targets the PayPal sandbox only.")
+    .ValidateOnStart();
+Microsoft.eShopWeb.Infrastructure.PayPal.PayPalServiceCollectionExtensions.AddPayPalPayments(builder.Services, builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
