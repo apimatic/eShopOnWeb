@@ -23,6 +23,20 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// The payment / fulfilment lifecycle state. New orders await payment; no money has moved yet.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>
+    /// Advances the order to a new lifecycle state. Called by the payment orchestration as PayPal
+    /// operations succeed (authorize, capture, void, refund).
+    /// </summary>
+    public void SetStatus(OrderStatus status)
+    {
+        Status = status;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
