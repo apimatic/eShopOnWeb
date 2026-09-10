@@ -1,0 +1,11 @@
+title: Tax Configuration
+type: object
+properties:
+  kind:
+    $ref: "./Tax-Configuration-Kind.yaml"
+  destination_address:
+    $ref: "./Tax-Destination-Address.yaml"
+  fully_configured:
+    type: boolean
+    default: false
+    description: "Returns `true` when Chargify has been properly configured to charge tax using the specified tax system. More details about taxes: https://maxio.zendesk.com/hc/en-us/articles/24287012608909-Taxes-Overview"
