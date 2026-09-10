@@ -39,6 +39,20 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
+
+// ---- PayPal payments integration ----
+var payPalOptions = builder.Configuration
+    .GetSection(Microsoft.eShopWeb.Infrastructure.PayPal.PayPalOptions.SectionName)
+    .Get<Microsoft.eShopWeb.Infrastructure.PayPal.PayPalOptions>()
+    ?? new Microsoft.eShopWeb.Infrastructure.PayPal.PayPalOptions();
+builder.Services.AddSingleton(payPalOptions);
+builder.Services.AddSingleton(new Microsoft.eShopWeb.ApplicationCore.PaymentSettings
+{
+    CurrencyCode = payPalOptions.Currency
+});
+builder.Services.AddHttpClient<IPayPalGateway, Microsoft.eShopWeb.Infrastructure.PayPal.PayPalGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
