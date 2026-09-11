@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -14,6 +17,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -51,6 +56,9 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -84,6 +92,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map Maxio env vars to required config keys
+builder.Configuration["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? builder.Configuration["Maxio:ApiKey"];
+builder.Configuration["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? builder.Configuration["Maxio:Subdomain"];
+builder.Configuration["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? builder.Configuration["Maxio:ProductFamilyHandle"];
+builder.Configuration["Maxio:BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL") ?? builder.Configuration["Maxio:BaseUrl"];
+builder.Configuration["Maxio:Environment"] = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT") ?? builder.Configuration["Maxio:Environment"];
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -174,6 +189,27 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Subscription endpoints (direct minimal-api for identity access)
+app.MapGet("api/subscription-plans", async (IMaxioBillingService svc) =>
+{
+    var plans = await svc.GetSubscriptionPlansAsync();
+    return Results.Ok(new { plans = plans.Select(p => new { p.Handle, p.Name, p.PriceInCents, p.State }) });
+}).RequireAuthorization().WithTags("SubscriptionEndpoints");
+
+app.MapPost("api/subscriptions", async (SubscriptionCreateRequest body, IMaxioBillingService svc, ClaimsPrincipal user) =>
+{
+    var reference = user?.Identity?.Name ?? "anonymous";
+    var result = await svc.SubscribeAsync(reference, body.PlanHandle, reference + "@example.com", "User", "");
+    return Results.Ok(new { result.Id, result.State, result.PlanHandle, result.PriceInCents, result.NextBillingAt, result.CustomerReference });
+}).RequireAuthorization().WithTags("SubscriptionEndpoints");
+
+app.MapGet("api/my-subscriptions", async (IMaxioBillingService svc, ClaimsPrincipal user) =>
+{
+    var reference = user?.Identity?.Name ?? "anonymous";
+    var subs = await svc.GetMySubscriptionsAsync(reference);
+    return Results.Ok(new { subscriptions = subs.Select(s => new { s.Id, s.State, s.PlanHandle, s.PriceInCents, s.NextBillingAt, s.CustomerReference }) });
+}).RequireAuthorization().WithTags("SubscriptionEndpoints");
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
