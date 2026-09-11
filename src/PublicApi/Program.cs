@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -41,6 +45,17 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioBillingService, MaxioBillingService>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    var baseUrl = !string.IsNullOrWhiteSpace(settings.BaseUrl)
+        ? settings.BaseUrl.TrimEnd('/')
+        : $"https://{settings.Subdomain}.chargify.com";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
@@ -175,7 +190,31 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+// Subscription billing endpoints (parallel to existing cart/checkout)
+app.MapGet("api/subscription-plans", async (IMaxioBillingService svc) =>
+{
+    var plans = await svc.GetPlansAsync();
+    return Results.Ok(new { plans = plans.Select(p => new { p.Id, p.Handle, p.Name, p.PriceInCents, p.IntervalUnit }) });
+}).RequireAuthorization();
+
+app.MapPost("api/subscriptions", async (CreateSubscriptionRequest req, IMaxioBillingService svc, ClaimsPrincipal user) =>
+{
+    var userId = user.Identity?.Name ?? "anonymous";
+    var sub = await svc.SubscribeAsync(userId, req.PlanHandle ?? "eshop-pro");
+    if (sub == null) return Results.BadRequest(new { error = "Subscription creation failed" });
+    return Results.Created("/api/my-subscriptions", new { sub.Id, sub.State, sub.ProductHandle, sub.ProductName, sub.PriceInCents, sub.NextBillingAt, sub.CustomerId });
+}).RequireAuthorization();
+
+app.MapGet("api/my-subscriptions", async (IMaxioBillingService svc, ClaimsPrincipal user) =>
+{
+    var userId = user.Identity?.Name ?? "anonymous";
+    var subs = await svc.GetMySubscriptionsAsync(userId);
+    return Results.Ok(new { subscriptions = subs.Select(s => new { s.Id, s.State, s.ProductHandle, s.ProductName, s.PriceInCents, s.NextBillingAt, s.CustomerId }) });
+}).RequireAuthorization();
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
 public partial class Program { }
+
+public class CreateSubscriptionRequest { public string? PlanHandle { get; set; } }
