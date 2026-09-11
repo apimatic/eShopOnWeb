@@ -4,16 +4,21 @@ using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -37,6 +42,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
 
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
@@ -50,6 +62,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio billing integration
+var maxioSettings = new MaxioSettings
+{
+    ApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? "",
+    Subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "",
+    ProductFamilyHandle = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "",
+    BaseUrl = builder.Configuration["Maxio:BaseUrl"] ?? ""
+};
+builder.Services.Configure<MaxioSettings>(opts =>
+{
+    opts.ApiKey = maxioSettings.ApiKey;
+    opts.Subdomain = maxioSettings.Subdomain;
+    opts.ProductFamilyHandle = maxioSettings.ProductFamilyHandle;
+    opts.BaseUrl = maxioSettings.BaseUrl;
+});
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>(client =>
+{
+    MaxioApiClient.ConfigureHttpClient(client, maxioSettings);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +207,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapSubscriptionEndpoints(maxioSettings);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
