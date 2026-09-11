@@ -41,6 +41,8 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
+
+builder.Services.Configure<Microsoft.eShopWeb.ApplicationCore.Services.Maxio.MaxioSettings>(builder.Configuration.GetSection("Maxio"));
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
@@ -83,6 +85,28 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
+// Maxio Advanced Billing SDK registration
+builder.Services.AddSingleton<MaxioAdvancedBilling.MaxioAdvancedBillingClient>(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.ApplicationCore.Services.Maxio.MaxioSettings>>().Value;
+    var httpClient = new System.Net.Http.HttpClient();
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        httpClient.BaseAddress = new System.Uri(settings.BaseUrl.TrimEnd('/'));
+    }
+    var options = new MaxioAdvancedBilling.MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new MaxioAdvancedBilling.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        },
+        Environment = (settings.Environment ?? "Us").Equals("Eu", StringComparison.OrdinalIgnoreCase) ? MaxioAdvancedBilling.Servers.ServerEnvironment.Eu : MaxioAdvancedBilling.Servers.ServerEnvironment.Us
+    };
+    return new MaxioAdvancedBilling.MaxioAdvancedBillingClient(httpClient, options);
+});
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Services.Maxio.IMaxioSubscriptionService, Microsoft.eShopWeb.ApplicationCore.Services.Maxio.MaxioSubscriptionService>();
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
