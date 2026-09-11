@@ -1,10 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>   
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Microsoft.eShopWeb.Web</RootNamespace>
-    <UserSecretsId>aspnet-Web2-1FA3F72E-E7E3-4360-9E49-1CCCD7FE85F7</UserSecretsId>
+    <UserSecretsId>87c5b455-6546-4f36-a4d4-fcd91863ed06</UserSecretsId>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
@@ -84,3 +84,4 @@
     </Content>
   </ItemGroup>
 </Project>
+
