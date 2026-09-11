@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,36 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio subscription billing configuration
+// Map environment variables to MaxioSettings
+var maxioEnvApiKey = builder.Configuration["MAXIO_API_KEY"];
+var maxioEnvSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+var maxioEnvProductFamily = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+var maxioEnvBaseUrl = builder.Configuration["MAXIO_BASE_URL"];
+
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+
+// Override from environment variables if present
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+if (!string.IsNullOrEmpty(maxioEnvApiKey)) maxioSettings.ApiKey = maxioEnvApiKey;
+if (!string.IsNullOrEmpty(maxioEnvSubdomain)) maxioSettings.Subdomain = maxioEnvSubdomain;
+if (!string.IsNullOrEmpty(maxioEnvProductFamily)) maxioSettings.ProductFamilyHandle = maxioEnvProductFamily;
+if (!string.IsNullOrEmpty(maxioEnvBaseUrl)) maxioSettings.BaseUrl = maxioEnvBaseUrl;
+
+// Register MaxioSettings as singleton for direct injection into endpoints
+builder.Services.AddSingleton(maxioSettings);
+
+// Register Maxio HttpClient with Basic Auth
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>(client =>
+{
+    client.BaseAddress = new Uri(maxioSettings.ResolvedBaseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{maxioSettings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +206,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapSubscriptionEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
