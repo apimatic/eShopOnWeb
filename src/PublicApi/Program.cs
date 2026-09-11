@@ -20,6 +20,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.eShopWeb.PublicApi.Maxio;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+using Microsoft.eShopWeb.PublicApi.SubscriptionPlanEndpoints;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -50,6 +53,12 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio billing integration
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.ConfigName));
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+builder.Services.AddScoped<IMaxioSubscriptionPlanService, SubscriptionPlanService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>

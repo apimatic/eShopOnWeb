@@ -32,6 +32,11 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        // Log the full exception to a file for debugging
+        var logPath = @"D:\claude-runs\t1ocnameer-maxio-docs-mcp-oc-openrouterxiaomimimov25high-003\repo\api-error.log";
+        var logEntry = $"[{DateTime.UtcNow:O}] {exception.GetType().Name}: {exception.Message}\n{exception.StackTrace}\n\n";
+        try { System.IO.File.AppendAllText(logPath, logEntry); } catch { }
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
