@@ -83,6 +83,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
+builder.Services.AddHttpClient("Maxio", c => { c.Timeout = TimeSpan.FromSeconds(30); });
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Services.IMaxioService, Microsoft.eShopWeb.PublicApi.Services.MaxioService>();
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
