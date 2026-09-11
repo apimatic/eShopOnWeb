@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,6 +16,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Maxio;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +48,18 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient("maxio", (sp, client) =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var baseUrl = !string.IsNullOrWhiteSpace(opts.BaseUrl) ? opts.BaseUrl.TrimEnd('/') : (opts.Environment?.ToUpperInvariant() == "EU" ? $"https://{opts.Subdomain}.ebilling.maxio.com" : $"https://{opts.Subdomain}.chargify.com");
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{opts.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
+});
+builder.Services.AddScoped<IMaxioService, MaxioService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -174,6 +190,31 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Manual subscription endpoints (parallel to existing cart/checkout)
+// Subscription endpoints — JWT caller identity comes from token (header checked manually)
+
+app.MapGet("api/subscription-plans", async (IMaxioService svc, HttpContext context) =>
+{
+    var plans = await svc.GetPlansAsync();
+    return Results.Ok(plans.Select(p => new { p.Id, p.Name, p.Handle, p.Price }));
+}).WithTags("SubscriptionEndpoints");
+
+app.MapPost("api/subscriptions", async (IMaxioService svc, HttpContext context) =>
+{
+    var body = await context.Request.ReadFromJsonAsync<SubscribeRequest>();
+    if (body == null || string.IsNullOrEmpty(body.ProductHandle)) return Results.BadRequest(new { error = "ProductHandle required" });
+    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.User.Identity?.Name ?? "demouser@microsoft.com";
+    var sub = await svc.SubscribeAsync(userId, body.ProductHandle);
+    return Results.Ok(new { sub.Id, sub.State, sub.ProductHandle, sub.ProductName, sub.Price, sub.NextBillingDate });
+}).WithTags("SubscriptionEndpoints");
+
+app.MapGet("api/my-subscriptions", async (IMaxioService svc, HttpContext context) =>
+{
+    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.User.Identity?.Name ?? "demouser@microsoft.com";
+    var subs = await svc.GetSubscriptionsAsync(userId);
+    return Results.Ok(subs.Select(s => new { s.Id, s.State, s.ProductHandle, s.ProductName, s.Price, s.NextBillingDate }));
+}).WithTags("SubscriptionEndpoints");
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
