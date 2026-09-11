@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,12 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddSingleton<SubscriptionService>();
+builder.Services.AddScoped<SubscriptionPlanListEndpoint>();
+builder.Services.AddScoped<SubscriptionCreateEndpoint>();
+builder.Services.AddScoped<SubscriptionMyListEndpoint>();
 
 builder.Services.AddMemoryCache();
 
@@ -174,6 +181,17 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Manual subscription endpoint registrations (do not implement IEndpoint interface)
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+{
+    var planEndpoint = app.Services.GetRequiredService<SubscriptionPlanListEndpoint>();
+    planEndpoint.AddRoute(app);
+    var createEndpoint = app.Services.GetRequiredService<SubscriptionCreateEndpoint>();
+    createEndpoint.AddRoute(app);
+    var myEndpoint = app.Services.GetRequiredService<SubscriptionMyListEndpoint>();
+    myEndpoint.AddRoute(app);
+}
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
