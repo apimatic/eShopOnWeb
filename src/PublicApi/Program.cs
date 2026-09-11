@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +56,45 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio Advanced Billing configuration
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetRequiredSection(MaxioSettings.CONFIG_NAME));
+var maxioSettings = builder.Configuration.GetRequiredSection(MaxioSettings.CONFIG_NAME).Get<MaxioSettings>() ?? new MaxioSettings();
+
+// Register Maxio SDK client as singleton (long-lived, shared HttpClient)
+var maxioHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+var maxioClientOptions = new MaxioAdvancedBillingClientOptions
+{
+    Environment = ServerEnvironment.Default(),
+    Retry = RetryOptions.Default() with
+    {
+        MaxRetries = 2,
+        Timeout = TimeSpan.FromSeconds(10)
+    }
+};
+
+// Configure auth: Username = API key, Password = "x"
+maxioClientOptions.BasicAuth = new BasicAuthCredentials
+{
+    Username = maxioSettings.ApiKey,
+    Password = "x"
+};
+
+// Configure server: set site subdomain and optional base URL override
+if (!string.IsNullOrEmpty(maxioSettings.Subdomain))
+{
+    maxioClientOptions.Server.Production.Us.Site = maxioSettings.Subdomain;
+}
+
+if (!string.IsNullOrEmpty(maxioSettings.BaseUrl))
+{
+    maxioClientOptions.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+}
+
+var maxioClient = new MaxioAdvancedBillingClient(maxioHttpClient, maxioClientOptions);
+builder.Services.AddSingleton(maxioClient);
+builder.Services.AddScoped<IMaxioService, MaxioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
