@@ -1,0 +1,11 @@
+using System;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public class SubscribeResponse : BaseResponse
+{
+    public SubscribeResponse() { }
+    public SubscribeResponse(Guid correlationId) : base(correlationId) { }
+
+    public SubscriptionDto? Subscription { get; set; }
+}
