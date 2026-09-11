@@ -41,6 +41,8 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MaxioSubscriptionService>();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
