@@ -1,0 +1,13 @@
+title: Refund Prepayment Request
+type: object
+properties:
+  refund:
+    $ref: "./Refund-Prepayment.yaml"
+required:
+  - refund
+x-examples:
+  example-1:
+    refund:
+      amount_in_cents: 100
+      memo: my memo
+      external: true
