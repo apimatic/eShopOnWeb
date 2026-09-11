@@ -183,7 +183,6 @@ app.MapControllers();
 app.MapEndpoints();
 
 // Manual subscription endpoint registrations (do not implement IEndpoint interface)
-using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 {
     var planEndpoint = app.Services.GetRequiredService<SubscriptionPlanListEndpoint>();
     planEndpoint.AddRoute(app);
