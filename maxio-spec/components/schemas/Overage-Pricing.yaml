@@ -1,0 +1,11 @@
+title: Overage Pricing
+type: object
+properties:
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Price.yaml"
+required:
+  - pricing_scheme
