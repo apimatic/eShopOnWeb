@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,9 +16,11 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -42,6 +46,9 @@ builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
+
+builder.Services.AddOptions<MaxioSettings>().Bind(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>();
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
@@ -174,6 +181,15 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+app.MapGet("/api/subscription-plans", async (IMaxioBillingClient client, IOptions<MaxioSettings> opts) => await SubscriptionEndpoints.ListPlans(client, opts.Value))
+   .RequireAuthorization();
+
+app.MapPost("/api/subscriptions", async (IMaxioBillingClient client, IOptions<MaxioSettings> opts, ClaimsPrincipal user, HttpContext ctx) => await SubscriptionEndpoints.CreateSubscription(client, opts.Value, user, ctx.Request))
+   .RequireAuthorization();
+
+app.MapGet("/api/my-subscriptions", async (IMaxioBillingClient client, IOptions<MaxioSettings> opts, ClaimsPrincipal user) => await SubscriptionEndpoints.ListMySubscriptions(client, opts.Value, user))
+   .RequireAuthorization();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
