@@ -1,0 +1,8 @@
+title: Allocation Preview Line Item Kind
+type: string
+description: A handle for the line item kind for allocation preview
+enum:
+  - quantity_based_component
+  - on_off_component
+  - coupon
+  - tax

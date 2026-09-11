@@ -1,0 +1,29 @@
+title: Custom Field Value Change
+type: object
+properties:
+  event_type:
+    type: string
+  metafield_name:
+    type: string
+  metafield_id:
+    type: integer
+  old_value:
+    type:
+      - string
+      - "null"
+  new_value:
+    type:
+      - string
+      - "null"
+  resource_type:
+    type: string
+  resource_id:
+    type: integer
+required:
+  - event_type
+  - metafield_name
+  - metafield_id
+  - old_value
+  - new_value
+  - resource_type
+  - resource_id

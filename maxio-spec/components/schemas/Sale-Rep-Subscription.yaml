@@ -1,0 +1,25 @@
+title: Sale Rep Subscription
+type: object
+properties:
+  id:
+    type: integer
+  site_name:
+    type: string
+  subscription_url:
+    type: string
+  customer_name:
+    type: string
+  created_at:
+    type: string
+  mrr:
+    type: string
+  usage:
+    type: string
+  recurring:
+    type: string
+  last_payment:
+    type: string
+  churn_date:
+    type:
+      - string
+      - "null"
