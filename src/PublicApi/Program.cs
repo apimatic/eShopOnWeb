@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -42,6 +46,10 @@ builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
+builder.Services.AddScoped<IMaxioService, MaxioService>();
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
@@ -50,6 +58,7 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -175,7 +184,75 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+// Manual subscription endpoints (parallel to endpoint classes)
+app.MapGet("api/subscription-plans", async (IMaxioService maxio) =>
+{
+    var response = new { plans = new List<object>() };
+    var handles = new[] { "eshop-pro", "basic-plan" };
+    foreach (var h in handles)
+    {
+        var prod = await maxio.GetProductByHandleAsync(h);
+        if (prod?.Product != null)
+        {
+            var price = prod.Product.PricePoints?.FirstOrDefault();
+            var priceStr = price != null ? $"${price.PriceInCents / 100m:F2}/{price.IntervalUnit?.ToLower() ?? "mo"}" : "—";
+            response.plans.Add(new { handle = prod.Product.Handle, name = prod.Product.Name, price = priceStr, familyHandle = prod.Product.ProductFamily?.Handle });
+        }
+    }
+    return Results.Ok(response);
+});//.RequireAuthorization();
+
+app.MapPost("api/subscriptions", async (HttpContext ctx, IMaxioService maxio) =>
+{
+    var req = await ctx.Request.ReadFromJsonAsync<SubscribeRequest>();
+    if (req == null || string.IsNullOrWhiteSpace(req.PlanHandle)) return Results.BadRequest(new { error = "planHandle required" });
+    var user = ctx.User;
+    var userId = user.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier) ?? "unknown";
+    var email = user.FindFirstValue(System.Security.Claims.ClaimTypes.Email) ?? user.Identity?.Name ?? "user@eshop.local";
+    var firstName = user.FindFirstValue(System.Security.Claims.ClaimTypes.GivenName) ?? "Customer";
+    var lastName = user.FindFirstValue(System.Security.Claims.ClaimTypes.Surname) ?? "User";
+    var customerRef = userId;
+    var customer = await maxio.GetCustomerByReferenceAsync(customerRef);
+    if (customer?.Customer == null)
+    {
+        var c = await maxio.CreateCustomerAsync(firstName, lastName, email, customerRef);
+    }
+    var subRef = $"sub-{userId}-{req.PlanHandle}";
+    var existingSub = await maxio.GetSubscriptionByReferenceAsync(subRef);
+    if (existingSub?.Subscription != null)
+    {
+        return Results.Ok(new { subscriptionId = existingSub.Subscription.Id, state = existingSub.Subscription.State, planHandle = existingSub.Subscription.ProductHandle, nextBillingAt = existingSub.Subscription.NextBillingAt, reference = existingSub.Subscription.Reference, created = false });
+    }
+    var createdSub = await maxio.CreateSubscriptionAsync(req.PlanHandle, customerRef, subRef);
+    if (createdSub?.Subscription != null)
+    {
+        return Results.Ok(new { subscriptionId = createdSub.Subscription.Id, state = createdSub.Subscription.State, planHandle = createdSub.Subscription.ProductHandle, nextBillingAt = createdSub.Subscription.NextBillingAt, reference = createdSub.Subscription.Reference, created = true });
+    }
+    return Results.Ok(new { state = "failed" });
+});
+
+app.MapGet("api/my-subscriptions", async (HttpContext ctx, IMaxioService maxio) =>
+{
+    var userId = ctx.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier) ?? "unknown";
+    var customer = await maxio.GetCustomerByReferenceAsync(userId);
+    var list = new List<object>();
+    if (customer?.Customer != null)
+    {
+        var subs = await maxio.ListCustomerSubscriptionsAsync(customer.Customer.Id);
+        if (subs != null)
+        {
+            foreach (var s in subs)
+            {
+                if (s?.Subscription != null)
+                    list.Add(new { id = s.Subscription.Id, state = s.Subscription.State, planHandle = s.Subscription.ProductHandle, nextBillingAt = s.Subscription.NextBillingAt, reference = s.Subscription.Reference });
+            }
+        }
+    }
+    return Results.Ok(new { subscriptions = list });
+});
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
+public class SubscribeRequest { public string PlanHandle { get; set; } = string.Empty; }
 public partial class Program { }
