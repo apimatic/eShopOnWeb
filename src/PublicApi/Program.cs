@@ -85,6 +85,17 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Map Maxio env vars into Maxio: config section (secrets already loaded via user-secrets)
+var envApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var envSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var envFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+var envEnv = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+if (!string.IsNullOrEmpty(envApiKey)) builder.Configuration["Maxio:ApiKey"] = envApiKey;
+if (!string.IsNullOrEmpty(envSubdomain)) builder.Configuration["Maxio:Subdomain"] = envSubdomain;
+if (!string.IsNullOrEmpty(envFamily)) builder.Configuration["Maxio:ProductFamilyHandle"] = envFamily;
+
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Services.MaxioSubscriptionService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
