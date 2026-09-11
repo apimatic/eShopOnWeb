@@ -22,6 +22,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +85,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map Maxio environment variables to configuration section
+builder.Configuration["Maxio:ApiKey"] ??= Environment.GetEnvironmentVariable("MAXIO_API_KEY") ?? "";
+builder.Configuration["Maxio:Subdomain"] ??= Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN") ?? "";
+builder.Configuration["Maxio:ProductFamilyHandle"] ??= Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY") ?? "";
+builder.Configuration["Maxio:BaseUrl"] ??= Environment.GetEnvironmentVariable("MAXIO_BASE_URL") ?? "";
+builder.Configuration["Maxio:Environment"] ??= Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT") ?? "US";
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
