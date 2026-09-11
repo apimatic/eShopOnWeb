@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +15,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +48,32 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioOptions.ApiKey,
+        Password = "x"
+    };
+    options.Environment = ServerEnvironment.Us;
+
+    if (!string.IsNullOrEmpty(maxioOptions.Subdomain))
+    {
+        options.Server.Production.Us.Site = maxioOptions.Subdomain;
+    }
+
+    if (!string.IsNullOrEmpty(maxioOptions.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+});
+
+builder.Services.AddScoped<ISubscriptionPlanService, MaxioSubscriptionPlanService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
