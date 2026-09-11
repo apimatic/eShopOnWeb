@@ -1,0 +1,38 @@
+title: Create Prepaid Usage Component Price Point
+type: object
+properties:
+  name:
+    type: string
+  handle:
+    type: string
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Price.yaml"
+  overage_pricing:
+    $ref: "./Overage-Pricing.yaml"
+  use_site_exchange_rate:
+    type: boolean
+    default: true
+    description: Whether to use the site level exchange rate or define your own prices for each currency if you have multiple currencies defined on the site.
+  rollover_prepaid_remainder:
+    type: boolean
+    description: (only for prepaid usage components) Boolean which controls whether or not remaining units should be rolled over to the next period
+  renew_prepaid_allocation:
+    type: boolean
+    description: (only for prepaid usage components) Boolean which controls whether or not the allocated quantity should be renewed at the beginning of each period
+  expiration_interval:
+    type: number
+    description: (only for prepaid usage components where rollover_prepaid_remainder is true) The number of `expiration_interval_unit`s after which rollover amounts should expire
+  expiration_interval_unit:
+    oneOf:
+      - $ref: "./Expiration-Interval-Unit.yaml"
+      - type: "null"
+    description: "(only for prepaid usage components where rollover_prepaid_remainder is true) A string representing the expiration interval unit for this component, either month or day"
+required:
+  - name
+  - pricing_scheme
+  - prices
+  - overage_pricing
