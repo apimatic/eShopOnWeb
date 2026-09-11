@@ -23,6 +23,17 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Payment / fulfilment lifecycle state. New orders start awaiting payment. This is additive
+    /// to the original model; the classic catalog/basket/order flow never sets it past the default.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void SetPaymentAuthorized() => Status = OrderStatus.PaymentAuthorized;
+    public void SetFulfilled() => Status = OrderStatus.Fulfilled;
+    public void SetCancelled() => Status = OrderStatus.Cancelled;
+    public void SetRefunded(bool partial) => Status = partial ? OrderStatus.PartiallyRefunded : OrderStatus.Refunded;
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
