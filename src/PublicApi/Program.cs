@@ -82,7 +82,11 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Interfaces.IMaxioBillingService, Microsoft.eShopWeb.ApplicationCore.Services.MaxioBillingService>();
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
