@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,6 +23,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +54,33 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var apiKey = config["Maxio:ApiKey"] ?? "";
+    var subdomain = config["Maxio:Subdomain"] ?? "cp-exp-1";
+    var env = config["Maxio:Environment"] ?? "US";
+    var baseUrl = config["Maxio:BaseUrl"];
+    var httpClient = new HttpClient();
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new MaxioAdvancedBilling.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = apiKey,
+            Password = "x"
+        },
+        Environment = env.Equals("EU", System.StringComparison.OrdinalIgnoreCase) ? MaxioAdvancedBilling.Servers.ServerEnvironment.Eu : MaxioAdvancedBilling.Servers.ServerEnvironment.Us,
+    };
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        options.Server = new MaxioAdvancedBilling.ServerOptions();
+    }
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
