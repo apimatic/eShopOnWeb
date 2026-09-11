@@ -1,0 +1,19 @@
+title: Invoice Payer
+type: object
+properties:
+  chargify_id:
+    type: integer
+  first_name:
+    type: string
+  last_name:
+    type: string
+  organization:
+    type:
+      - "null"
+      - string
+  email:
+    type: string
+  vat_number:
+    type:
+      - string
+      - "null"
