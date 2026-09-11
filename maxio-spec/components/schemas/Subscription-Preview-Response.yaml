@@ -1,0 +1,7 @@
+title: Subscription Preview Response
+type: object
+properties:
+  subscription_preview:
+    $ref: "./Subscription-Preview.yaml"
+required:
+  - subscription_preview

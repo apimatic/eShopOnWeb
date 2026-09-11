@@ -1,0 +1,6 @@
+title: Reactivation Billing
+type: object
+description: These values are only applicable to subscriptions using calendar billing
+properties:
+  reactivation_charge:
+    $ref: "./Reactivation-Charge.yaml"

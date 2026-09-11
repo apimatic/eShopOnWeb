@@ -1,0 +1,10 @@
+name: per_page
+in: query
+description: |-
+  This parameter indicates how many records to fetch in each request. Default value is 50. The maximum allowed values is 200; any per_page value over 200 will be changed to 200.
+  Use in query `per_page=200`.
+schema:
+  type: integer
+  default: 50
+  maximum: 200
+  example: 30
