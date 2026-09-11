@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,15 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.ConfigSectionName);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.Configure<MaxioSettings>(maxioSection);
+builder.Services.AddHttpClient<IMaxioService, MaxioService>(client =>
+{
+    MaxioService.ConfigureHttpClient(client, maxioSettings);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -173,6 +184,11 @@ app.UseSwaggerUI(c =>
 });
 
 app.MapControllers();
+
+SubscriptionPlanListEndpoint.MapRoute(app);
+SubscriptionCreateEndpoint.MapRoute(app);
+SubscriptionListEndpoint.MapRoute(app);
+
 app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
