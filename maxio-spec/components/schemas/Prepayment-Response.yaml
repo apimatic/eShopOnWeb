@@ -1,0 +1,19 @@
+title: Prepayment Response
+type: object
+x-examples:
+  example-1:
+    prepayment:
+      id: 353
+      subscription_id: 24
+      amount_in_cents: 1500
+      remaining_amount_in_cents: 1050
+      details: null
+      external: false
+      memo: sdf - Prepayment
+      payment_type: null
+      created_at: "2022-02-22T14:07:00-05:00"
+properties:
+  prepayment:
+    $ref: ./Prepayment.yaml
+required:
+  - prepayment

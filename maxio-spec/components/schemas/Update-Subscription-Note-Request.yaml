@@ -1,0 +1,8 @@
+title: Update Subscription Note Request
+description: Updatable fields for Subscription Note
+type: object
+properties:
+  note:
+    $ref: "./Update-Subscription-Note.yaml"
+required:
+  - note
