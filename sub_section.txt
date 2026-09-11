@@ -1,0 +1,400 @@
+1701: 
+1702:         - Add metadata values to the existing metadata for a dropdown or radio metafield. 
+1703:           >Note: Updates to metadata overwrite. To add one or more values, you must specify all metadata values including the new value you want to add.
+1704: 
+1705:         - Add new metadata to a dropdown or radio for a metafield that was created without metadata.
+1706: 
+1707:         - Remove  metadata for a dropdown or radio for a metafield.  
+1708:           >Note: Updates to metadata overwrite existing values. To remove one or more values, specify all metadata values except those you want to remove.
+1709: 
+1710:         - Add or update scope settings for a metafield.
+1711:           >Note: Scope changes overwrite existing settings. You must specify the complete scope, including the changes you want to make.
+1712:       requestBody:
+1713:         content:
+1714:           application/json:
+1715:             schema:
+1716:               $ref: "./components/schemas/Update-Metafields-Request.yaml"
+1717:     delete:
+1718:       tags:
+1719:         - Custom Fields
+1720:       summary: Delete Metafield
+1721:       operationId: deleteMetafield
+1722:       responses:
+1723:         "200":
+1724:           description: OK
+1725:         "404":
+1726:           description: Not Found
+1727:       x-operation-settings:
+1728:         ErrorTemplates:
+1729:           "404": "Not Found:'{$response.body}'"
+1730:       description: |-
+1731:         Deletes a metafield from your Site. Removes the metafield and associated metadata from all Subscriptions or Customers resources on the Site.
+1732:       parameters:
+1733:         - schema:
+1734:             type: string
+1735:           in: query
+1736:           name: name
+1737:           description: The name of the metafield to be deleted
+1738:   "/{resource_type}/{resource_id}/metadata.json":
+1739:     parameters:
+1740:       - $ref: "./components/parameters/resource-type.yaml"
+1741:       - schema:
+1742:           type: integer
+1743:         name: resource_id
+1744:         in: path
+1745:         required: true
+1746:         description: The Advanced Billing id of the customer or the subscription for which the metadata applies
+1747:     post:
+1748:       summary: Create Metadata
+1749:       tags:
+1750:         - Custom Fields
+1751:       operationId: createMetadata
+1752:       description: |-
+1753:         Creates metadata and metafields for a specific subscription or customer, or updates metadata values of existing metafields for a subscription or customer. Metadata values are limited to 2 KB in size.
+1754: 
+1755:         If you create metadata on a subscription or customer with a metafield that does not already exist, the metafield is created with the metadata you specify and it is always added as a text field. You can update the input_type for the metafield with the [Update Metafield]($e/Custom%20Fields/updateMetafield) endpoint. 
+1756: 
+1757:         >Note: Each site is limited to 100 unique metafields per resource. This means you can have 100 metafields for Subscriptions and another 100 for Customers.
+1758:       requestBody:
+1759:         content:
+1760:           application/json:
+1761:             schema:
+1762:               $ref: "./components/schemas/Create-Metadata-Request.yaml"
+1763:             examples:
+1764:               Example:
+1765:                 value:
+1766:                   metadata:
+1767:                     - name: Color
+1768:                       value: Blue
+1769:                     - name: Something
+1770:                       value: Useful
+1771:       responses:
+1772:         "200":
+1773:           description: OK
+1774:           content:
+1775:             application/json:
+1776:               schema:
+1777:                 type: array
+1778:                 items:
+1779:                   $ref: "./components/schemas/Metadata.yaml"
+1780:         "422":
+1781:           description: Unprocessable Entity (WebDAV)
+1782:           content:
+1783:             application/json:
+1784:               schema:
+1785:                 $ref: "./components/schemas/errors/Single-Error-Response.yaml"
+1786:               examples:
+1787:                 Example:
+1788:                   value:
+1789:                     error: "'name' must be present to create or update metafields"
+1790:       x-operation-settings:
+1791:         ErrorTemplates:
+1792:           "422": "HTTP Response Not OK. Status code: {$statusCode}. Response: '{$response.body}'."
+1793:     get:
+1794:       summary: List Metadata
+1795:       tags:
+1796:         - Custom Fields
+1797:       responses:
+1798:         "200":
+1799:           description: OK
+1800:           content:
+1801:             application/json:
+1802:               schema:
+1803:                 $ref: "./components/schemas/Paginated-Metadata.yaml"
+1804:               examples:
+1805:                 Example:
+1806:                   value:
+1807:                     total_count: 1
+1808:                     current_page: 1
+1809:                     total_pages: 1
+1810:                     per_page: 50
+1811:                     metadata:
+1812:                       - id: 77889911
+1813:                         value: green
+1814:                         resource_id: 1234567
+1815:                         metafield_id: 112233
+1816:                         deleted_at: null
+1817:                         name: Color
+1818:       operationId: listMetadata
+1819:       description: |-
+1820:         Lists metadata and metafields for a specific customer or subscription.
+1821:       x-operation-settings:
+1822:         collectParameters: true
+1823:       parameters:
+1824:         - $ref: "./components/parameters/page.yaml"
+1825:         - $ref: "./components/parameters/per-page.yaml"
+1826:     put:
+1827:       summary: Update Metadata
+1828:       tags:
+1829:         - Custom Fields
+1830:       responses:
+1831:         "200":
+1832:           description: OK
+1833:           content:
+1834:             application/json:
+1835:               schema:
+1836:                 type: array
+1837:                 items:
+1838:                   $ref: "./components/schemas/Metadata.yaml"
+1839:         "422":
+1840:           description: Unprocessable Entity (WebDAV)
+1841:           content:
+1842:             application/json:
+1843:               schema:
+1844:                 $ref: "./components/schemas/errors/Single-Error-Response.yaml"
+1845:               examples:
+1846:                 Example:
+1847:                   value:
+1848:                     error: "'name' must be present to create or update metafields"
+1849:       x-operation-settings:
+1850:         ErrorTemplates:
+1851:           "422": "HTTP Response Not OK. Status code: {$statusCode}. Response: '{$response.body}'."
+1852:       operationId: updateMetadata
+1853:       description: |-
+1854:         Updates metadata and metafields on the Site and the customer or subscription specified, and updates the metadata value on a subscription or customer.
+1855: 
+1856:         If you update metadata on a subscription or customer with a metafield that does not already exist, the metafield is created with the metadata you specify and it is always added as a text field to the Site and to the subscription or customer you specify. You can update the input_type for the metafield with the Update Metafield endpoint. 
+1857: 
+1858:         Each site is limited to 100 unique metafields per resource. This means you can have 100 metafields for Subscription and another 100 for Customer.
+1859:       requestBody:
+1860:         content:
+1861:           application/json:
+1862:             schema:
+1863:               $ref: "./components/schemas/Update-Metadata-Request.yaml"
+1864:     delete:
+1865:       summary: Delete Metadata
+1866:       tags:
+1867:         - Custom Fields
+1868:       responses:
+1869:         "200":
+1870:           description: OK
+1871:         "404":
+1872:           description: Not Found
+1873:       x-operation-settings:
+1874:         ErrorTemplates:
+1875:           "404": "Not Found:'{$response.body}'"
+1876:       operationId: deleteMetadata
+1877:       description: |-
+1878:         Deletes one or more metafields (and associated metadata) from the specified subscription or customer.
+1879:       parameters:
+1880:         - schema:
+1881:             type: string
+1882:           in: query
+1883:           name: name
+1884:           description: Name of field to be removed.
+1885:         - schema:
+1886:             type: array
+1887:             items:
+1888:               type: string
+1889:           in: query
+1890:           description: "Names of fields to be removed. Use in query: `names[]=field1&names[]=my-field&names[]=another-field`."
+1891:           name: "names"
+1892:           style: form
+1893:           explode: true
+1894:   "/{resource_type}/metadata.json":
+1895:     parameters:
+1896:       - $ref: "./components/parameters/resource-type.yaml"
+1897:     get:
+1898:       summary: List Metadata for Resource Type
+1899:       tags:
+1900:         - Custom Fields
+1901:       responses:
+1902:         "200":
+1903:           description: OK
+1904:           content:
+1905:             application/json:
+1906:               schema:
+1907:                 $ref: "./components/schemas/Paginated-Metadata.yaml"
+1908:       operationId: listMetadataForResourceType
+1909:       description: |-
+1910:         Lists  metadata for a specified array of subscriptions or customers.
+1911:       parameters:
+1912:         - $ref: "./components/parameters/page.yaml"
+1913:         - $ref: "./components/parameters/per-page.yaml"
+1914:         - schema:
+1915:             $ref: "./components/schemas/Basic-Date-Field.yaml"
+1916:           in: query
+1917:           name: date_field
+1918:           description: The type of filter you would like to apply to your search.
+1919:         - schema:
+1920:             type: string
+1921:             format: date
+1922:           in: query
+1923:           name: start_date
+1924:           description: "The start date (format YYYY-MM-DD) with which to filter the date_field. Returns metadata with a timestamp at or after midnight (12:00:00 AM) in your site’s time zone on the date specified."
+1925:         - schema:
+1926:             type: string
+1927:             format: date
+1928:           in: query
+1929:           name: end_date
+1930:           description: "The end date (format YYYY-MM-DD) with which to filter the date_field. Returns metadata with a timestamp up to and including 11:59:59PM in your site’s time zone on the date specified."
+1931:         - schema:
+1932:             type: string
+1933:             format: date-time
+1934:           in: query
+1935:           name: start_datetime
+1936:           description: "The start date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns metadata with a timestamp at or after exact time provided in query. You can specify timezone in query - otherwise your site's time zone will be used. If provided, this parameter will be used instead of start_date."
+1937:         - schema:
+1938:             type: string
+1939:             format: date-time
+1940:           in: query
+1941:           name: end_datetime
+1942:           description: "The end date and time (format YYYY-MM-DD HH:MM:SS) with which to filter the date_field. Returns metadata with a timestamp at or before exact time provided in query. You can specify timezone in query - otherwise your site's time zone will be used. If provided, this parameter will be used instead of end_date."
+1943:         - schema:
+1944:             type: boolean
+1945:           in: query
+1946:           name: with_deleted
+1947:           description: "Allow to fetch deleted metadata."
+1948:         - schema:
+1949:             type: array
+1950:             items:
+1951:               type: integer
+1952:             maxItems: 50
+1953:           in: query
+1954:           name: "resource_ids"
+1955:           style: form
+1956:           explode: true
+1957:           description: "Allow to fetch metadata for multiple records based on provided ids. Use in query: `resource_ids[]=122&resource_ids[]=123&resource_ids[]=124`."
+1958:         - $ref: "./components/parameters/sort-direction.yaml"
+1959:       x-operation-settings:
+1960:         collectParameters: true
+1961:   "/product_families/{product_family_id}/coupons.json":
+1962:     parameters:
+1963:       - schema:
+1964:           type: integer
+1965:         name: product_family_id
+1966:         in: path
+1967:         required: true
+1968:         description: The Advanced Billing id of the product family to which the coupon belongs
+1969:     post:
+1970:       summary: Create Coupon
+1971:       tags:
+1972:         - Coupons
+1973:       responses:
+1974:         "201":
+1975:           description: Created
+1976:           content:
+1977:             application/json:
+1978:               schema:
+1979:                 $ref: "./components/schemas/Coupon-Response.yaml"
+1980:         "422":
+1981:           description: Unprocessable Entity (WebDAV)
+1982:           content:
+1983:             application/json:
+1984:               schema:
+1985:                 $ref: "./components/schemas/errors/Error-List-Response.yaml"
+1986:               examples:
+1987:                 Example:
+1988:                   value:
+1989:                     errors:
+1990:                       - Expiration Date cannot be in the past
+1991:       x-operation-settings:
+1992:         ErrorTemplates:
+1993:           "422": "HTTP Response Not OK. Status code: {$statusCode}. Response: '{$response.body}'."
+1994:       operationId: createCoupon
+1995:       description: |-
+1996:         ## Coupons Documentation
+1997: 
+1998:         Coupons can be administered in the Advanced Billing application or created via API. View our section on [creating coupons](https://maxio.zendesk.com/hc/en-us/articles/24261212433165-Creating-Editing-Deleting-Coupons) for more information.
+1999: 
+2000:         Additionally, for documentation on how to apply a coupon to a subscription within the Advanced Billing UI, see our documentation [here](https://maxio.zendesk.com/hc/en-us/articles/24261259337101-Coupons-and-Subscriptions).
+2001: 
+2002:         ## Create Coupon
+2003: 
+2004:         This request will create a coupon, based on the provided information.
+2005: 
+2006:         You can create either a flat amount coupon, by specyfing `amount_in_cents`, or percentage coupon by specyfing `percentage`.
+2007: 
+2008:         You can restrict a coupon to only apply to specific products / components by optionally passing in `restricted_products` and/or `restricted_components` objects in the format:
+2009:         `{ "<product_id/component_id>": boolean_value }`
+2010:       requestBody:
+2011:         content:
+2012:           application/json:
+2013:             schema:
+2014:               $ref: "./components/schemas/Coupon-Request.yaml"
+2015:             examples:
+2016:               Percentage Coupon Example:
+2017:                 value:
+2018:                   coupon:
+2019:                     name: "15% off"
+2020:                     code: "15OFF"
+2021:                     description: "15% off for life"
+2022:                     percentage: 15
+2023:                     allow_negative_balance: false
+2024:                     recurring: false
+2025:                     end_date: "2012-08-29"
+2026:                     product_family_id: "2"
+2027:                     stackable: true
+2028:                     compounding_strategy: compound
+2029:                     exclude_mid_period_allocations: true
+2030:                     apply_on_cancel_at_end_of_period: true
+2031:                   restricted_products:
+2032:                     "1": true
+2033:                   restricted_components:
+2034:                     "1": true
+2035:                     "2": false
+2036:               Flat Amount Coupon Example:
+2037:                 value:
+2038:                   coupon:
+2039:                     name: "$10 off"
+2040:                     code: "10OFF"
+2041:                     description: "$10 off for life"
+2042:                     amount_in_cents: 1000
+2043:                     allow_negative_balance: false
+2044:                     recurring: false
+2045:                     end_date: "2012-08-29"
+2046:                     product_family_id: "2"
+2047:                     stackable: true
+2048:                     compounding_strategy: compound
+2049:                     exclude_mid_period_allocations: true
+2050:                     apply_on_cancel_at_end_of_period: true
+2051:                   restricted_products:
+2052:                     "1": true
+2053:                   restricted_components:
+2054:                     "1": true
+2055:                     "2": false
+2056:         description: ""
+2057:     get:
+2058:       summary: List Coupons for Product Family
+2059:       tags:
+2060:         - Coupons
+2061:       responses:
+2062:         "200":
+2063:           description: OK
+2064:           content:
+2065:             application/json:
+2066:               schema:
+2067:                 type: array
+2068:                 items:
+2069:                   $ref: "./components/schemas/Coupon-Response.yaml"
+2070:               examples:
+2071:                 example:
+2072:                   value:
+2073:                     - coupon:
+2074:                         id: 999999
+2075:                         name: "50% coupon"
+2076:                         code: "50PERCENT"
+2077:                         description: "50 PERCENT OFF"
+2078:                         amount_in_cents: null
+2079:                         product_family_id: 527890
+2080:                         created_at: "2016-10-21T17:02:08-04:00"
+2081:                         updated_at: "2016-10-21T17:06:11-04:00"
+2082:                         start_date: "2016-10-21T17:02:08-04:00"
+2083:                         end_date: null
+2084:                         percentage: "50"
+2085:                         recurring: true
+2086:                         duration_period_count: null
+2087:                         duration_interval: 1
+2088:                         duration_interval_unit: "day"
+2089:                         allow_negative_balance: true
+2090:                         archived_at: null
+2091:                         conversion_limit: "100"
+2092:                         stackable: false
+2093:                         compounding_strategy: compound
+2094:                         use_site_exchange_rate: true
+2095:                     - coupon:
+2096:                         id: 123456
+2097:                         name: "100% coupon"
+2098:                         code: "100PERCENT"
+2099:                         description: "100 PERCENT OFF"
+2100:                         amount_in_cents: null

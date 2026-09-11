@@ -1,0 +1,146 @@
+28:         curl -u <api_key>:x -H Accept:application/json -H Content-Type:application/json https://acme.chargify.com/subscriptions.json
+439:   "/subscriptions/{subscription_id}/notes.json":
+441:       - $ref: "./components/parameters/subscription-id-path.yaml"
+539:   "/subscriptions/{subscription_id}/notes/{note_id}.json":
+541:       - $ref: "./components/parameters/subscription-id-path.yaml"
+618:   /customers.json:
+866:   "/customers/{id}.json":
+1002:   /customers/lookup.json:
+1024:   "/customers/{customer_id}/subscriptions.json":
+1042:   "/portal/customers/{customer_id}/enable.json":
+1096:   "/portal/customers/{customer_id}/management_link.json":
+1157:   "/portal/customers/{customer_id}/invitations/invite.json":
+1210:   "/portal/customers/{customer_id}/invitations/revoke.json":
+3070:   "/subscriptions/{subscription_id}/events.json":
+3072:       - $ref: "./components/parameters/subscription-id-path.yaml"
+5165:   "/product_families/{product_family_id}/products.json":
+5414:   "/products/{product_id}.json":
+5619:   "/products/handle/{api_handle}.json":
+5839:   "/products/{product_id}/price_points.json":
+6001:   "/products/{product_id}/price_points/{price_point_id}.json":
+6158:   "/products/{product_id}/price_points/{price_point_id}/unarchive.json":
+6207:   "/products/{product_id}/price_points/{price_point_id}/default.json":
+6284:   "/products/{product_id}/price_points/bulk.json":
+7086:   "/subscriptions/{subscription_id}/payment_profiles/{payment_profile_id}.json":
+7088:       - $ref: "./components/parameters/subscription-id-path.yaml"
+8874:   "/subscriptions/{subscription_id}/payments.json":
+8876:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9334:   "/subscriptions/{subscription_id}/account_balances.json":
+9336:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9350:   "/subscriptions/{subscription_id}/components/{component_id}.json":
+9352:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9391:   "/subscriptions/{subscription_id}/components.json":
+9393:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9515:   "/subscriptions/{subscription_id}/price_points.json":
+9517:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9577:   "/subscriptions/{subscription_id}/price_points/reset.json":
+9579:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9688:   "/subscriptions/{subscription_id}/components/{component_id}/allocations.json":
+9690:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9856:   "/subscriptions/{subscription_id}/allocations.json":
+9858:       - $ref: "./components/parameters/subscription-id-path.yaml"
+9944:   "/subscriptions/{subscription_id}/allocations/preview.json":
+9946:       - $ref: "./components/parameters/subscription-id-path.yaml"
+10085:   "/subscriptions/{subscription_id}/components/{component_id}/allocations/{allocation_id}.json":
+10087:       - $ref: "./components/parameters/subscription-id-path.yaml"
+10198:   "/subscriptions/{subscription_id_or_reference}/components/{component_id}/usages.json":
+10419:   "/event_based_billing/subscriptions/{subscription_id}/components/{component_id}/activate.json":
+10469:   "/event_based_billing/subscriptions/{subscription_id}/components/{component_id}/deactivate.json":
+10492:   /subscriptions.json:
+10659:         See the [Subscription Signups](page:introduction/basic-concepts/subscription-signup) article for more information on working with subscriptions in Advanced Billing.
+11584:                         subscription_url: "https://chargify9.staging-chargify.com/subscriptions/81746"
+11594:                         subscription_url: "https://chargify9.staging-chargify.com/subscriptions/83790"
+11618:   "/subscriptions/{subscription_id}/retry.json":
+11620:       - $ref: "./components/parameters/subscription-id-path.yaml"
+11782:   "/subscriptions/{subscription_id}.json":
+11784:       - $ref: "./components/parameters/subscription-id-path.yaml"
+12332:   "/subscriptions/{subscription_id}/resume.json":
+12334:       - $ref: "./components/parameters/subscription-id-path.yaml"
+12466:   "/subscriptions/{subscription_id}/hold.json":
+12468:       - $ref: "./components/parameters/subscription-id-path.yaml"
+12768:   "/subscriptions/{subscription_id}/reactivate.json":
+12770:       - $ref: "./components/parameters/subscription-id-path.yaml"
+12953:         `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?coupon_code=EARLYBIRD`
+12966:         `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json`
+12977:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?include_trial=1`
+12987:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json`
+12996:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?resume=true`
+13006:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?resume=true`
+13015:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?resume[require_resume]=true`
+13034:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?resume=true`
+13044:         + Send a PUT request to `https://acme.chargify.com/subscriptions/{subscription_id}/reactivate.json?resume=true`
+13066:   "/subscriptions/{subscription_id}/migrations.json":
+13068:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13281:   "/subscriptions/{subscription_id}/migrations/preview.json":
+13283:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13328:   "/subscriptions/{subscription_id}/override.json":
+13330:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13386:   "/subscriptions/{subscription_id}/delayed_cancel.json":
+13388:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13459:   "/subscriptions/{subscription_id}/cancel_dunning.json":
+13461:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13489:   "/subscriptions/{subscription_id}/renewals/preview.json":
+13491:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13594:   "/subscriptions/{subscription_id}/invoices.json":
+13596:       - $ref: "./components/parameters/subscription-id-path.yaml"
+13948:   "/subscriptions/{subscription_id}/prepayments.json":
+13950:       - $ref: "./components/parameters/subscription-id-path.yaml"
+14052:   "/subscriptions/{subscription_id}/service_credits.json":
+14054:       - $ref: "./components/parameters/subscription-id-path.yaml"
+14104:   "/subscriptions/{subscription_id}/service_credit_deductions.json":
+14106:       - $ref: "./components/parameters/subscription-id-path.yaml"
+14149:   "/subscriptions/{subscription_id}/service_credits/list.json":
+14151:       - $ref: "./components/parameters/subscription-id-path.yaml"
+14206:   /subscription_groups/signup.json:
+14340:   /subscription_groups.json:
+14467:   "/subscription_groups/{uid}.json":
+14613:   /subscription_groups/lookup.json:
+14672:   "/subscription_groups/{uid}/cancel.json":
+14710:   "/subscription_groups/{uid}/delayed_cancel.json":
+14762:   "/subscription_groups/{uid}/reactivate.json":
+14835:   "/subscription_groups/{uid}/payment_profiles/{payment_profile_id}.json":
+14851:   "/subscription_groups/{uid}/prepayments.json":
+14933:   "/subscription_groups/{uid}/service_credits.json":
+14983:   "/subscription_groups/{uid}/service_credit_deductions.json":
+15032:   /subscriptions/lookup.json:
+15057:   "/subscriptions/{subscription_id}/payment_profiles/{payment_profile_id}/change_payment_profile.json":
+15059:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15117:   "/subscription_groups/{uid}/payment_profiles/{payment_profile_id}/change_payment_profile.json":
+15177:   "/subscriptions/{subscription_id}/purge.json":
+15179:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15232:   "/subscriptions/{subscription_id}/prepaid_configurations.json":
+15234:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15288:   "/subscriptions/{subscription_id}/group.json":
+15290:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15374:   /subscriptions/preview.json:
+15609:   "/subscription_groups/{uid}/proforma_invoices.json":
+15732:   "/subscriptions/{subscription_id}/add_coupon.json":
+15734:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15933:   "/subscriptions/{subscription_id}/remove_coupon.json":
+15935:       - $ref: "./components/parameters/subscription-id-path.yaml"
+15975:   "/subscriptions/{subscription_id}/proforma_invoices.json":
+15977:       - $ref: "./components/parameters/subscription-id-path.yaml"
+16144:   "/subscriptions/{subscription_id}/proforma_invoices/preview.json":
+16146:       - $ref: "./components/parameters/subscription-id-path.yaml"
+16517:   /subscriptions_components.json:
+16891:   "/subscriptions/{subscription_id}/advance_invoice/issue.json":
+16893:       - $ref: "./components/parameters/subscription-id-path.yaml"
+16969:   "/subscriptions/{subscription_id}/advance_invoice.json":
+16971:       - $ref: "./components/parameters/subscription-id-path.yaml"
+16991:   "/subscriptions/{subscription_id}/advance_invoice/void.json":
+16993:       - $ref: "./components/parameters/subscription-id-path.yaml"
+17019:   /subscriptions_mrr.json:
+17071:   "/subscriptions/{subscription_id}/prepayments/{prepayment_id}/refunds.json":
+17073:       - $ref: "./components/parameters/subscription-id-path.yaml"
+17148:   /products.json:
+17362:   /products_price_points.json:
+17425:   "/subscriptions/{subscription_id}/activate.json":
+17427:       - $ref: "./components/parameters/subscription-id-path.yaml"
+17503:   /subscriptions/proforma_invoices.json:
+17582:   /subscriptions/proforma_invoices/preview.json:
+17730:   "/api_exports/subscriptions/{batch_id}/rows.json":
+17741:         Example: `GET https://{subdomain}.chargify.com/api_exports/subscriptions/123/rows?per_page=200&page=1`.
+17815:   /api_exports/subscriptions.json:
+17880:   "/api_exports/subscriptions/{batch_id}.json":
+17901:   "/subscriptions/{subscription_id}/request_payment_profiles_update.json":
+17903:       - $ref: "./components/parameters/subscription-id-path.yaml"

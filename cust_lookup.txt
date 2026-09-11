@@ -1,0 +1,60 @@
+1002:   /customers/lookup.json:
+1003:     get:
+1004:       summary: Read Customer by Reference
+1005:       tags:
+1006:         - Customers
+1007:       responses:
+1008:         "200":
+1009:           description: OK
+1010:           content:
+1011:             application/json:
+1012:               schema:
+1013:                 $ref: "./components/schemas/Customer-Response.yaml"
+1014:       operationId: readCustomerByReference
+1015:       description: Use this method to return the customer object if you have the unique **Reference ID (Your App)** value handy. It will return a single match.
+1016:       parameters:
+1017:         - schema:
+1018:             type: string
+1019:           in: query
+1020:           name: reference
+1021:           required: true
+1022:           description: Customer reference
+1023:       x-internal: false
+1024:   "/customers/{customer_id}/subscriptions.json":
+1025:     parameters:
+1026:       - $ref: "./components/parameters/customer-id-path.yaml"
+1027:     get:
+1028:       summary: List Customer Subscriptions
+1029:       tags:
+1030:         - Customers
+1031:       responses:
+1032:         "200":
+1033:           description: OK
+1034:           content:
+1035:             application/json:
+1036:               schema:
+1037:                 type: array
+1038:                 items:
+1039:                   $ref: "./components/schemas/Subscription-Response.yaml"
+1040:       operationId: listCustomerSubscriptions
+1041:       description: This method lists all subscriptions that belong to a customer.
+1042:   "/portal/customers/{customer_id}/enable.json":
+1043:     parameters:
+1044:       - $ref: "./components/parameters/customer-id-path.yaml"
+1045:     post:
+1046:       summary: Enable Billing Portal for Customer
+1047:       tags:
+1048:         - Billing Portal
+1049:       responses:
+1050:         "200":
+1051:           description: OK
+1052:           content:
+1053:             application/json:
+1054:               schema:
+1055:                 $ref: "./components/schemas/Customer-Response.yaml"
+1056:         "422":
+1057:           description: Unprocessable Entity (WebDAV)
+1058:           content:
+1059:             application/json:
+1060:               schema:
+1061:                 $ref: "./components/schemas/errors/Error-List-Response.yaml"
