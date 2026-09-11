@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using AdvancedBilling.Standard;
+using AdvancedBilling.Standard.Authentication;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -50,6 +52,32 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing
+builder.Services.AddHttpContextAccessor();
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+builder.Configuration.AddEnvironmentVariables();
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddSingleton<MaxioCustomerStore>();
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
+
+// Build AdvancedBillingClient from config
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+var maxioApiKey = builder.Configuration["MAXIO_API_KEY"] ?? maxioSection["ApiKey"] ?? string.Empty;
+var maxioSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? maxioSection["Subdomain"] ?? string.Empty;
+var maxioBaseUrlOverride = maxioSection["BaseUrl"];
+
+builder.Services.AddSingleton(sp =>
+{
+    var env = AdvancedBilling.Standard.Environment.US;
+    var builderOpts = new AdvancedBillingClient.Builder()
+        .BasicAuthCredentials(new BasicAuthModel.Builder(maxioApiKey, "x").Build())
+        .Environment(env)
+        .Site(maxioSubdomain)
+        .HttpClientConfig(c => c.Timeout(TimeSpan.FromSeconds(30)));
+
+    return builderOpts.Build();
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +188,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
