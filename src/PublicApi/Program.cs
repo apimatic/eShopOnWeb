@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -54,7 +58,8 @@ builder.Services.AddMemoryCache();
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
-    config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -67,6 +72,29 @@ builder.Services.AddAuthentication(config =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+});
+
+var maxioSection = builder.Configuration.GetSection("Maxio");
+var maxioApiKey = maxioSection["ApiKey"] ?? "";
+var maxioSubdomain = maxioSection["Subdomain"] ?? "";
+var maxioBaseUrl = maxioSection["BaseUrl"];
+
+builder.Services.AddMaxioAdvancedBillingClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = maxioApiKey,
+        Password = "x"
+    };
+    options.Environment = ServerEnvironment.Us;
+    if (!string.IsNullOrWhiteSpace(maxioBaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioBaseUrl;
+    }
+    else if (!string.IsNullOrWhiteSpace(maxioSubdomain))
+    {
+        options.Server.Production.Us.BaseUrl = $"https://{maxioSubdomain}.chargify.com";
+    }
 });
 
 const string CORS_POLICY = "CorsPolicy";
@@ -152,6 +180,8 @@ if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 }
 
+app.UseAuthentication();
+
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseHttpsRedirection();
@@ -174,6 +204,8 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.AddSubscriptionPlanRoutes();
+app.AddSubscriptionRoutes();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
