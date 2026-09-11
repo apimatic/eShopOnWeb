@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +17,10 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using System.Security.Claims;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +57,9 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio SDK temporarily disabled for isolation test
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +184,27 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Direct Maxio subscription endpoints (parallel to cart/checkout)
+app.MapGet("api/subscription-plans", async (IMaxioBillingService billing, CancellationToken ct) =>
+{
+    var plans = await billing.ListPlansAsync(ct);
+    return Results.Ok(new { Plans = plans.Select(p => new { p.Handle, p.Name }) });
+}).RequireAuthorization();
+
+app.MapPost("api/subscriptions", async (SubscriptionCreateEndpoint.SubscribeRequest req, IMaxioBillingService billing, ClaimsPrincipal user, CancellationToken ct) =>
+{
+    var userRef = user.FindFirstValue(ClaimTypes.Name) ?? user.Identity?.Name ?? "unknown";
+    var result = await billing.SubscribeAsync(userRef, req.PlanHandle ?? "eshop-pro", ct);
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapGet("api/my-subscriptions", async (IMaxioBillingService billing, ClaimsPrincipal user, CancellationToken ct) =>
+{
+    var userRef = user.FindFirstValue(ClaimTypes.Name) ?? user.Identity?.Name ?? "unknown";
+    var subs = await billing.GetMySubscriptionsAsync(userRef, ct);
+    return Results.Ok(new { Subscriptions = subs });
+}).RequireAuthorization();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
