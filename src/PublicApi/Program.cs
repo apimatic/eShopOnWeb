@@ -85,6 +85,24 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Map Maxio env vars to the Maxio: config section
+var maxioApiKey = builder.Configuration["MAXIO_API_KEY"];
+var maxioSubdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+var maxioProductFamily = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+var maxioBaseUrl = builder.Configuration["MAXIO_BASE_URL"];
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = maxioApiKey,
+    ["Maxio:Subdomain"] = maxioSubdomain,
+    ["Maxio:ProductFamilyHandle"] = maxioProductFamily,
+    ["Maxio:BaseUrl"] = maxioBaseUrl
+});
+
+// Maxio Advanced Billing
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetRequiredSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddSingleton<MaxioClientFactory>();
+builder.Services.AddScoped<IMaxioService, MaxioService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +178,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
