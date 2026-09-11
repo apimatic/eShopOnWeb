@@ -1,0 +1,30 @@
+title: Subscription Group Signup Response
+type: object
+properties:
+  uid:
+    type: string
+  scheme:
+    type: integer
+  customer_id:
+    type: integer
+  payment_profile_id:
+    type: integer
+  subscription_ids:
+    type: array
+    items:
+      type: integer
+  primary_subscription_id:
+    type: integer
+  next_assessment_at:
+    type: string
+    format: date-time
+  state:
+    $ref: "./Subscription-State.yaml"
+  cancel_at_end_of_period:
+    type: boolean
+  subscriptions:
+    type: array
+    items:
+      $ref: "./Subscription-Group-Item.yaml"
+  payment_collection_method:
+    $ref: "./Collection-Method.yaml"

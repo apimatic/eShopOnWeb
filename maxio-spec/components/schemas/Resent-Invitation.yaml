@@ -1,0 +1,21 @@
+title: Resent Invitation
+type: object
+properties:
+  last_sent_at:
+    type: string
+    deprecated: true
+  last_accepted_at:
+    type: string
+    deprecated: true
+  send_invite_link_text:
+    type: string
+  uninvited_count:
+    type: integer
+  last_invite_sent_at:
+    type: string
+    example: "2024-01-01T00:30:00-04:00"
+    format: date-time
+  last_invite_accepted_at:
+    type: string
+    format: date-time
+    example: "2024-01-01T00:35:00-04:00"

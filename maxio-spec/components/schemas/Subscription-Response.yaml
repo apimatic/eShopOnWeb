@@ -1,0 +1,5 @@
+title: Subscription Response
+type: object
+properties:
+  subscription:
+    $ref: "./Subscription.yaml"
