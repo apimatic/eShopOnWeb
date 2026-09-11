@@ -60,7 +60,7 @@ public class MaxioCustomerService : IMaxioCustomerService
         int? existingId = null;
         try
         {
-            var list = await _client.Customers.ListCustomers(q: email, perPage: 5, ct: ct);
+            var list = await _client.Customers.ListCustomers(direction: null, dateField: null, startDate: null, endDate: null, startDatetime: null, endDatetime: null, q: email, perPage: 5, ct: ct);
             foreach (var resp in list)
             {
                 var c = resp.Customer;
@@ -79,7 +79,7 @@ public class MaxioCustomerService : IMaxioCustomerService
             {
                 var create = new CreateCustomerRequest
                 {
-                    Customer = new Customer
+                    Customer = new MaxioAdvancedBilling.Models.CreateCustomer
                     {
                         Email = email,
                         Reference = userId,
