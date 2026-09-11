@@ -1,0 +1,14 @@
+title: Invoice Seller
+type: object
+description: Information about the seller (merchant) listed on the masthead of the invoice.
+properties:
+  name:
+    type: string
+  address:
+    $ref: "./Invoice-Address.yaml"
+  phone:
+    type: string
+  logo_url:
+    type:
+      - string
+      - "null"
