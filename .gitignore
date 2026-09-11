@@ -260,3 +260,6 @@ pub/
 .devcontainer
 
 .azure
+
+# [provision] task-2 spec trees: on disk for the agent, never committed
+/api-specs/
