@@ -1,0 +1,7 @@
+title: Component Price Point Response
+type: object
+properties:
+  price_point:
+    $ref: "./Component-Price-Point.yaml"
+required:
+  - price_point
