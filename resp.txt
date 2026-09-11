@@ -1,0 +1,1 @@
+{"StatusCode":500,"Message":"Conflicting method/path combination \u0022GET api/my-subscriptions\u0022 for actions - HTTP: GET api/my-subscriptions,HTTP: GET api/my-subscriptions. Actions require a unique method/path combination for Swagger/OpenAPI 3.0. Use ConflictingActionsResolver as a workaround"}
