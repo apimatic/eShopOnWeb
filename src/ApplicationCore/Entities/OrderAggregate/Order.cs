@@ -23,6 +23,34 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// A stable, globally-unique reference for this order instance, minted at creation. Used to
+    /// derive idempotency keys for PayPal so a key is stable for retries of the same order yet
+    /// never collides with a different order (including across app restarts / in-memory resets).
+    /// </summary>
+    public string PaymentReference { get; private set; } = Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The fulfilment lifecycle state. Additive: orders created through the original
+    /// storefront flow simply remain in <see cref="OrderState.AwaitingPayment"/>.
+    /// </summary>
+    public OrderState State { get; private set; } = OrderState.AwaitingPayment;
+
+    /// <summary>The PayPal-backed payment for this order, once the shopper has paid. Null until then.</summary>
+    public OrderPayment? Payment { get; private set; }
+
+    /// <summary>Attaches a freshly authorized payment and moves the order out of AwaitingPayment.</summary>
+    public void AttachAuthorizedPayment(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        State = OrderState.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled() => State = OrderState.Fulfilled;
+
+    public void MarkCancelled() => State = OrderState.Cancelled;
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,

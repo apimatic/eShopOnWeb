@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -24,31 +24,44 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        EntityNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+        ForbiddenActionException => ((int)HttpStatusCode.Forbidden, exception.Message),
+        InvalidRequestException => ((int)HttpStatusCode.BadRequest, exception.Message),
+        DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+        ConflictException => ((int)HttpStatusCode.Conflict, exception.Message),
+        PaymentChallengeRequiredException => (422, exception.Message),
+        PaymentException => (422, exception.Message),
+        PayPalApiException paypal => MapPayPal(paypal),
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
+
+    private static (int, string) MapPayPal(PayPalApiException paypal)
+    {
+        // A 4xx from PayPal is a client/business problem (e.g. declined card); surface it as such.
+        // Anything else (auth failure, server error) is an upstream gateway failure.
+        var status = paypal.StatusCode is 400 or 422 ? paypal.StatusCode : (int)HttpStatusCode.BadGateway;
+        var detail = paypal.Details.Count > 0 ? $" ({string.Join("; ", paypal.Details)})" : string.Empty;
+        var debug = string.IsNullOrEmpty(paypal.DebugId) ? string.Empty : $" [debug_id: {paypal.DebugId}]";
+        return (status, $"PayPal: {paypal.Name ?? "error"} - {paypal.Message}{detail}{debug}");
     }
 }
