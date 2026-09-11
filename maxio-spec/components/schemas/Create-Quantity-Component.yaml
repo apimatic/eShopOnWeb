@@ -1,0 +1,7 @@
+title: Create Quantity Based Component
+type: object
+properties:
+  quantity_based_component:
+    $ref: "./Quantity-Based-Component.yaml"
+required:
+  - quantity_based_component
