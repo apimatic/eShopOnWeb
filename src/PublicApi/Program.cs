@@ -175,6 +175,10 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+new Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscribeEndpoint().AddRoute(app);
+new Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MySubscriptionsEndpoint().AddRoute(app);
+new Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionPlanListEndpoint().AddRoute(app);
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
