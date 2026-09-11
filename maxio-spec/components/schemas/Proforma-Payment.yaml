@@ -1,0 +1,14 @@
+title: Proforma Invoice Payment
+type: object
+properties:
+  memo:
+    type: string
+    minLength: 1
+  original_amount:
+    type: string
+    minLength: 1
+  applied_amount:
+    type: string
+    minLength: 1
+  prepayment:
+    type: boolean
