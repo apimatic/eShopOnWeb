@@ -1,0 +1,6 @@
+title: List Subscription Components Include
+type: string
+enum:
+  - subscription
+  - historic_usages
+example: subscription

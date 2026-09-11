@@ -1,0 +1,29 @@
+title: Offer Item
+type: object
+properties:
+  component_id:
+    type: integer
+  price_point_id:
+    type: integer
+  starting_quantity:
+    type: string
+  editable:
+    type: boolean
+  component_unit_price:
+    type: string
+  component_name:
+    type: string
+  price_point_name:
+    type: string
+  currency_prices:
+    type: array
+    items:
+      $ref: "./Currency-Price.yaml"
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of '30' coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
