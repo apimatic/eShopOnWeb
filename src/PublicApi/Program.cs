@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +56,15 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio configuration (read at startup, used by routes)
+var maxioApiKey = builder.Configuration["Maxio:ApiKey"]
+    ?? Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = builder.Configuration["Maxio:Subdomain"]
+    ?? Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamily = builder.Configuration["Maxio:ProductFamilyHandle"]
+    ?? Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+var maxioBaseUrl = builder.Configuration["Maxio:BaseUrl"];
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +189,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapSubscriptionRoutes();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();

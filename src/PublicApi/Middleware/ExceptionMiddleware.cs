@@ -24,6 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
+            try { System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "subscription-routes.log"), $"[{DateTime.UtcNow:O}] EXCEPTION: {ex}{Environment.NewLine}"); } catch { }
             await HandleExceptionAsync(httpContext, ex);        
         }
     }
