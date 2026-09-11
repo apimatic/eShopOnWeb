@@ -1,0 +1,9 @@
+title: Component Kind
+type: string
+description: A handle for the component type
+enum:
+  - metered_component
+  - quantity_based_component
+  - on_off_component
+  - prepaid_usage_component
+  - event_based_component

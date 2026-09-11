@@ -1,0 +1,12 @@
+title: Void Invoice Request
+description: ""
+type: object
+properties:
+  void:
+    $ref: "./Void-Invoice.yaml"
+required:
+  - void
+x-examples:
+  example-1:
+    void:
+      reason: because
