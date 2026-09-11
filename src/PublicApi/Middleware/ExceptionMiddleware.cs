@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -24,31 +24,31 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)MapStatusCode(exception);
 
-        if (exception is DuplicateException duplicationException)
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    private static HttpStatusCode MapStatusCode(Exception exception) => exception switch
+    {
+        DuplicateException => HttpStatusCode.Conflict,
+        NotFoundException => HttpStatusCode.NotFound,
+        // A shopper facing a card challenge, or a business rule that blocks the operation.
+        PaymentException => HttpStatusCode.Conflict,
+        // Bad caller input (unknown catalog item, missing idempotency key, invalid quantity, etc.).
+        ArgumentException => HttpStatusCode.BadRequest,
+        InvalidOperationException => HttpStatusCode.Conflict,
+        _ => HttpStatusCode.InternalServerError
+    };
 }
