@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup> 
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Microsoft.eShopWeb.PublicApi</RootNamespace>
     <UserSecretsId>49fb7f82-cc65-4ff2-925e-c1b8cc23e604</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
@@ -10,6 +11,8 @@
 
   <ItemGroup>
     <PackageReference Include="Ardalis.ApiEndpoints" />
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" VersionOverride="10.0.8" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="MinimalApi.Endpoint" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
@@ -21,12 +24,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" >
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
-    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
