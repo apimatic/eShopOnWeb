@@ -45,6 +45,18 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Maxio settings from config section (binds environment / secrets)
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+var maxioSettings = builder.Configuration.GetSection("Maxio").Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddSingleton<ISubscriptionMappingService, InMemorySubscriptionMappingService>();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((sp, client) =>
+{
+    client.BaseAddress = new Uri(maxioSettings.BaseUrl ?? $"https://{maxioSettings.Subdomain}.chargify.com");
+    var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioSettings.ApiKey}:X"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
+}).SetHandlerLifetime(TimeSpan.FromMinutes(5));
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
