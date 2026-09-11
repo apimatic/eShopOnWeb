@@ -16,12 +16,19 @@ using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net.Http;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +57,44 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio configuration and client
+builder.Services.Configure<MaxioConfiguration>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddSingleton<IMaxioCustomerMapping, MaxioCustomerMapping>();
+builder.Services.AddScoped<IMaxioCustomerService, MaxioCustomerService>();
+
+builder.Services.AddSingleton(sp =>
+{
+    var cfg = sp.GetRequiredService<IOptions<MaxioConfiguration>>().Value;
+    var httpClient = new HttpClient();
+    httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        Retry = MaxioAdvancedBilling.Core.Configuration.RetryOptions.Default(),
+    };
+
+    // Basic auth
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = cfg.ApiKey,
+        Password = "x"
+    };
+
+    // Derive base URL from subdomain when not overridden
+    if (!string.IsNullOrWhiteSpace(cfg.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = cfg.BaseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.BaseUrl = $"https://{cfg.Subdomain}.chargify.com";
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>

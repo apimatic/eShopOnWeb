@@ -1,0 +1,88 @@
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using MinimalApi.Endpoint;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Services;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public class SubscriptionListEndpoint : IEndpoint<IResult, MaxioAdvancedBillingClient, IMaxioCustomerService>
+{
+    private readonly IHttpContextAccessor _http;
+    public SubscriptionListEndpoint(IHttpContextAccessor http)
+    {
+        _http = http;
+    }
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/my-subscriptions",
+            async (MaxioAdvancedBillingClient client, IMaxioCustomerService svc) =>
+            {
+                return await HandleAsync(client, svc);
+            })
+           .Produces<ListMySubscriptionsResponse>()
+           .WithTags("SubscriptionEndpoints")
+           .RequireAuthorization();
+    }
+
+    public async Task<IResult> HandleAsync(MaxioAdvancedBillingClient client, IMaxioCustomerService svc)
+    {
+        try
+        {
+            var userId = _http.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var customerId = await svc.FindCustomerIdAsync(userId);
+            if (customerId == null)
+            {
+                return Results.Ok(new ListMySubscriptionsResponse());
+            }
+
+            var subs = await client.Customers.ListCustomerSubscriptions(customerId.Value, ct: default);
+            var response = new ListMySubscriptionsResponse();
+            foreach (var s in subs)
+            {
+                var sub = s.Subscription;
+                if (sub == null) continue;
+                response.Subscriptions.Add(new MySubscriptionDto
+                {
+                    Id = sub.Id ?? 0,
+                    ProductHandle = sub.ProductHandle ?? string.Empty,
+                    State = sub.State ?? string.Empty,
+                    NextBillingDate = sub.NextBillingAt ?? DateTimeOffset.MinValue
+                });
+            }
+            return Results.Ok(response);
+        }
+        catch (SdkException<MaxioAdvancedBilling.Core.Exceptions.RawError> ex)
+        {
+            return Results.Problem(detail: ex.Error?.ReadAsString() ?? "Maxio error", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, statusCode: 500);
+        }
+    }
+}
+
+public class ListMySubscriptionsResponse
+{
+    public List<MySubscriptionDto> Subscriptions { get; } = new();
+}
+
+public class MySubscriptionDto
+{
+    public int Id { get; set; }
+    public string ProductHandle { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public DateTimeOffset NextBillingDate { get; set; }
+}
