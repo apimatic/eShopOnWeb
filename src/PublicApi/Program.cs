@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -13,10 +13,16 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Services;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+using System.Security.Claims;
+using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -40,6 +46,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddScoped<IMaxioService, MaxioService>();
+
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
@@ -174,6 +183,74 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+// Subscription endpoints
+app.MapGet("api/subscription-plans", async (IMaxioService svc, IOptions<MaxioSettings> opts) =>
+{
+    var settings = opts.Value;
+    var familyHandle = settings.ProductFamilyHandle;
+    var arr = await svc.ListPlansAsync(familyHandle);
+    var plans = new List<PlanDto>();
+    foreach (var item in arr)
+    {
+        var obj = item?.AsObject();
+        if (obj == null) continue;
+        var productObj = obj["product"]?.AsObject() ?? obj;
+        plans.Add(new PlanDto
+        {
+            Handle = productObj["handle"]?.GetValue<string>() ?? obj["handle"]?.GetValue<string>() ?? "",
+            Name = productObj["name"]?.GetValue<string>() ?? obj["name"]?.GetValue<string>() ?? "",
+            PriceInCents = productObj["price_in_cents"]?.GetValue<int>() ?? obj["price_in_cents"]?.GetValue<int>() ?? 0,
+            Interval = productObj["interval"]?.GetValue<int>() ?? obj["interval"]?.GetValue<int>() ?? 0,
+            IntervalUnit = productObj["interval_unit"]?.GetValue<string>() ?? obj["interval_unit"]?.GetValue<string>() ?? ""
+        });
+    }
+    return Results.Ok(plans);
+}).RequireAuthorization();
+
+app.MapPost("api/subscriptions", async (HttpContext ctx, IMaxioService svc, IOptions<MaxioSettings> opts, CreateSubscriptionRequest req) =>
+{
+    var userName = ctx.User.FindFirstValue(ClaimTypes.Name) ?? ctx.User.Identity?.Name ?? "anonymous";
+    if (string.IsNullOrEmpty(req.ProductHandle))
+        return Results.BadRequest(new { error = "ProductHandle is required." });
+    // Ensure customer exists (idempotent by reference = username)
+    var customer = await svc.FindOrCreateCustomerAsync(userName, userName);
+    var sub = await svc.CreateSubscriptionAsync(req.ProductHandle, userName);
+    var subObj = sub.AsObject();
+    var response = new SubscriptionDto
+    {
+        Id = subObj?["id"]?.GetValue<int>() ?? 0,
+        State = subObj?["state"]?.GetValue<string>() ?? "",
+        ProductHandle = req.ProductHandle,
+        ProductName = subObj?["product"]?["name"]?.GetValue<string>() ?? "",
+        PriceInCents = subObj?["product_price_in_cents"]?.GetValue<int>() ?? 0,
+        CurrentPeriodEndsAt = subObj?["current_period_ends_at"]?.GetValue<string>() ?? ""
+    };
+    return Results.Ok(response);
+}).RequireAuthorization();
+
+app.MapGet("api/my-subscriptions", async (HttpContext ctx, IMaxioService svc, IOptions<MaxioSettings> opts) =>
+{
+    var userName = ctx.User.FindFirstValue(ClaimTypes.Name) ?? ctx.User.Identity?.Name ?? "anonymous";
+    var arr = await svc.ListCustomerSubscriptionsAsync(userName);
+    var subs = new List<SubscriptionDto>();
+    foreach (var item in arr)
+    {
+        var obj = item?.AsObject();
+        if (obj == null) continue;
+        var productObj = obj["product"]?.AsObject();
+        subs.Add(new SubscriptionDto
+        {
+            Id = obj["id"]?.GetValue<int>() ?? 0,
+            State = obj["state"]?.GetValue<string>() ?? "",
+            ProductHandle = productObj?["handle"]?.GetValue<string>() ?? "",
+            ProductName = productObj?["name"]?.GetValue<string>() ?? "",
+            PriceInCents = obj["product_price_in_cents"]?.GetValue<int>() ?? 0,
+            CurrentPeriodEndsAt = obj["current_period_ends_at"]?.GetValue<string>() ?? ""
+        });
+    }
+    return Results.Ok(subs);
+}).RequireAuthorization();
+
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
