@@ -1,19 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +51,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Configure Maxio Advanced Billing
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.ConfigurationSection));
+builder.Services.AddHttpClient<IMaxioService, MaxioService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -174,6 +186,132 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Subscription endpoints registered directly (Ardalis endpoints have issues with auth)
+var subscriptionGroup = app.MapGroup("/api").WithTags("SubscriptionEndpoints");
+
+subscriptionGroup.MapGet("/subscription-plans", async (IMaxioService maxioService) =>
+{
+    var products = await maxioService.GetProductsAsync();
+    var plans = products.Select(p => new SubscriptionPlanDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Handle = p.Handle,
+        Description = p.Description,
+        PriceInCents = p.PriceInCents,
+        Interval = p.Interval,
+        IntervalUnit = p.IntervalUnit,
+        RequireCreditCard = p.RequireCreditCard,
+        Taxable = p.Taxable,
+        ProductFamilyName = p.ProductFamily?.Name,
+        ProductFamilyHandle = p.ProductFamily?.Handle
+    }).ToList();
+    return Results.Ok(new { IsSuccess = true, Plans = plans });
+});
+
+subscriptionGroup.MapPost("/subscriptions", async (CreateSubscriptionRequest request, HttpContext httpContext, IMaxioService maxioService) =>
+{
+    var userId = httpContext.User.FindFirstValue(ClaimTypes.Name)
+        ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? httpContext.User.FindFirstValue("sub")
+        ?? httpContext.User.FindFirstValue("unique_name");
+
+    if (string.IsNullOrEmpty(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    request.UserReference = userId;
+
+    try
+    {
+        var customer = await maxioService.EnsureCustomerAsync(
+            request.UserReference, request.FirstName, request.LastName, request.Email);
+        var subscription = await maxioService.CreateSubscriptionAsync(customer.Id, request.ProductHandle);
+
+        return Results.Ok(new CreateSubscriptionResponse
+        {
+            IsSuccess = true,
+            Subscription = new SubscriptionDto
+            {
+                Id = subscription.Id,
+                State = subscription.State,
+                ProductHandle = subscription.Product?.Handle ?? subscription.ProductHandle,
+                ProductName = subscription.Product?.Name ?? subscription.ProductName,
+                ProductPriceInCents = subscription.ProductPriceInCents,
+                CreatedAt = subscription.CreatedAt,
+                CurrentPeriodStartsAt = subscription.CurrentPeriodStartsAt,
+                CurrentPeriodEndsAt = subscription.CurrentPeriodEndsAt,
+                NextAssessmentAt = subscription.NextAssessmentAt,
+                Customer = new CustomerDto
+                {
+                    Id = customer.Id,
+                    FirstName = customer.FirstName,
+                    LastName = customer.LastName,
+                    Email = customer.Email,
+                    Reference = customer.Reference
+                }
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new CreateSubscriptionResponse
+        {
+            IsSuccess = false,
+            ErrorMessage = $"Failed to create subscription: {ex.Message}"
+        });
+    }
+}).Produces<CreateSubscriptionResponse>().RequireAuthorization();
+
+subscriptionGroup.MapGet("/my-subscriptions", async (HttpContext httpContext, IMaxioService maxioService) =>
+{
+    var userId = httpContext.User.FindFirstValue(ClaimTypes.Name)
+        ?? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? httpContext.User.FindFirstValue("sub")
+        ?? httpContext.User.FindFirstValue("unique_name");
+
+    if (string.IsNullOrEmpty(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var response = new GetMySubscriptionsResponse();
+
+    try
+    {
+        var subscriptions = await maxioService.GetSubscriptionsByCustomerReferenceAsync(userId);
+        response.IsSuccess = true;
+        response.Subscriptions = subscriptions.Select(s => new SubscriptionDto
+        {
+            Id = s.Id,
+            State = s.State,
+            ProductHandle = s.Product?.Handle ?? s.ProductHandle,
+            ProductName = s.Product?.Name ?? s.ProductName,
+            ProductPriceInCents = s.ProductPriceInCents,
+            CreatedAt = s.CreatedAt,
+            CurrentPeriodStartsAt = s.CurrentPeriodStartsAt,
+            CurrentPeriodEndsAt = s.CurrentPeriodEndsAt,
+            NextAssessmentAt = s.NextAssessmentAt,
+            Customer = s.Customer != null ? new CustomerDto
+            {
+                Id = s.Customer.Id,
+                FirstName = s.Customer.FirstName,
+                LastName = s.Customer.LastName,
+                Email = s.Customer.Email,
+                Reference = s.Customer.Reference
+            } : null
+        }).ToList();
+    }
+    catch (Exception ex)
+    {
+        response.IsSuccess = false;
+        response.ErrorMessage = $"Failed to retrieve subscriptions: {ex.Message}";
+    }
+
+    return Results.Ok(response);
+}).Produces<GetMySubscriptionsResponse>().RequireAuthorization();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
