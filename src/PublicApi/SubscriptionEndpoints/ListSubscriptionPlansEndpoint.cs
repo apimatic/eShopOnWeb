@@ -1,0 +1,1 @@
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
