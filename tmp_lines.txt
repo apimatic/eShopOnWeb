@@ -1,0 +1,8 @@
+35:   - `body` — nullable, no default → **must pass explicitly**
+36: - **Returns**: `SubscriptionResponse`
+37: - **Error**: `SdkException<CreateSubscriptionError>` — **Case A (typed)**
+38: - **Error accessors**: `TryGetErrorListResponse1(out ErrorListResponse1)` [422] · `TryGetRawError(out RawError)` [fallback]
+39: - **No-throw variant**: absent
+40: - **Pagination**: none
+41: 
+42: ### FindSubscription

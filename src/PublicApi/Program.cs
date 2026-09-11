@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Maxio.MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient("Maxio", c => { c.Timeout = TimeSpan.FromSeconds(30); });
+builder.Services.AddScoped<Microsoft.eShopWeb.Infrastructure.Maxio.IMaxioBillingService>(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.Infrastructure.Maxio.MaxioSettings>>();
+    var httpClientFactory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+    return new Microsoft.eShopWeb.Infrastructure.Maxio.MaxioBillingService(settings, httpClientFactory.CreateClient("Maxio"));
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -171,6 +182,28 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
 });
+
+// Subscription billing endpoints
+app.MapGet("api/subscription-plans", async (IMaxioBillingService svc) =>
+{
+    var plans = await svc.ListPlansAsync();
+    return Results.Ok(new { Plans = plans });
+}).RequireAuthorization();
+
+app.MapPost("api/subscriptions", async (HttpRequest req, IMaxioBillingService svc) =>
+{
+    var body = await req.ReadFromJsonAsync<SubscribeRequest>();
+    var userRef = req.HttpContext.User?.Identity?.Name ?? "unknown";
+    var sub = await svc.EnsureSubscriptionAsync(userRef, body?.PlanHandle ?? "eshop-pro");
+    return Results.Ok(new { Subscription = sub });
+}).RequireAuthorization();
+
+app.MapGet("api/my-subscriptions", async (IMaxioBillingService svc, HttpRequest req) =>
+{
+    var userRef = req.HttpContext.User?.Identity?.Name ?? "unknown";
+    var subs = await svc.ListMySubscriptionsAsync(userRef);
+    return Results.Ok(new { Subscriptions = subs });
+}).RequireAuthorization();
 
 app.MapControllers();
 app.MapEndpoints();
