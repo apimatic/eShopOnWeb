@@ -1,0 +1,20 @@
+title: Invoice Debit
+type: object
+properties:
+  uid:
+    type: string
+  debit_note_number:
+    type: string
+  debit_note_uid:
+    type: string
+  role:
+    $ref: "./Debit-Note-Role.yaml"
+  transaction_time:
+    type: string
+    format: date-time
+  memo:
+    type: string
+  original_amount:
+    type: string
+  applied_amount:
+    type: string
