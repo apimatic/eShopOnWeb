@@ -1,0 +1,39 @@
+title: Prepayment
+type: object
+properties:
+  id:
+    type: integer
+  subscription_id:
+    type: integer
+  amount_in_cents:
+    type: integer
+    format: int64
+  remaining_amount_in_cents:
+    type: integer
+    format: int64
+  refunded_amount_in_cents:
+    type: integer
+    format: int64
+  details:
+    type: string
+    minLength: 1
+  external:
+    type: boolean
+  memo:
+    type: string
+    minLength: 1
+  payment_type:
+    allOf:
+      - $ref: "./Prepayment-Method.yaml"
+    description: The payment type of the prepayment.
+  created_at:
+    type: string
+    format: date-time
+required:
+  - id
+  - subscription_id
+  - amount_in_cents
+  - remaining_amount_in_cents
+  - external
+  - memo
+  - created_at

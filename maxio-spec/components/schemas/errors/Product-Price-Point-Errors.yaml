@@ -1,0 +1,39 @@
+title: Product Price Point Errors
+type: object
+properties:
+  price_point:
+    type: string
+    example: "can't be blank"
+  interval:
+    type: array
+    items:
+      type: string
+    example:
+      - "Recurring Interval: cannot be blank."
+      - "Recurring Interval: must be greater than or equal to 1."
+  interval_unit:
+    type: array
+    items:
+      type: string
+    example:
+      - "Interval unit: cannot be blank."
+      - "Interval unit: must be 'month' or 'day'."
+  name:
+    type: array
+    items:
+      type: string
+    example:
+      - "Name: cannot be blank."
+  price:
+    type: array
+    items:
+      type: string
+    example:
+      - "Price: is not a number."
+      - "Price: must be greater than or equal to 0."
+  price_in_cents:
+    type: array
+    items:
+      type: string
+    example:
+      - "Price in cents: cannot be blank."
