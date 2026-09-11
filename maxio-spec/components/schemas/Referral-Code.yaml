@@ -1,0 +1,11 @@
+title: Referral Code
+type: object
+properties:
+  id:
+    type: integer
+  site_id:
+    type: integer
+  subscription_id:
+    type: integer
+  code:
+    type: string
