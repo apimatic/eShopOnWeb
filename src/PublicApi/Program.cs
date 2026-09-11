@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,17 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Maxio.MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<IMaxioClient, Microsoft.eShopWeb.PublicApi.Maxio.MaxioClient>()
+    .ConfigureHttpClient((sp, http) =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.eShopWeb.PublicApi.Maxio.MaxioOptions>>().Value;
+        http.BaseAddress = opts.GetBaseAddress();
+        var auth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{opts.ApiKey}:x"));
+        http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
+        http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    });
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
