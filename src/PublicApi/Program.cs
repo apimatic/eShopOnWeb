@@ -50,6 +50,9 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MaxioSettings>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.MaxioBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
