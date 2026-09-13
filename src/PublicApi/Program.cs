@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Configuration;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,28 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Map MAXIO_* environment variables to Maxio: configuration section
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioEnvironment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+var maxioBaseUrl = Environment.GetEnvironmentVariable("MAXIO_BASE_URL");
+
+if (!string.IsNullOrWhiteSpace(maxioApiKey) || !string.IsNullOrWhiteSpace(maxioSubdomain))
+{
+    var maxioConfig = new Dictionary<string, string?>
+    {
+        ["Maxio:ApiKey"] = maxioApiKey,
+        ["Maxio:Subdomain"] = maxioSubdomain,
+        ["Maxio:ProductFamilyHandle"] = maxioProductFamily,
+        ["Maxio:BaseUrl"] = maxioBaseUrl
+    };
+    builder.Configuration.AddInMemoryCollection(maxioConfig);
+}
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddSingleton<IMaxioService, MaxioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
