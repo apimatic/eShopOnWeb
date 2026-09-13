@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -50,6 +54,7 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -67,6 +72,13 @@ builder.Services.AddAuthentication(config =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 const string CORS_POLICY = "CorsPolicy";
@@ -160,6 +172,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -174,6 +187,34 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Map my-subscriptions directly
+app.MapGet("api/my-subscriptions",
+    async (ClaimsPrincipal user, IMaxioSubscriptionService subscriptionService) =>
+    {
+        var email = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                 ?? user.FindFirst("sub")?.Value;
+        if (string.IsNullOrEmpty(email))
+        {
+            return Results.Unauthorized();
+        }
+        var response = new Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionListResponse(Guid.NewGuid());
+        var subscriptions = await subscriptionService.ListMySubscriptionsAsync(email, default);
+        response.Subscriptions = subscriptions.Select(s => new Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionDto
+        {
+            Id = s.Id,
+            State = s.State,
+            ProductName = s.ProductName,
+            CurrentPeriodEndsAt = s.CurrentPeriodEndsAt,
+            NextAssessmentAt = s.NextAssessmentAt,
+            ActivatedAt = s.ActivatedAt,
+            CanceledAt = s.CanceledAt
+        }).ToList();
+        return Results.Ok(response);
+    })
+    .RequireAuthorization()
+    .Produces<Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints.SubscriptionListResponse>()
+    .WithTags("SubscriptionEndpoints");
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
