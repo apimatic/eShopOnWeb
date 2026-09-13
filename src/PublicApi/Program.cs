@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -20,6 +22,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -84,6 +90,29 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+var maxioOptions = builder.Configuration.GetSection("Maxio").Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials { Username = maxioOptions.ApiKey, Password = "x" },
+        Environment = maxioOptions.Environment?.ToUpperInvariant() == "EU"
+            ? ServerEnvironment.Eu
+            : ServerEnvironment.Us
+    };
+    options.Server.Production.Us.Site = maxioOptions.Subdomain;
+    if (!string.IsNullOrEmpty(maxioOptions.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = maxioOptions.BaseUrl;
+    }
+    return new MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddScoped<MaxioService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
