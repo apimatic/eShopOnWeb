@@ -1,0 +1,7 @@
+title: Product Price Point Response
+type: object
+properties:
+  price_point:
+    $ref: "./Product-Price-Point.yaml"
+required:
+  - price_point
