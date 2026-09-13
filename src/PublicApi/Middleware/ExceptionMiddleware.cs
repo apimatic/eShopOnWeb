@@ -32,6 +32,10 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        var message = exception.InnerException != null
+            ? $"{exception.Message} | Inner: {exception.InnerException.Message}"
+            : exception.Message;
+
         if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
@@ -47,7 +51,7 @@ public class ExceptionMiddleware
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = message
             }.ToString());
         }
     }
