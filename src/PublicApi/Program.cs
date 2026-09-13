@@ -51,6 +51,10 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Maxio billing integration
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetRequiredSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -160,6 +164,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
