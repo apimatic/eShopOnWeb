@@ -1,0 +1,206 @@
+title: Invoice
+type: object
+properties:
+  id:
+    type: integer
+    format: int64
+  uid:
+    type: string
+    description: Unique identifier for the invoice. It is generated automatically by Chargify and has the prefix "inv_" followed by alphanumeric characters.
+  site_id:
+    type: integer
+    description: ID of the site to which the invoice belongs.
+  customer_id:
+    type: integer
+    description: ID of the customer to which the invoice belongs.
+  subscription_id:
+    type: integer
+    description: ID of the subscription that generated the invoice.
+  number:
+    type: string
+    description: |-
+      A unique, identifying string that appears on the invoice and in places the invoice is referenced.
+
+      While the UID is long and not appropriate to show to customers, the number is usually shorter and consumable by the customer and the merchant alike.
+  sequence_number:
+    type: integer
+    description: A monotonically increasing number assigned to invoices as they are created.  This number is unique within a site and can be used to sort and order invoices.
+  transaction_time:
+    type: string
+    format: date-time
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  issue_date:
+    type: string
+    format: date
+    example: "2024-01-01"
+    description: |-
+      Date the invoice was issued to the customer.  This is the date that the invoice was made available for payment.
+
+      The format is `"YYYY-MM-DD"`.
+  due_date:
+    type: string
+    format: date
+    example: "2024-01-01"
+    description: |-
+      Date the invoice is due.
+
+      The format is `"YYYY-MM-DD"`.
+  paid_date:
+    type:
+      - string
+      - "null"
+    format: date
+    example: "2024-01-01"
+    description: |-
+      Date the invoice became fully paid.
+
+      If partial payments are applied to the invoice, this date will not be present until payment has been made in full.
+
+      The format is `"YYYY-MM-DD"`.
+  status:
+    $ref: "./Invoice-Status.yaml"
+  role:
+    $ref: "./Invoice-Role.yaml"
+  parent_invoice_id:
+    type:
+      - integer
+      - "null"
+  collection_method:
+    $ref: "./Collection-Method.yaml"
+  payment_instructions:
+    type: string
+    description: "A message that is printed on the invoice when it is marked for remittance collection. It is intended to describe to the customer how they may make payment, and is configured by the merchant."
+  currency:
+    type: string
+    description: The ISO 4217 currency code (3 character string) representing the currency of invoice transaction.
+  consolidation_level:
+    $ref: "./Consolidation-Level.yaml"
+  parent_invoice_uid:
+    type:
+      - "null"
+      - string
+    description: "For invoices with `consolidation_level` of `child`, this specifies the UID of the parent (consolidated) invoice."
+  subscription_group_id:
+    type:
+      - integer
+      - "null"
+  parent_invoice_number:
+    type:
+      - "null"
+      - integer
+    description: "For invoices with `consolidation_level` of `child`, this specifies the number of the parent (consolidated) invoice."
+  group_primary_subscription_id:
+    type:
+      - "null"
+      - integer
+    description: "For invoices with `consolidation_level` of `parent`, this specifies the ID of the subscription which was the primary subscription of the subscription group that generated the invoice."
+  product_name:
+    type: string
+    description: The name of the product subscribed when the invoice was generated.
+  product_family_name:
+    type: string
+    description: The name of the product family subscribed when the invoice was generated.
+  seller:
+    $ref: "./Invoice-Seller.yaml"
+  customer:
+    $ref: "./Invoice-Customer.yaml"
+  payer:
+    $ref: "./Invoice-Payer.yaml"
+  recipient_emails:
+    type: array
+    maxItems: 5
+    items:
+      type: string
+  net_terms:
+    type: integer
+  memo:
+    type: string
+    description: The memo printed on invoices of any collection type.  This message is in control of the merchant.
+  billing_address:
+    allOf:
+      - $ref: "./Invoice-Address.yaml"
+    description: The invoice billing address.
+  shipping_address:
+    allOf:
+      - $ref: "./Invoice-Address.yaml"
+    description: The invoice shipping address.
+  subtotal_amount:
+    type: string
+    description: "Subtotal of the invoice, which is the sum of all line items before discounts or taxes."
+  discount_amount:
+    type: string
+    description: Total discount applied to the invoice.
+  tax_amount:
+    type: string
+    description: Total tax on the invoice.
+  total_amount:
+    type: string
+    description: "The invoice total, which is `subtotal_amount - discount_amount + tax_amount`.'"
+  credit_amount:
+    type: string
+    description: |-
+      The amount of credit (from credit notes) applied to this invoice.
+
+      Credits offset the amount due from the customer.
+  debit_amount:
+    type: string
+  refund_amount:
+    type: string
+  paid_amount:
+    type: string
+    description: The amount paid on the invoice by the customer.
+  due_amount:
+    type: string
+    description: "Amount due on the invoice, which is `total_amount - credit_amount - paid_amount`."
+  line_items:
+    type: array
+    description: Line items on the invoice.
+    items:
+      $ref: "./Invoice-Line-Item.yaml"
+  discounts:
+    type: array
+    items:
+      $ref: "./Invoice-Discount.yaml"
+  taxes:
+    type: array
+    items:
+      $ref: "./Invoice-Tax.yaml"
+  credits:
+    type: array
+    items:
+      $ref: "./Invoice-Credit.yaml"
+  debits:
+    type: array
+    items:
+      $ref: "./Invoice-Debit.yaml"
+  refunds:
+    type: array
+    items:
+      $ref: "./Invoice-Refund.yaml"
+  payments:
+    type: array
+    items:
+      $ref: "./Invoice-Payment.yaml"
+  custom_fields:
+    type: array
+    items:
+      $ref: "./Invoice-Custom-Field.yaml"
+  display_settings:
+    $ref: "./Invoice-Display-Settings.yaml"
+  avatax_details:
+    $ref: "./Invoice-Avatax-Details.yaml"
+  public_url:
+    type: string
+    description: The public URL of the invoice
+  previous_balance_data:
+    $ref: "./Invoice-Previous-Balance.yaml"
+  public_url_expires_on:
+    type: string
+    format: date
+    example: "2024-01-21"
+    description: The format is `"YYYY-MM-DD"`.

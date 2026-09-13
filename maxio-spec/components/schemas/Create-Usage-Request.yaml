@@ -1,0 +1,7 @@
+title: Create Usage Request
+type: object
+properties:
+  usage:
+    $ref: "./Create-Usage.yaml"
+required:
+  - usage
