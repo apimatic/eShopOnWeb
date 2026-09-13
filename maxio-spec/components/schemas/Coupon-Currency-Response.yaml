@@ -1,0 +1,7 @@
+title: Coupon Currency Response
+type: object
+properties:
+  currency_prices:
+    type: array
+    items:
+      $ref: "./Coupon-Currency.yaml"
