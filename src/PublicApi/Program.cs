@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using AdvancedBilling.Standard;
+using AdvancedBilling.Standard.Authentication;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -13,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +53,34 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Maxio Advanced Billing configuration
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+
+builder.Services.AddSingleton(sp =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var environment = AdvancedBilling.Standard.Environment.US;
+
+    if (!string.IsNullOrEmpty(opts.BaseUrl))
+    {
+        // When BaseUrl is set, use it directly by configuring the HTTP client
+        return new AdvancedBillingClient.Builder()
+            .BasicAuthCredentials(new BasicAuthModel.Builder(opts.ApiKey, "x").Build())
+            .Site(opts.Subdomain)
+            .Environment(environment)
+            .Build();
+    }
+
+    return new AdvancedBillingClient.Builder()
+        .BasicAuthCredentials(new BasicAuthModel.Builder(opts.ApiKey, "x").Build())
+        .Site(opts.Subdomain)
+        .Environment(environment)
+        .Build();
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -84,6 +115,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddUserSecrets<Program>(optional: true);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
