@@ -1,0 +1,8 @@
+title: Pricing Scheme
+description: "The identifier for the pricing scheme. See [Product Components](https://help.chargify.com/products/product-components.html) for an overview of pricing schemes."
+type: string
+enum:
+  - stairstep
+  - volume
+  - per_unit
+  - tiered
