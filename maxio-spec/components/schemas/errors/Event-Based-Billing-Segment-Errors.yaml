@@ -1,0 +1,5 @@
+title: Event Based Billing Segment Errors
+type: object
+properties:
+  errors:
+    $ref: "./Event-Based-Billing-Segment-Single-Error.yaml"
