@@ -1,0 +1,8 @@
+using System;
+
+namespace Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
+
+public class CreateSubscriptionRequest : BaseRequest
+{
+    public string ProductHandle { get; set; } = string.Empty;
+}
