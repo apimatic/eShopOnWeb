@@ -1,18 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,13 +29,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
-using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using AutoMapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpoints();
-
-// Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
@@ -50,6 +58,7 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -84,6 +93,39 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio Advanced Billing
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName));
+builder.Services.AddSingleton<MaxioAdvancedBillingClient>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var options = config.GetRequiredSection(MaxioOptions.SectionName).Get<MaxioOptions>()
+        ?? throw new InvalidOperationException("Maxio configuration section is missing.");
+
+    var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+    var clientOptions = new MaxioAdvancedBillingClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = options.ApiKey,
+            Password = "x"
+        },
+        Environment = ServerEnvironment.Us
+    };
+
+    if (!string.IsNullOrEmpty(options.BaseUrl))
+    {
+        clientOptions.Server.Production.Us.BaseUrl = options.BaseUrl;
+    }
+    else if (!string.IsNullOrEmpty(options.Subdomain))
+    {
+        clientOptions.Server.Production.Us.Site = options.Subdomain;
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, clientOptions);
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -162,20 +204,68 @@ app.UseCors(CORS_POLICY);
 
 app.UseAuthorization();
 
-// Enable middleware to serve generated Swagger as a JSON endpoint.
 app.UseSwagger();
-
-// Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), 
-// specifying the Swagger JSON endpoint.
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
 });
 
 app.MapControllers();
-app.MapEndpoints();
+
+// === Maxio Subscription Endpoints ===
+
+app.MapGet("api/subscription-plans", async (IMaxioSubscriptionService maxioService) =>
+{
+    var plans = await maxioService.ListPlansAsync();
+    return Results.Ok(new { Plans = plans });
+})
+.WithTags("MaxioEndpoints")
+.Produces<object>();
+
+app.MapPost("api/subscriptions",
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    async (SubscribeRequest request, HttpContext httpContext, IMaxioSubscriptionService maxioService) =>
+{
+    var userReference = httpContext.User.FindFirstValue(ClaimTypes.Name);
+    if (string.IsNullOrEmpty(userReference))
+        return Results.Unauthorized();
+
+    try
+    {
+        var subscription = await maxioService.SubscribeAsync(userReference, request.ProductHandle);
+        return Results.Ok(new { Subscription = subscription });
+    }
+    catch (MaxioSubscriptionException ex)
+    {
+        return Results.Json(new { StatusCode = (int)ex.StatusCode, Message = ex.Message }, statusCode: (int)ex.StatusCode);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { Message = ex.Message });
+    }
+})
+.WithTags("MaxioEndpoints")
+.Produces<object>()
+.RequireAuthorization();
+
+app.MapGet("api/my-subscriptions",
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    async (HttpContext httpContext, IMaxioSubscriptionService maxioService) =>
+{
+    var userReference = httpContext.User.FindFirstValue(ClaimTypes.Name);
+    if (string.IsNullOrEmpty(userReference))
+        return Results.Unauthorized();
+
+    var subscriptions = await maxioService.ListMySubscriptionsAsync(userReference);
+    return Results.Ok(new { Subscriptions = subscriptions });
+})
+.WithTags("MaxioEndpoints")
+.Produces<object>()
+.RequireAuthorization();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
 public partial class Program { }
+
+public record SubscribeRequest(string ProductHandle);
