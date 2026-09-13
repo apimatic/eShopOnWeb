@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using AdvancedBilling.Standard;
+using AdvancedBilling.Standard.Authentication;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -50,6 +52,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddSingleton<AdvancedBillingClient>(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var logger = sp.GetRequiredService<ILogger<Program>>();
+
+    var maxioBuilder = new AdvancedBilling.Standard.AdvancedBillingClient.Builder()
+        .BasicAuthCredentials(new BasicAuthModel.Builder(options.ApiKey, "x").Build())
+        .Environment(AdvancedBilling.Standard.Environment.US)
+        .Site(options.Subdomain);
+
+    if (!string.IsNullOrEmpty(options.BaseUrl))
+    {
+        logger.LogInformation("Using custom Maxio BaseUrl: {BaseUrl}", options.BaseUrl);
+    }
+
+    return maxioBuilder.Build();
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
