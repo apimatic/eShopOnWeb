@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -51,6 +53,17 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Maxio subscription billing
+builder.Services.Configure<MaxioSettings>(settings =>
+{
+    settings.ApiKey = builder.Configuration["MAXIO_API_KEY"] ?? "";
+    settings.Subdomain = builder.Configuration["MAXIO_SITE_SUBDOMAIN"] ?? "";
+    settings.ProductFamilyHandle = builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"] ?? "";
+    settings.BaseUrl = builder.Configuration["Maxio:BaseUrl"] ?? "";
+});
+builder.Services.AddHttpClient<MaxioApiClient>();
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
@@ -67,6 +80,13 @@ builder.Services.AddAuthentication(config =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 const string CORS_POLICY = "CorsPolicy";
@@ -154,7 +174,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
 
@@ -174,6 +197,7 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+app.MapSubscriptionEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
