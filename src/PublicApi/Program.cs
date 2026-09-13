@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,6 +17,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -174,6 +178,67 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Subscription endpoints (authenticated, need HttpContext for user claims)
+app.MapPost("api/subscriptions",
+    [Authorize] async (CreateSubscriptionRequest request, ISubscriptionService subscriptionService, HttpContext httpContext) =>
+    {
+        var user = httpContext.User;
+        var userReference = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.Identity?.Name ?? "";
+        var email = user.FindFirstValue(ClaimTypes.Email) ?? $"{userReference}@placeholder.com";
+        var firstName = user.FindFirstValue(ClaimTypes.GivenName) ?? userReference;
+        var lastName = user.FindFirstValue(ClaimTypes.Surname) ?? "";
+
+        var subscription = await subscriptionService.CreateSubscriptionAsync(
+            userReference, email, firstName, lastName, request.ProductHandle);
+
+        return Results.Ok(new CreateSubscriptionResponse
+        {
+            Id = subscription.Id,
+            State = subscription.State,
+            ProductName = subscription.ProductName,
+            ProductHandle = subscription.ProductHandle,
+            Price = subscription.PriceInDollars,
+            NextBillingDate = subscription.NextBillingDate,
+            ActivatedAt = subscription.ActivatedAt,
+            CreatedAt = subscription.CreatedAt
+        });
+    })
+    .Produces<CreateSubscriptionResponse>()
+    .WithTags("SubscriptionEndpoints");
+
+app.MapGet("api/my-subscriptions",
+    [Authorize] async (ISubscriptionService subscriptionService, HttpContext httpContext) =>
+    {
+        var user = httpContext.User;
+        var userReference = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.Identity?.Name ?? "";
+
+        var subscriptions = await subscriptionService.GetMySubscriptionsAsync(userReference);
+
+        var response = new ListMySubscriptionsResponse
+        {
+            Subscriptions = new List<Microsoft.eShopWeb.ApplicationCore.Interfaces.SubscriptionDto>()
+        };
+
+        foreach (var s in subscriptions)
+        {
+            response.Subscriptions.Add(new Microsoft.eShopWeb.ApplicationCore.Interfaces.SubscriptionDto
+            {
+                Id = s.Id,
+                State = s.State,
+                ProductName = s.ProductName,
+                ProductHandle = s.ProductHandle,
+                PriceInDollars = s.PriceInDollars,
+                NextBillingDate = s.NextBillingDate,
+                ActivatedAt = s.ActivatedAt,
+                CreatedAt = s.CreatedAt
+            });
+        }
+
+        return Results.Ok(response);
+    })
+    .Produces<ListMySubscriptionsResponse>()
+    .WithTags("SubscriptionEndpoints");
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();

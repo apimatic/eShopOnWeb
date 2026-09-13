@@ -1,8 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +44,28 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Maxio Advanced Billing
+        services.Configure<MaxioSettings>(configuration.GetSection("Maxio"));
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<IOptions<MaxioSettings>>().Value;
+            var httpClient = new System.Net.Http.HttpClient();
+            var options = new MaxioAdvancedBillingClientOptions
+            {
+                BasicAuth = new BasicAuthCredentials { Username = settings.ApiKey, Password = "x" },
+                Environment = ServerEnvironment.Us,
+            };
+            if (!string.IsNullOrEmpty(settings.BaseUrl))
+            {
+                options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+            }
+            else if (!string.IsNullOrEmpty(settings.Subdomain))
+            {
+                options.Server.Production.Us.BaseUrl = $"https://{settings.Subdomain}.maxio.io/api/v2";
+            }
+            return new MaxioAdvancedBillingClient(httpClient, options);
+        });
+        services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
     }
 }
