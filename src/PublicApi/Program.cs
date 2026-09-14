@@ -12,12 +12,15 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring subscription billing, backed by Maxio Advanced Billing. Credentials come from the
+// "Maxio" configuration section (user secrets / environment), never from a file in this repository.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+builder.Services.AddScoped<SubscriberAccountResolver>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -126,6 +134,20 @@ var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
 
+// Report the subscription billing configuration up front. A missing or invalid "Maxio" section only
+// disables the subscription endpoints, so it is surfaced as a warning rather than being allowed to
+// take the whole API down.
+try
+{
+    var maxioSettings = app.Services.GetRequiredService<IOptions<MaxioSettings>>().Value;
+    app.Logger.LogInformation("Subscription billing is configured against {MaxioBaseAddress} using product family '{ProductFamilyHandle}'.",
+        maxioSettings.ResolveBaseAddress(), maxioSettings.ProductFamilyHandle);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Subscription billing is not configured; the subscription endpoints will not work until the 'Maxio' configuration section is supplied.");
+}
+
 app.Logger.LogInformation("Seeding Database...");
 
 using (var scope = app.Services.CreateScope())
@@ -159,6 +181,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
