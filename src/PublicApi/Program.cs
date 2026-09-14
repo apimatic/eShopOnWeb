@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Maxio;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// ---------------------------------------------------------------------------
+// Maxio Advanced Billing (subscription billing) — additive, parallel capability.
+// Settings are bound exclusively from the "Maxio" configuration section; no value
+// is hard-coded. Credentials arrive as MAXIO_* environment variables (mapped below)
+// or as .NET user-secrets under Maxio:*.
+// ---------------------------------------------------------------------------
+builder.Configuration.AddMaxioEnvironmentConfiguration();
+
+// Maxio settings are optional at startup: the existing one-time-commerce endpoints must keep
+// working when billing is not configured. The subscription endpoints report a clear error when
+// the section is missing/partial (see MaxioClient).
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+
+builder.Services.AddHttpClient<MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
