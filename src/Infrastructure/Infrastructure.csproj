@@ -10,6 +10,11 @@
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+		<PackageReference Include="System.Net.Http.Json" />
+		<PackageReference Include="System.Text.Json" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
 	<ItemGroup>
