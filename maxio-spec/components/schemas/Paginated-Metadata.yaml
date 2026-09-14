@@ -1,0 +1,15 @@
+title: Paginated Metadata
+type: object
+properties:
+  total_count:
+    type: integer
+  current_page:
+    type: integer
+  total_pages:
+    type: integer
+  per_page:
+    type: integer
+  metadata:
+    type: array
+    items:
+      $ref: "./Metadata.yaml"

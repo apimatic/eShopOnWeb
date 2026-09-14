@@ -1,0 +1,16 @@
+title: Apply Debit Note Event
+type: object
+allOf:
+  - $ref: "./Invoice-Event-Base.yaml"
+  - type: object
+    properties:
+      event_type:
+        allOf:
+          - $ref: "../Invoice-Event-Type.yaml"
+        default: apply_debit_note
+        example: apply_debit_note
+      event_data:
+        $ref: "../invoice_event_specific_data/Apply-Debit-Note-Event-Data.yaml"
+    required:
+      - event_type
+      - event_data
