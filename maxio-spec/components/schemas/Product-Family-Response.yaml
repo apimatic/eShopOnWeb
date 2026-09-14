@@ -1,0 +1,5 @@
+title: Product Family Response
+type: object
+properties:
+  product_family:
+    $ref: "./Product-Family.yaml"

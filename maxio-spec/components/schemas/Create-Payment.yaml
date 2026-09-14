@@ -1,0 +1,16 @@
+title: Create Payment
+type: object
+properties:
+  amount:
+    type: string
+  memo:
+    type: string
+  payment_details:
+    type: string
+  payment_method:
+    $ref: "./Invoice-Payment-Method-Type.yaml"
+required:
+  - amount
+  - memo
+  - payment_details
+  - payment_method

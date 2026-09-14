@@ -1,0 +1,6 @@
+title: Base String Error
+description: The error is base if it is not directly associated with a single attribute.
+type: object
+properties:
+  base:
+    $ref: "./Error-Array-Response.yaml"

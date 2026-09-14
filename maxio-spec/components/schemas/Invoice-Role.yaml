@@ -1,0 +1,13 @@
+title: Invoice Role
+type: string
+enum:
+  - unset
+  - signup
+  - renewal
+  - usage
+  - reactivation
+  - proration
+  - migration
+  - adhoc
+  - backport
+  - backport-balance-reconciliation
