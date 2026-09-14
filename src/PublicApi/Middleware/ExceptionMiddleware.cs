@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -43,12 +44,26 @@ public class ExceptionMiddleware
         }
         else
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            var (statusCode, message) = ToErrorResponse(exception);
+
+            context.Response.StatusCode = statusCode;
             await context.Response.WriteAsync(new ErrorDetails()
             {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                StatusCode = statusCode,
+                Message = message
             }.ToString());
         }
+    }
+
+    private static (int StatusCode, string Message) ToErrorResponse(Exception exception)
+    {
+        return exception switch
+        {
+            MaxioConfigurationException => ((int)HttpStatusCode.ServiceUnavailable, exception.Message),
+            SubscriptionPlanNotFoundException or SubscriptionRejectedException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            AlreadySubscribedException => ((int)HttpStatusCode.Conflict, exception.Message),
+            MaxioApiException => ((int)HttpStatusCode.BadGateway, exception.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
     }
 }
