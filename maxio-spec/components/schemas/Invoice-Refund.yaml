@@ -1,0 +1,28 @@
+title: Invoice Refund
+type: object
+properties:
+  transaction_id:
+    type: integer
+  payment_id:
+    type: integer
+  memo:
+    type: string
+  original_amount:
+    type: string
+  applied_amount:
+    type: string
+  gateway_transaction_id:
+    type:
+      - string
+      - "null"
+    description: The transaction ID for the refund as returned from the payment gateway
+  gateway_used:
+    type: string
+  gateway_handle:
+    type:
+      - string
+      - "null"
+  ach_late_reject:
+    type:
+      - boolean
+      - "null"

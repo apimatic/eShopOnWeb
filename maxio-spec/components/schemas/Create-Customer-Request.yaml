@@ -1,0 +1,8 @@
+title: Create Customer Request
+type: object
+description: ""
+properties:
+  customer:
+    $ref: "./Create-Customer.yaml"
+required:
+  - customer

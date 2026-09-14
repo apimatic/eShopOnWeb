@@ -1,0 +1,15 @@
+title: List Metafields Response
+type: object
+properties:
+  total_count:
+    type: integer
+  current_page:
+    type: integer
+  total_pages:
+    type: integer
+  per_page:
+    type: integer
+  metafields:
+    type: array
+    items:
+      $ref: "./Metafield.yaml"
