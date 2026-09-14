@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +85,32 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// --- Maxio Advanced Billing (subscription billing) registration ---
+// Bridge the well-known MAXIO_* environment variables into the "Maxio" configuration section so the
+// same build can run against any Maxio site/catalog purely from environment variables. The secret
+// values themselves are never written into this repository (appsettings, launch profiles, scripts);
+// they are supplied via environment variables or .NET user-secrets at run time.
+foreach ((string envName, string configKey) in new[]
+{
+    ("MAXIO_API_KEY", "ApiKey"),
+    ("MAXIO_SITE_SUBDOMAIN", "Subdomain"),
+    ("MAXIO_ENVIRONMENT", "Environment"),
+    ("MAXIO_DEFAULT_PRODUCT_FAMILY", "ProductFamilyHandle"),
+    ("MAXIO_BASE_URL", "BaseUrl")
+})
+{
+    string? envValue = Environment.GetEnvironmentVariable(envName);
+    if (!string.IsNullOrWhiteSpace(envValue))
+    {
+        builder.Configuration[$"Maxio:{configKey}"] = envValue;
+    }
+}
+
+var maxioOptions = builder.Configuration.GetSection(MaxioOptions.SectionName).Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddSingleton(maxioOptions);
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
