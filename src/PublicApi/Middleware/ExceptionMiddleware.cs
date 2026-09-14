@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // Pass through caller-fixable errors (e.g. an unknown plan handle) with Maxio's
+            // own status code; collapse anything else (auth/connectivity/5xx upstream) into a
+            // single Bad Gateway so upstream flakiness doesn't read as a bug in this API.
+            var isCallerError = (int)maxioException.StatusCode is >= 400 and < 500;
+            context.Response.StatusCode = isCallerError ? (int)maxioException.StatusCode : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = isCallerError ? maxioException.Message : "The billing service is currently unavailable. Please try again shortly."
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

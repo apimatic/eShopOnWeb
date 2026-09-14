@@ -1,0 +1,28 @@
+title: List Components Filter
+type: object
+properties:
+  ids:
+    type: array
+    items:
+      type: integer
+    example:
+      - 1
+      - 2
+      - 3
+    minItems: 1
+    description:
+      "Allows fetching components with matching id based on provided value.
+      Use in query `filter[ids]=1,2,3`."
+    style: form
+    explode: false
+  use_site_exchange_rate:
+    type: boolean
+    description:
+      "Allows fetching components with matching use_site_exchange_rate based on provided value (refers to default price point).
+      Use in query `filter[use_site_exchange_rate]=true`."
+examples:
+  With-Ids:
+    ids:
+      - 123
+      - 124
+      - 125
