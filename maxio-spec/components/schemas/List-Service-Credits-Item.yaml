@@ -1,0 +1,20 @@
+title: Service Credit
+allOf:
+  - $ref: "./Service-Credit.yaml"
+  - type: object
+    properties:
+      invoice_uid:
+        type: string
+        nullable: true
+        description: |
+          The invoice uid associated with the entry. Only present for debit entries
+      remaining_balance_in_cents:
+        type: integer
+        format: int64
+        description: |
+          The remaining balance for the entry
+      created_at:
+        type: string
+        format: date-time
+        description: |
+          The date and time the entry was created

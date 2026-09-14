@@ -1,0 +1,7 @@
+title: Update Component Request
+type: object
+properties:
+  component:
+    $ref: "./Update-Component.yaml"
+required:
+  - component

@@ -1,0 +1,6 @@
+title: Refund Prepayment Aggregated Errors Response
+description: Errors returned on creating a refund prepayment, grouped by field, as arrays of strings.
+type: object
+properties:
+  errors:
+    $ref: "./Refund-Prepayment-Aggregated-Error.yaml"
