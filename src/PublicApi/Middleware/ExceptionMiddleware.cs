@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // The billing boundary has already decided what the caller should see: a provider
+            // rejection the caller can act on keeps its 4xx, a credential or availability problem
+            // becomes a 5xx, and the message is caller-safe by construction.
+            context.Response.StatusCode = (int)billingException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Details.Count > 0
+                    ? $"{billingException.Message} Details: {string.Join("; ", billingException.Details)}"
+                    : billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
