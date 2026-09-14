@@ -1,0 +1,25 @@
+title: Dunner Data
+type: object
+properties:
+  state:
+    type: string
+  subscription_id:
+    type: integer
+  revenue_at_risk_in_cents:
+    type: integer
+    format: int64
+  created_at:
+    type: string
+    format: date-time
+  attempts:
+    type: integer
+  last_attempted_at:
+    type: string
+    format: date-time
+required:
+  - state
+  - subscription_id
+  - revenue_at_risk_in_cents
+  - created_at
+  - attempts
+  - last_attempted_at
