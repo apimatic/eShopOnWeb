@@ -1,0 +1,13 @@
+title: Refund Success
+type: object
+properties:
+  refund_id:
+    type: integer
+  gateway_transaction_id:
+    type: integer
+  product_id:
+    type: integer
+required:
+  - refund_id
+  - gateway_transaction_id
+  - product_id

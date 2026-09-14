@@ -1,0 +1,10 @@
+title: Public Key
+type: object
+properties:
+  public_key:
+    type: string
+  requires_security_token:
+    type: boolean
+  created_at:
+    type: string
+    format: date-time

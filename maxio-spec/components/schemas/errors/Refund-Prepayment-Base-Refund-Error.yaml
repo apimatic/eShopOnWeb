@@ -1,0 +1,5 @@
+title: Refund Prepayment Base Refund Error
+type: object
+properties:
+  refund:
+    $ref: "./Base-Refund-Error.yaml"
