@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,6 +46,8 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddMaxioBilling(builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -55,6 +58,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -159,6 +164,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
