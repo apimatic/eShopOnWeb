@@ -1,0 +1,13 @@
+title: Dunning Step Reached
+type: object
+properties:
+  dunner:
+    $ref: "./Dunning-Step-Reached-Dunner-Data.yaml"
+  current_step:
+    $ref: "./Dunning-Step-Reached-Step-Data.yaml"
+  next_step:
+    $ref: "./Dunning-Step-Reached-Step-Data.yaml"
+required:
+  - dunner
+  - current_step
+  - next_step
