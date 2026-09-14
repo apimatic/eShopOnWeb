@@ -1,4 +1,4 @@
-# Microsoft eShopOnWeb ASP.NET Core Reference Application
+﻿# Microsoft eShopOnWeb ASP.NET Core Reference Application
 
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
 
@@ -142,6 +142,19 @@ You can also run the samples in Docker (see below).
 
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
+
+## Subscription billing (Maxio Advanced Billing)
+
+Alongside the one-time Catalog → Basket → Order flow, the PublicApi project exposes a recurring
+subscription capability backed by [Maxio Advanced Billing](https://developers.maxio.com/http/advanced-billing-api):
+`GET /api/subscription-plans`, `POST /api/subscriptions` and `GET /api/my-subscriptions`, all
+JWT-authenticated.
+
+It is off until the `Maxio:` configuration section is bound; without it the host still starts and
+those three endpoints answer `503` naming the missing keys.
+
+See [docs/subscription-billing.md](docs/subscription-billing.md) for configuration, the idempotency
+design and the Maxio endpoints used.
 
 ## Running the sample in the dev container
 
