@@ -1,0 +1,42 @@
+title: Create Allocation
+type: object
+properties:
+  quantity:
+    type: number
+    description: "The allocated quantity to which to set the line-items allocated quantity. By default, this is an integer. If decimal allocations are enabled for the component, it will be a decimal number. For On/Off components, use 1for on and 0 for off."
+  component_id:
+    type: integer
+    description: (required for the multiple allocations endpoint) The id associated with the component for which the allocation is being made
+  memo:
+    type: string
+    description: A memo to record along with the allocation
+  proration_downgrade_scheme:
+    type: string
+    description: The scheme used if the proration is a downgrade. Defaults to the site setting if one is not provided.
+    deprecated: true
+  proration_upgrade_scheme:
+    type: string
+    description: The scheme used if the proration is an upgrade. Defaults to the site setting if one is not provided.
+    deprecated: true
+  accrue_charge:
+    type: boolean
+    description: "If the change in cost is an upgrade, this determines if the charge should accrue to the next renewal or if capture should be attempted immediately. Defaults to the site setting if one is not provided."
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  initiate_dunning:
+    type: boolean
+    description: |-
+      If set to true, if the immediate component payment fails, initiate dunning for the subscription. 
+      Otherwise, leave the charges on the subscription to pay for at renewal. Defaults to false.
+  price_point_id:
+    type:
+      - string
+      - integer
+      - "null"
+    description: "Price point that the allocation should be charged at. Accepts either the price point's id (integer) or handle (string). When not specified, the default price point will be used."
+  billing_schedule:
+    $ref: "./Billing-Schedule.yaml"
+required:
+  - quantity
