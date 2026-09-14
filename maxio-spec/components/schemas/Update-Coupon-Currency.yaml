@@ -1,0 +1,13 @@
+title: Update Coupon Currency
+type: object
+properties:
+  currency:
+    type: string
+    description: ISO code for the site defined currency.
+  price:
+    type: integer
+    description: |
+      Price for the given currency.
+required:
+  - currency
+  - price

@@ -1,0 +1,26 @@
+title: List Subscription Components Filter
+type: object
+properties:
+  currencies:
+    type: array
+    items:
+      type: string
+    example:
+      - EUR
+      - USD
+    minItems: 1
+    description:
+      "Allows fetching components allocation with matching currency based on provided values.
+      Use in query `filter[currencies]=EUR,USD`."
+    style: form
+    explode: false
+  use_site_exchange_rate:
+    type: boolean
+    description:
+      "Allows fetching components allocation with matching use_site_exchange_rate based on provided value.
+      Use in query `filter[use_site_exchange_rate]=true`."
+examples:
+  With-Currencies:
+    currencies:
+      - USD
+      - GBP
