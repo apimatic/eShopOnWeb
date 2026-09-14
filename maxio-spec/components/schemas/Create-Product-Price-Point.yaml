@@ -1,0 +1,59 @@
+title: Create Product Price Point
+type: object
+properties:
+  name:
+    type: string
+    description: The product price point name
+  handle:
+    type: string
+    description: The product price point API handle
+  price_in_cents:
+    type: integer
+    format: int64
+    description: The product price point price, in integer cents
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this product price point would renew every 30 days
+  interval_unit:
+    allOf:
+      - $ref: "./Interval-Unit.yaml"
+    description: "A string representing the interval unit for this product price point, either month or day"
+  trial_price_in_cents:
+    type: integer
+    format: int64
+    description: The product price point trial price, in integer cents
+  trial_interval:
+    type: integer
+    description: "The numerical trial interval. i.e. an interval of ‘30’ coupled with a trial_interval_unit of day would mean this product price point trial would last 30 days."
+  trial_interval_unit:
+    allOf:
+      - $ref: "./Interval-Unit.yaml"
+    description: "A string representing the trial interval unit for this product price point, either month or day"
+  trial_type:
+    oneOf:
+      - $ref: "./Trial-Type.yaml"
+      - type: "null"
+    description: "Indicates how a trial is handled when the trail period ends and there is no credit card on file. For `no_obligation`, the subscription transitions to a Trial Ended state. Maxio will not send any emails or statements. For `payment_expected`, the subscription transitions to a Past Due state. Maxio will send normal dunning emails and statements according to your other settings."
+  initial_charge_in_cents:
+    type: integer
+    format: int64
+    description: The product price point initial charge, in integer cents
+  initial_charge_after_trial:
+    type: boolean
+  expiration_interval:
+    type: integer
+    description: "The numerical expiration interval. i.e. an expiration_interval of ‘30’ coupled with an expiration_interval_unit of day would mean this product price point would expire after 30 days."
+  expiration_interval_unit:
+    oneOf:
+      - $ref: "./Expiration-Interval-Unit.yaml"
+      - type: "null"
+    description: "A string representing the expiration interval unit for this product price point, either month, day or never"
+  use_site_exchange_rate:
+    type: boolean
+    description: Whether or not to use the site's exchange rate or define your own pricing when your site has multiple currencies defined.
+    default: true
+required:
+  - name
+  - price_in_cents
+  - interval
+  - interval_unit

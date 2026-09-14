@@ -1,0 +1,5 @@
+title: Create Credit Note Event Data
+type: object
+description: Example schema for an `create_credit_note` event
+allOf:
+  - $ref: "../Credit-Note.yaml"
