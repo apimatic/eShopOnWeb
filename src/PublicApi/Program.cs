@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Recurring subscription billing, backed by Maxio Advanced Billing. Reads the "Maxio"
+// configuration section; see README for the keys and where their values come from.
+builder.Services.AddMaxioSubscriptions(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +165,8 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
+
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -174,6 +181,21 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.ConfigurationSectionName).Get<MaxioSettings>() ?? new MaxioSettings();
+if (maxioSettings.IsConfigured)
+{
+    app.Logger.LogInformation(
+        "Maxio subscription billing enabled: {BaseAddress} (product family '{ProductFamilyHandle}')",
+        maxioSettings.ResolveBaseAddress(),
+        maxioSettings.ProductFamilyHandle);
+}
+else
+{
+    app.Logger.LogWarning(
+        "Maxio subscription billing is not configured; the subscription endpoints will report 503. {Errors}",
+        string.Join(" ", maxioSettings.GetConfigurationErrors()));
+}
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();

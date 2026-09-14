@@ -143,6 +143,21 @@ You can also run the samples in Docker (see below).
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
 
+## Subscription billing (Maxio Advanced Billing)
+
+Alongside the one-time Catalog/Basket/Order flow, the `PublicApi` project exposes a recurring
+subscription capability backed by Maxio Advanced Billing: `GET /api/subscription-plans`,
+`POST /api/subscriptions` and `GET /api/my-subscriptions`, all JWT-authenticated. Maxio is the
+system of record; nothing is mirrored into the eShopOnWeb databases.
+
+It is off unless configured. Set the `Maxio:ApiKey`, `Maxio:Subdomain` and
+`Maxio:ProductFamilyHandle` keys (plus the optional `Maxio:BaseUrl` override) in user-secrets or
+the environment; without them the rest of the API runs normally and the subscription endpoints
+answer `503`. Never commit the values.
+
+See [docs/subscriptions.md](./docs/subscriptions.md) for the endpoint contract, the configuration
+keys and how enrollment is made idempotent.
+
 ## Running the sample in the dev container
 
 This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
