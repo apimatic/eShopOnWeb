@@ -1,0 +1,15 @@
+title: Coupon Subcodes Response
+type: object
+properties:
+  created_codes:
+    type: array
+    items:
+      type: string
+  duplicate_codes:
+    type: array
+    items:
+      type: string
+  invalid_codes:
+    type: array
+    items:
+      type: string

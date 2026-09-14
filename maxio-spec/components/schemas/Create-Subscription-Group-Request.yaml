@@ -1,0 +1,7 @@
+title: Create Subscription Group Request
+type: object
+properties:
+  subscription_group:
+    $ref: "./Create-Subscription-Group.yaml"
+required:
+  - subscription_group
