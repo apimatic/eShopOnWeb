@@ -1,0 +1,9 @@
+title: Origin Invoice
+type: object
+properties:
+  uid:
+    type: string
+    description: The UID of the invoice serving as an origin invoice.
+  number:
+    type: string
+    description: The number of the invoice serving as an origin invoice.
