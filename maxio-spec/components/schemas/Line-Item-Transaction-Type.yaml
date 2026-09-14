@@ -1,0 +1,11 @@
+title: Line Item Transaction Type
+type: string
+description: A handle for the line item transaction type
+enum:
+  - charge
+  - credit
+  - adjustment
+  - payment
+  - refund
+  - info_transaction
+  - payment_authorization

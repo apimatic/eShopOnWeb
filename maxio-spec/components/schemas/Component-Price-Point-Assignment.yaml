@@ -1,0 +1,9 @@
+title: Component Price Point Assignment
+type: object
+properties:
+  component_id:
+    type: integer
+  price_point:
+    type:
+      - string
+      - integer
