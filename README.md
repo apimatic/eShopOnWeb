@@ -97,6 +97,26 @@ Most of the site's functionality works with just the web application running. Ho
 
 Note that if you use this approach, you'll need to stop the application manually in order to build the solution (otherwise you'll get file locking errors).
 
+### Maxio subscriptions
+
+The PublicApi project exposes a JWT-authenticated subscription flow backed by Maxio Advanced Billing:
+
+- `GET /api/subscription-plans`
+- `POST /api/subscriptions` with `{ "productHandle": "..." }`
+- `GET /api/my-subscriptions`
+
+Maxio is the billing system of record. The Identity database stores an operational user/product enrollment mapping for idempotency; apply the `AddSubscriptionEnrollments` identity migration when using SQL Server. In-memory mode keeps this mapping only for the lifetime of the process, while each request still reconciles against Maxio.
+
+Configure PublicApi through its user-secrets store. These commands copy the values from the development environment without writing them to the repository:
+
+```powershell
+dotnet user-secrets set "Maxio:ApiKey" $env:MAXIO_API_KEY --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:Subdomain" $env:MAXIO_SITE_SUBDOMAIN --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:ProductFamilyHandle" $env:MAXIO_DEFAULT_PRODUCT_FAMILY --project src/PublicApi/PublicApi.csproj
+```
+
+`Maxio:BaseUrl` is an optional absolute API-base override. When omitted, PublicApi derives the US Advanced Billing address from `Maxio:Subdomain`. Maxio credentials must never be placed in an appsettings file.
+
 After cloning or downloading the sample you must setup your database. 
 To use the sample with a persistent database, you will need to run its Entity Framework Core migrations before you will be able to run the app.
 
