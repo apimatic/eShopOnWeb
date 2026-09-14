@@ -7,6 +7,7 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
+
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
@@ -39,6 +40,21 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioBillingException billingException)
+        {
+            // Surface client-side problems (e.g. unknown plan, validation) with the
+            // upstream status; treat server/transport failures as a bad gateway.
+            var upstream = billingException.StatusCode;
+            context.Response.StatusCode = upstream is >= 400 and < 500
+                ? upstream.Value
+                : (int)HttpStatusCode.BadGateway;
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
             }.ToString());
         }
         else
