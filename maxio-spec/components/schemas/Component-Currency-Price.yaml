@@ -1,0 +1,15 @@
+title: Component Currency Price
+type: object
+properties:
+  id:
+    type: integer
+  currency:
+    type: string
+  price:
+    type: string
+  formatted_price:
+    type: string
+  price_id:
+    type: integer
+  price_point_id:
+    type: integer

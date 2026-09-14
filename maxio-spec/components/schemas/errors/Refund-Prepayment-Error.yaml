@@ -1,0 +1,15 @@
+title: Prepayment Aggregated Error
+type: object
+properties:
+  amount_in_cents:
+    type: array
+    items:
+      type: string
+  base:
+    type: array
+    items:
+      type: string
+  external:
+    type: array
+    items:
+      type: string

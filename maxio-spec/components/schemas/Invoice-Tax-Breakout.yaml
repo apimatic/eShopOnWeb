@@ -1,0 +1,11 @@
+title: Invoice Tax Breakout
+type: object
+properties:
+  uid:
+    type: string
+  taxable_amount:
+    type: string
+  tax_amount:
+    type: string
+  tax_exempt_amount:
+    type: string
