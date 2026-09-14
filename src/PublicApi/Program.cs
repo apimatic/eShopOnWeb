@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -29,9 +30,19 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Maxio credentials are supplied to the host as MAXIO_* environment variables; project them onto the
+// Maxio:* configuration keys the application binds. Values that are instead held in user-secrets or
+// as Maxio__* environment variables keep working, and are not overwritten when MAXIO_* is unset.
+builder.Configuration.AddMaxioEnvironmentVariables();
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Subscription billing, with Maxio Advanced Billing as the system of record.
+builder.Services.AddMaxioBilling(builder.Configuration);
+builder.Services.AddScoped<ISubscriberResolver, IdentitySubscriberResolver>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
@@ -125,6 +136,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+MaxioStartupDiagnostics.Log(app.Services, app.Logger);
 
 app.Logger.LogInformation("Seeding Database...");
 
