@@ -1,5 +1,33 @@
 # Microsoft eShopOnWeb ASP.NET Core Reference Application
 
+## Maxio recurring subscriptions
+
+Recurring subscriptions are an additive PublicApi capability; the existing basket and order checkout is unchanged. The three JWT-protected routes are:
+
+- `GET /api/subscription-plans`
+- `POST /api/subscriptions` with `{ "productHandle": "<handle returned by subscription-plans>" }`
+- `GET /api/my-subscriptions`
+
+Maxio Advanced Billing is the billing system of record. Product-family and product handles are used instead of numeric catalog IDs. The app persists only the local user/product correlation to make subscription requests idempotent.
+
+For local development, load the provided environment values into the PublicApi user-secrets store (the secret values are not written to this repository):
+
+```powershell
+dotnet user-secrets set "Maxio:ApiKey" $env:MAXIO_API_KEY --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:Subdomain" $env:MAXIO_SITE_SUBDOMAIN --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "Maxio:ProductFamilyHandle" $env:MAXIO_DEFAULT_PRODUCT_FAMILY --project src/PublicApi/PublicApi.csproj
+dotnet user-secrets set "UseOnlyInMemoryDatabase" true --project src/PublicApi/PublicApi.csproj
+```
+
+`Maxio:BaseUrl` is an optional absolute HTTPS base-address override. When omitted, the API address is derived from `Maxio:Subdomain`. To run on a machine with only a newer SDK/runtime installed:
+
+```powershell
+$env:DOTNET_ROLL_FORWARD = "Major"
+dotnet run --project src/PublicApi/PublicApi.csproj --launch-profile PublicApi
+```
+
+Authenticate through `POST /api/authenticate`, then send its token as `Authorization: Bearer <token>` to the subscription routes. In-memory database state, including the local subscription correlation and seeded user ID, is intentionally lost whenever PublicApi restarts.
+
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
 
 
