@@ -41,6 +41,21 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // 4xx from Maxio usually means the request we sent it was invalid (e.g. an
+            // unknown plan handle); surface that to our caller as a 400. Anything else
+            // (auth/config/5xx on Maxio's side) is our problem, not the caller's, so it
+            // comes back as a 502.
+            context.Response.StatusCode = maxioException.StatusCode is >= 400 and < 500
+                ? (int)HttpStatusCode.BadRequest
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
