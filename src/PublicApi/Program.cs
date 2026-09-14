@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +49,70 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var maxioOptionsBuilder = builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(MaxioOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options => Uri.CheckHostName(options.Subdomain) != UriHostNameType.Unknown,
+        "Maxio:Subdomain must be a valid host label.")
+    .Validate(options => string.IsNullOrWhiteSpace(options.BaseUrl) ||
+        Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
+        "Maxio:BaseUrl must be an absolute URI when provided.");
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    maxioOptionsBuilder.ValidateOnStart();
+}
+
+builder.Services.AddTransient<MaxioWriteOnceHandler>();
+builder.Services.AddTransient<MaxioDiagnosticsHandler>();
+builder.Services.AddHttpClient("Maxio", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .AddHttpMessageHandler<MaxioWriteOnceHandler>()
+    .AddHttpMessageHandler<MaxioDiagnosticsHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value;
+    var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("MaxioRetry");
+    var options = new MaxioAdvancedBilling.MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.ApiKey,
+            Password = "x"
+        },
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+            OnRetry = attempt => logger.LogWarning(
+                "Retrying Maxio request attempt {AttemptNumber} after {Delay}",
+                attempt.AttemptNumber,
+                attempt.Delay)
+        }
+    };
+
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+    }
+    else
+    {
+        options.Server.Production.Us.Site = settings.Subdomain;
+    }
+
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("Maxio");
+    return new MaxioAdvancedBilling.MaxioAdvancedBillingClient(httpClient, options);
+});
+
+builder.Services.AddSingleton<IMaxioBillingGateway, MaxioBillingGateway>();
+builder.Services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +229,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
