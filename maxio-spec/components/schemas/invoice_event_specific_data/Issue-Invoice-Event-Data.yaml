@@ -1,0 +1,26 @@
+title: Issue Invoice Event Data
+type: object
+description: Example schema for an `issue_invoice` event
+properties:
+  consolidation_level:
+    $ref: "../Consolidation-Level.yaml"
+  from_status:
+    allOf:
+      - $ref: "../Invoice-Status.yaml"
+    description: "The status of the invoice before event occurrence. See [Invoice Statuses](https://maxio.zendesk.com/hc/en-us/articles/24252287829645-Advanced-Billing-Invoices-Overview#invoice-statuses) for more."
+  to_status:
+    allOf:
+      - $ref: "../Invoice-Status.yaml"
+    description: "The status of the invoice after event occurrence. See [Invoice Statuses](https://maxio.zendesk.com/hc/en-us/articles/24252287829645-Advanced-Billing-Invoices-Overview#invoice-statuses) for more."
+  due_amount:
+    type: string
+    description: "Amount due on the invoice, which is `total_amount - credit_amount - paid_amount`."
+  total_amount:
+    type: string
+    description: "The invoice total, which is `subtotal_amount - discount_amount + tax_amount`.'"
+required:
+  - consolidation_level
+  - from_status
+  - to_status
+  - due_amount
+  - total_amount

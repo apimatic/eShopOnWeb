@@ -1,0 +1,7 @@
+title: Create Allocation Request
+type: object
+properties:
+  allocation:
+    $ref: "./Create-Allocation.yaml"
+required:
+  - allocation
