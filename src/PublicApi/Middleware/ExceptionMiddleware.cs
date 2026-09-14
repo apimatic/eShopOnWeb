@@ -41,6 +41,27 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is ApplicationCore.Exceptions.SubscriptionPlanNotFoundException planNotFound)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFound.Message
+            }.ToString());
+        }
+        else if (exception is ApplicationCore.Exceptions.BillingGatewayException billingGatewayException)
+        {
+            // Surface 4xx responses from the billing provider as-is; treat provider/transport failures as a bad gateway.
+            context.Response.StatusCode = billingGatewayException.StatusCode is >= 400 and <= 499
+                ? billingGatewayException.StatusCode.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingGatewayException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
