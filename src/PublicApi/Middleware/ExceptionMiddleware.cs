@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioIntegrationException maxioException)
+        {
+            // A 4xx from Maxio means the caller's own request was rejected (bad plan handle,
+            // validation failure); anything else (null status, 5xx, transport failure) means the
+            // provider/transport failed, which we surface as 502 rather than a blanket 500.
+            context.Response.StatusCode = maxioException.ProviderStatusCode is >= 400 and < 500
+                ? maxioException.ProviderStatusCode.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
