@@ -1,0 +1,34 @@
+title: Subscription Group Signup Success Data
+type: object
+properties:
+  uid:
+    type: string
+  scheme:
+    type: integer
+  customer_id:
+    type: integer
+  payment_profile_id:
+    type: integer
+  subscription_ids:
+    type: array
+    items:
+      type: integer
+  primary_subscription_id:
+    type: integer
+  next_assessment_at:
+    type: string
+    format: date-time
+  state:
+    type: string
+  cancel_at_end_of_period:
+    type: boolean
+required:
+  - uid
+  - scheme
+  - customer_id
+  - payment_profile_id
+  - subscription_ids
+  - primary_subscription_id
+  - next_assessment_at
+  - state
+  - cancel_at_end_of_period

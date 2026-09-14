@@ -1,0 +1,15 @@
+title: Coupon Request
+type: object
+properties:
+  coupon:
+    $ref: "./Coupon-Payload.yaml"
+  restricted_products:
+    type: object
+    description: An object where the keys are product IDs or handles (prefixed with 'handle:'), and the values are booleans indicating if the coupon should be applicable to the product
+    additionalProperties:
+      type: boolean
+  restricted_components:
+    type: object
+    additionalProperties:
+      type: boolean
+    description: An object where the keys are component IDs or handles (prefixed with 'handle:'), and the values are booleans indicating if the coupon should be applicable to the component
