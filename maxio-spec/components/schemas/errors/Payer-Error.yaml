@@ -1,0 +1,15 @@
+title: Payer Error
+type: object
+properties:
+  last_name:
+    type: array
+    items:
+      type: string
+  first_name:
+    type: array
+    items:
+      type: string
+  email:
+    type: array
+    items:
+      type: string

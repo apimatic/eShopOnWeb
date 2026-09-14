@@ -1,0 +1,20 @@
+title: Update Price
+type: object
+properties:
+  id:
+    type: integer
+  ending_quantity:
+    type:
+      - integer
+      - string
+  unit_price:
+    type:
+      - number
+      - string
+    description: The price can contain up to 8 decimal places. i.e. 1.00 or 0.0012 or 0.00000065
+  _destroy:
+    type: boolean
+  starting_quantity:
+    type:
+      - integer
+      - string
