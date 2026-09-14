@@ -1,0 +1,23 @@
+title: Subscription Group Signup
+type: object
+properties:
+  payment_profile_id:
+    type: integer
+  payer_id:
+    type: integer
+  payer_reference:
+    type: string
+  payment_collection_method:
+    $ref: "./Collection-Method.yaml"
+  payer_attributes:
+    $ref: "./Payer-Attributes.yaml"
+  credit_card_attributes:
+    $ref: "./Subscription-Group-Credit-Card.yaml"
+  bank_account_attributes:
+    $ref: "./Subscription-Group-Bank-Account.yaml"
+  subscriptions:
+    type: array
+    items:
+      $ref: "./Subscription-Group-Signup-Item.yaml"
+required:
+  - subscriptions
