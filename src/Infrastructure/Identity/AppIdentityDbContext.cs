@@ -11,9 +11,32 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
+    public DbSet<MaxioSubscriptionEnrollment> MaxioSubscriptionEnrollments =>
+        Set<MaxioSubscriptionEnrollment>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<MaxioSubscriptionEnrollment>(entity =>
+        {
+            entity.ToTable("MaxioSubscriptionEnrollments");
+            entity.HasKey(enrollment => enrollment.Id);
+            entity.Property(enrollment => enrollment.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(enrollment => enrollment.ProductHandle).HasMaxLength(255).IsRequired();
+            entity.Property(enrollment => enrollment.ProviderReference).HasMaxLength(255).IsRequired();
+            entity.Property(enrollment => enrollment.Status).HasMaxLength(64).IsRequired();
+            entity.Property(enrollment => enrollment.LeaseOwner).HasMaxLength(64);
+            entity.Property(enrollment => enrollment.ConcurrencyToken).IsConcurrencyToken();
+            entity.HasIndex(enrollment => new { enrollment.UserId, enrollment.ProductHandle }).IsUnique();
+            entity.HasIndex(enrollment => enrollment.ProviderReference).IsUnique();
+            entity.HasIndex(enrollment => enrollment.MaxioSubscriptionId)
+                .IsUnique()
+                .HasFilter("[MaxioSubscriptionId] IS NOT NULL");
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(enrollment => enrollment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         // Customize the ASP.NET Identity model and override the defaults if needed.
         // For example, you can rename the ASP.NET Identity table names and more.
         // Add your customizations after calling base.OnModelCreating(builder);
