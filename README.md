@@ -143,6 +143,130 @@ You can also run the samples in Docker (see below).
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
 
+## Recurring subscription billing (Maxio Advanced Billing)
+
+Alongside the one-time Catalog → Basket → Order flow, `src/PublicApi` exposes a recurring-subscription
+capability backed by **Maxio Advanced Billing**, which is the system of record for plans, customers and
+subscriptions. Design notes, configuration reference and the idempotency guarantees are in
+[SUBSCRIPTIONS.md](SUBSCRIPTIONS.md).
+
+| Method | Route |
+|---|---|
+| `GET` | `/api/subscription-plans` |
+| `POST` | `/api/subscriptions` |
+| `GET` | `/api/my-subscriptions` |
+
+All three take a JWT bearer token; the shopper is taken from the token, never from the request body.
+
+### Verify the subscription integration
+
+**0. Prerequisites.** The .NET SDK, a trusted HTTPS dev certificate (`dotnet dev-certs https --check
+--trust`), and Maxio sandbox credentials in the `MAXIO_API_KEY`, `MAXIO_SITE_SUBDOMAIN` and
+`MAXIO_DEFAULT_PRODUCT_FAMILY` environment variables. No database is required — the steps below use the
+in-memory provider. If only a newer SDK is installed, `global.json` rolls forward to it.
+
+**1. Load the credentials into user-secrets** (values are read from the environment; nothing is written
+into this repository):
+
+```bash
+cd src/PublicApi
+dotnet user-secrets set "Maxio:ApiKey"              "$MAXIO_API_KEY"
+dotnet user-secrets set "Maxio:Subdomain"           "$MAXIO_SITE_SUBDOMAIN"
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "$MAXIO_DEFAULT_PRODUCT_FAMILY"
+dotnet user-secrets set "Maxio:DefaultPlanHandle"   "eshop-pro"
+cd ../..
+```
+
+**2. Run the API** (leave it running; it binds the ports in `launchSettings.json`):
+
+```bash
+ASPNETCORE_ENVIRONMENT=Development UseOnlyInMemoryDatabase=true \
+ASPNETCORE_URLS="https://localhost:26563;http://localhost:26564" \
+dotnet run --project src/PublicApi/PublicApi.csproj --no-launch-profile
+```
+
+**3. Get a bearer token.** The storefront cookie does not work here.
+
+```bash
+B=https://localhost:26563
+T=$(curl -sk -X POST "$B/api/authenticate" -H 'Content-Type: application/json' \
+     -d '{"username":"demouser@microsoft.com","password":"Pass@word1"}' \
+   | python -c "import sys, json; print(json.load(sys.stdin)['token'])")
+```
+
+**4. Browse the plans** — read live from the Maxio product family, so the prices are Maxio's:
+
+```bash
+curl -sk "$B/api/subscription-plans" -H "Authorization: Bearer $T" | python -m json.tool
+# => basic-plan "29.00 USD / month" and eshop-pro "299.00 USD / month"
+```
+
+Without the token the same call returns `401`:
+
+```bash
+curl -sk -o /dev/null -w '%{http_code}\n' "$B/api/subscription-plans"   # => 401
+```
+
+**5. Subscribe** (omitting `planHandle` uses `Maxio:DefaultPlanHandle`, i.e. Pro):
+
+```bash
+curl -sk -X POST "$B/api/subscriptions" -H "Authorization: Bearer $T" \
+  -H 'Content-Type: application/json' -d '{"planHandle":"eshop-pro"}' -i | head -1
+# => HTTP/1.1 201 Created, with state "active", price 299.00 USD / month,
+#    a nextBillingAt one month out, and "customerCreated": true
+```
+
+**6. Double-click it.** Run the exact same command again, and fire several at once:
+
+```bash
+for i in 1 2 3 4 5 6; do
+  curl -sk -o /dev/null -w '%{http_code} ' -X POST "$B/api/subscriptions" \
+    -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+    -d '{"planHandle":"eshop-pro"}' &
+done; wait; echo
+# => 200 200 200 200 200 200  (the first request already created it; nothing is created twice)
+```
+
+**7. See it in the account:**
+
+```bash
+curl -sk "$B/api/my-subscriptions" -H "Authorization: Bearer $T" | python -c "
+import sys, json
+for s in json.load(sys.stdin)['subscriptions']:
+    print(s['id'], s['state'], s['planHandle'], s['formattedPrice'], s['nextBillingAt'], s['reference'])"
+# => exactly one subscription
+```
+
+**8. Confirm in Maxio** that there is one customer and one subscription for this shopper — the reference
+is how eShopOnWeb finds them again, with nothing persisted locally:
+
+```bash
+M="https://$MAXIO_SITE_SUBDOMAIN.chargify.com"
+curl -s -u "$MAXIO_API_KEY:x" --get "$M/customers/lookup.json" \
+  --data-urlencode "reference=eshoponweb:customer:demouser@microsoft.com" | python -m json.tool
+curl -s -u "$MAXIO_API_KEY:x" --get "$M/subscriptions/lookup.json" \
+  --data-urlencode "reference=eshoponweb:subscription:demouser@microsoft.com:eshop-pro" | python -m json.tool
+```
+
+Or open the site in the Maxio UI: the customer is `demouser@microsoft.com` and the subscription is on the
+Pro Plan, remittance-billed, with no payment method on file.
+
+**9. Error paths** (each answers with a message you can act on):
+
+```bash
+curl -sk -X POST "$B/api/subscriptions" -H "Authorization: Bearer $T" \
+  -H 'Content-Type: application/json' -d '{"planHandle":"no-such-plan"}'   # => 404
+```
+
+Restarting the API and repeating step 7 returns the same subscription: the in-memory database is empty
+again, but the shopper's billing state lives in Maxio.
+
+**10. Run the tests:**
+
+```bash
+dotnet test eShopOnWeb.sln
+```
+
 ## Running the sample in the dev container
 
 This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
