@@ -1,0 +1,7 @@
+title: List Subscription Group Prepayment
+type: object
+properties:
+  prepayment:
+    $ref: "./List-Subscription-Group-Prepayment-Item.yaml"
+required:
+  - prepayment

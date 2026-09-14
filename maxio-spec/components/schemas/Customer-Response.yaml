@@ -1,0 +1,7 @@
+title: Customer Response
+type: object
+properties:
+  customer:
+    $ref: "./Customer.yaml"
+required:
+  - customer
