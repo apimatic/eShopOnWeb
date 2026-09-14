@@ -1,8 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -10,6 +16,8 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        ConfigureMaxio(configuration, services);
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
@@ -36,5 +44,25 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    private static void ConfigureMaxio(IConfiguration configuration, IServiceCollection services)
+    {
+        services.Configure<MaxioOptions>(configuration.GetSection(MaxioOptions.ConfigSectionName));
+
+        services.AddHttpClient<MaxioApiClient>((serviceProvider, httpClient) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+
+            httpClient.BaseAddress = new Uri(options.ResolveBaseUrl());
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            // Maxio (Chargify) Basic Auth convention: API key as username, any non-empty string as password.
+            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        });
+
+        services.AddSingleton<AsyncKeyedLocker>();
+        services.AddScoped<ISubscriptionBillingService, MaxioSubscriptionBillingService>();
     }
 }
