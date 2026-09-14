@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Referenced directly (not just transitively via PublicApi) so NuGet resolves the
+         SDK's Microsoft.Extensions.* dependencies at their declared versions and copies
+         them into the test output. A purely transitive reference collapses them onto the
+         net8.0 shared-framework versions, which the Maxio SDK's 10.x assemblies cannot load. -->
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MSTest.TestAdapter" />
