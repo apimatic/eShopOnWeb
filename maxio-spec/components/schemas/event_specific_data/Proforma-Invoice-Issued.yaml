@@ -1,0 +1,41 @@
+title: Proforma Invoice Issued
+type: object
+properties:
+  uid:
+    type: string
+  number:
+    type: string
+  role:
+    type: string
+  delivery_date:
+    type: string
+    format: date
+  created_at:
+    type: string
+    format: date-time
+  due_amount:
+    type: string
+  paid_amount:
+    type: string
+  tax_amount:
+    type: string
+  total_amount:
+    type: string
+  product_name:
+    type: string
+  line_items:
+    type: array
+    items:
+      $ref: "./Invoice-Line-Items-Data.yaml"
+required:
+  - uid
+  - number
+  - role
+  - delivery_date
+  - created_at
+  - due_amount
+  - paid_amount
+  - tax_amount
+  - total_amount
+  - product_name
+  - line_items
