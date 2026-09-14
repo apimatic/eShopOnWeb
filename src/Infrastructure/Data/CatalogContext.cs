@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 
 namespace Microsoft.eShopWeb.Infrastructure.Data;
 
@@ -18,6 +19,8 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<MaxioCustomerLink> MaxioCustomerLinks { get; set; }
+    public DbSet<SubscriptionEnrollment> SubscriptionEnrollments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
