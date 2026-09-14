@@ -1,0 +1,10 @@
+title: Activate Event-Based Component
+type: object
+properties:
+  price_point_id:
+    type: integer
+    description: The Chargify id of the price point
+  billing_schedule:
+    $ref: "./Billing-Schedule.yaml"
+  custom_price:
+    $ref: "./Component-Custom-Price.yaml"
