@@ -41,6 +41,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            // Pass through Maxio's own 4xx (bad request/plan not found/etc.); anything else
+            // (network failure, 5xx, missing config) is our upstream dependency failing.
+            context.Response.StatusCode = maxioException.IsClientError
+                ? (int)maxioException.StatusCode!.Value
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
