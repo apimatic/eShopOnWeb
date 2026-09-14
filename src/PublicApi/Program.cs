@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +15,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +88,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Subscription billing (Maxio Advanced Billing) settings. Credentials arrive through the
+// MAXIO_* environment variables and/or user-secrets under the Maxio: configuration section.
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    [$"{MaxioOptions.SectionName}:ApiKey"] = Environment.GetEnvironmentVariable(MaxioOptions.EnvApiKey),
+    [$"{MaxioOptions.SectionName}:Subdomain"] = Environment.GetEnvironmentVariable(MaxioOptions.EnvSubdomain),
+    [$"{MaxioOptions.SectionName}:ProductFamilyHandle"] = Environment.GetEnvironmentVariable(MaxioOptions.EnvProductFamilyHandle)
+});
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+builder.Services.AddSingleton(maxioSection.Get<MaxioOptions>() ?? new MaxioOptions());
+builder.Services.AddHttpClient<ISubscriptionBillingService, MaxioSubscriptionBillingService>((sp, httpClient) =>
+{
+    var options = sp.GetRequiredService<MaxioOptions>();
+    httpClient.BaseAddress = new Uri(options.ResolveApiBaseUrl());
+    httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    var apiCredentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", apiCredentials);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
