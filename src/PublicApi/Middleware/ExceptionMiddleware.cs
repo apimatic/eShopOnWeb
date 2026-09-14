@@ -41,6 +41,17 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Surface a Maxio 4xx as that same client 4xx (caller-actionable); anything else as 502.
+            var status = billingException.StatusCode ?? (int)HttpStatusCode.BadGateway;
+            context.Response.StatusCode = status;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = status,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
