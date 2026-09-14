@@ -24,7 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingProviderException billingException)
+        {
+            // One ladder for every billing failure, so the same kind of failure always answers the same
+            // status. The message is the exception's own caller-safe text; the provider's own status and
+            // body stay in the logs.
+            context.Response.StatusCode = ToStatusCode(billingException.Failure);
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.ToCallerMessage()
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +63,17 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static int ToStatusCode(BillingFailure failure) => failure switch
+    {
+        // The caller sent something the billing system would not accept, and can fix it.
+        BillingFailure.InvalidRequest => (int)HttpStatusCode.BadRequest,
+        BillingFailure.NotFound => (int)HttpStatusCode.NotFound,
+        BillingFailure.Conflict => (int)HttpStatusCode.Conflict,
+        // Transient on the provider's side: worth retrying.
+        BillingFailure.Unavailable => (int)HttpStatusCode.ServiceUnavailable,
+        // Our own misconfiguration - never reported as the caller's fault, and never retryable.
+        BillingFailure.Configuration => (int)HttpStatusCode.InternalServerError,
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }
