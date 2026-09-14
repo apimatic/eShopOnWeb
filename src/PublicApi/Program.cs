@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -84,6 +85,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Recurring-subscription billing (Maxio Advanced Billing as system of record). Additive to the
+// existing one-time Catalog -> Basket -> Order flow; it replaces nothing.
+// Credentials are bound from the "Maxio:" configuration section and never live in the repository:
+// user-secrets locally, the host's configuration provider elsewhere.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
