@@ -2,6 +2,9 @@
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Linq;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
@@ -30,5 +33,12 @@ public class AuthenticateEndpoint
         var model = stringResponse.FromJson<AuthenticateResponse>();
 
         Assert.AreEqual(expectedResult, model!.Result);
+
+        if (expectedResult)
+        {
+            var token = new JwtSecurityTokenHandler().ReadJwtToken(model.Token);
+            Assert.IsTrue(token.Claims.Any(x =>
+                x.Type == ClaimTypes.NameIdentifier || x.Type == "nameid"));
+        }
     }
 }
