@@ -13,11 +13,13 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -30,6 +32,11 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+// Map the Maxio credentials from the environment into the "Maxio" configuration
+// section (Maxio:ApiKey, Maxio:Subdomain, Maxio:ProductFamilyHandle). The
+// environment variables never end up in any file inside this repository.
+ApplyMaxioEnvironment(builder.Configuration);
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -50,6 +57,21 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing (subscription billing) integration.
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.CONFIG_NAME);
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(maxioSection)
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey), $"{MaxioOptions.CONFIG_NAME}:ApiKey must be configured (set MAXIO_API_KEY).")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle), $"{MaxioOptions.CONFIG_NAME}:ProductFamilyHandle must be configured (set MAXIO_DEFAULT_PRODUCT_FAMILY).")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Subdomain) || !string.IsNullOrWhiteSpace(o.BaseUrl),
+        $"{MaxioOptions.CONFIG_NAME}:Subdomain (set MAXIO_SITE_SUBDOMAIN) or {MaxioOptions.CONFIG_NAME}:BaseUrl must be configured.");
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    MaxioApiClient.ConfigureHttpClient(client, options);
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -177,5 +199,20 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void ApplyMaxioEnvironment(ConfigurationManager configuration)
+{
+    void SetIfMissing(string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(configuration[key]))
+        {
+            configuration[key] = value;
+        }
+    }
+
+    SetIfMissing($"{MaxioOptions.CONFIG_NAME}:ApiKey", Environment.GetEnvironmentVariable("MAXIO_API_KEY"));
+    SetIfMissing($"{MaxioOptions.CONFIG_NAME}:Subdomain", Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"));
+    SetIfMissing($"{MaxioOptions.CONFIG_NAME}:ProductFamilyHandle", Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"));
+}
 
 public partial class Program { }

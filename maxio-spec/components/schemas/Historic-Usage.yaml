@@ -1,0 +1,15 @@
+title: Historic Usage
+type: object
+description: "Optional for Event Based Components. If the `include=historic_usages` query param is provided, the last ten billing periods will be returned."
+properties:
+  total_usage_quantity:
+    type: number
+    description: Total usage of a component for billing period
+  billing_period_starts_at:
+    type: string
+    format: date-time
+    description: Start date of billing period
+  billing_period_ends_at:
+    type: string
+    format: date-time
+    description: End date of billing period
