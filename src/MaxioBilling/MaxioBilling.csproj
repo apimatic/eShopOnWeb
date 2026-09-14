@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>Microsoft.eShopWeb.MaxioBilling</RootNamespace>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The integration boundary is internal by design; the test project drives it through the
+		     HttpClient seam, which needs the named-client constant and the guard types. -->
+		<InternalsVisibleTo Include="UnitTests" />
+	</ItemGroup>
+
+</Project>

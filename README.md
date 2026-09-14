@@ -164,6 +164,73 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Subscription billing (Maxio Advanced Billing)
+
+The sample also carries an **additive, parallel** recurring-subscription capability, alongside — not
+replacing — the one-time Catalog → Basket → Order flow. Maxio Advanced Billing is the system of
+record; eShopOnWeb stores no subscription state of its own.
+
+Three JWT-authenticated endpoints on the **PublicApi** project. The caller is identified from the
+bearer token, never from the request body:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/subscription-plans` | Plans purchasable from the configured Maxio product family |
+| `POST /api/subscriptions` | Subscribe the caller to a plan (`{ "planHandle": "..." }`; omit to use the configured default) |
+| `GET /api/my-subscriptions` | The caller's subscriptions, with plan, price, state and next billing date |
+
+The integration lives in `src/MaxioBilling`, behind `ISubscriptionBillingService`. The Maxio SDK does
+not leak past that project: `PublicApi` sees only the interface, its DTOs, and a single
+`BillingException`.
+
+### Configuration
+
+Bound from the `Maxio` section. **Never commit the API key** — use user-secrets, environment
+variables or a key vault. `src/PublicApi/appsettings.json` documents the shape with empty values.
+
+| Key | Meaning |
+| --- | --- |
+| `Maxio:ApiKey` | Maxio API key (sent as the HTTP Basic username) |
+| `Maxio:Subdomain` | Maxio site subdomain |
+| `Maxio:BaseUrl` | Optional. Used verbatim as the API base address instead of deriving one from the subdomain |
+| `Maxio:Environment` | `US` (default) or `EU` hosting |
+| `Maxio:ProductFamilyHandle` | Product family whose products are offered as plans |
+| `Maxio:DefaultPlanHandle` | Plan used when a subscribe request names none |
+| `Maxio:PaymentCollectionMethod` | `auto` (default), `site-default`, or `automatic` / `remittance` / `prepaid` / `invoice` |
+
+```powershell
+dotnet user-secrets set "Maxio:ApiKey"              "<your-api-key>"       --project src/PublicApi
+dotnet user-secrets set "Maxio:Subdomain"           "<your-site>"          --project src/PublicApi
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "<your-family-handle>" --project src/PublicApi
+dotnet user-secrets set "Maxio:DefaultPlanHandle"   "<your-plan-handle>"   --project src/PublicApi
+```
+
+Handles are used throughout rather than numeric ids, because Maxio reassigns ids when a catalog is
+re-seeded while handles stay stable.
+
+**About `PaymentCollectionMethod`.** eShopOnWeb captures no card. A Maxio site whose default
+collection method is `automatic` will therefore try to charge the full balance at signup and reject
+the subscription with *"No payment method was on file"* — even when the plan's `require_credit_card`
+is `false`. The default `auto` picks the invoice-style method that matches the site's billing
+architecture (`remittance` for Relationship Invoicing, `invoice` for legacy Statements); the two are
+not interchangeable, which is why it is derived from the site rather than hardcoded. Set the key
+explicitly to override, or to `site-default` to send nothing.
+
+### Behaviour worth knowing
+
+- **Subscribing is idempotent.** A Maxio customer is looked up by a reference derived from the
+  caller's login before one is created, and an existing live subscription on the same plan is
+  returned rather than a second being created. A repeat answers `200` with
+  `"alreadySubscribed": true`; a genuine enrolment answers `201`.
+- **A double-click cannot enrol twice.** A per-subscriber lock spans the check-and-create, and a
+  `DelegatingHandler` refuses any re-send of a write that the SDK's retry pipeline would otherwise
+  repeat after a transport fault. Behind more than one API instance the in-process lock must be
+  replaced by a distributed one.
+- **An unknown outcome is reconciled, not guessed.** If a create fails in a way that may still have
+  reached Maxio, the integration re-reads Maxio to settle what actually happened.
+- **Missing credentials do not stop the host.** The API starts without Maxio configured; the three
+  endpoints answer `503` and say so.
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
