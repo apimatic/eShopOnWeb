@@ -1,7 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -12,9 +18,12 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Subscriptions;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -50,6 +59,32 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Use to load the Maxio billing credentials from the environment into the Maxio: configuration section.
+AddMaxioEnvironmentVariables(builder.Configuration);
+
+var maxioConfigurationSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.Configure<MaxioOptions>(maxioConfigurationSection);
+var maxioOptions = maxioConfigurationSection.Get<MaxioOptions>() ?? new MaxioOptions();
+builder.Services.AddSingleton(maxioOptions);
+
+const string maxioHttpClientName = "Maxio";
+builder.Services.AddHttpClient(maxioHttpClientName, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(maxioHttpClientName);
+    return CreateMaxioClient(maxioOptions, httpClient);
+});
+
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -177,5 +212,82 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var values = new Dictionary<string, string?>
+    {
+        ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+        ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+        ["Maxio:Environment"] = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT"),
+        ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+        ["Maxio:BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+    };
+
+    var blankKeys = values
+        .Where(kvp => string.IsNullOrWhiteSpace(kvp.Value))
+        .Select(kvp => kvp.Key)
+        .ToList();
+    foreach (var key in blankKeys)
+    {
+        values.Remove(key);
+    }
+
+    if (values.Count > 0)
+    {
+        configuration.AddInMemoryCollection(values);
+    }
+}
+
+static MaxioAdvancedBillingClient CreateMaxioClient(MaxioOptions options, HttpClient httpClient)
+{
+    if (!options.IsConfigured)
+    {
+        throw new InvalidOperationException(
+            "Maxio is not configured. Set the MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN and MAXIO_DEFAULT_PRODUCT_FAMILY environment variables and restart, or provide a Maxio configuration section.");
+    }
+
+    var isEu = string.Equals(options.Environment, "EU", StringComparison.OrdinalIgnoreCase);
+
+    var clientOptions = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = isEu ? ServerEnvironment.Eu : ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = options.ApiKey,
+            Password = "x"
+        },
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(20),
+            MaxRetries = 2
+        }
+    };
+
+    if (isEu)
+    {
+        if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+        {
+            clientOptions.Server.Production.Eu.BaseUrl = options.BaseUrl;
+        }
+        else
+        {
+            clientOptions.Server.Production.Eu.Site = options.Subdomain;
+        }
+    }
+    else
+    {
+        if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+        {
+            clientOptions.Server.Production.Us.BaseUrl = options.BaseUrl;
+        }
+        else
+        {
+            clientOptions.Server.Production.Us.Site = options.Subdomain;
+        }
+    }
+
+    return new MaxioAdvancedBillingClient(httpClient, clientOptions);
+}
 
 public partial class Program { }
