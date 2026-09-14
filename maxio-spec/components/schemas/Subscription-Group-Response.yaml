@@ -1,0 +1,7 @@
+title: Subscription Group Response
+type: object
+properties:
+  subscription_group:
+    $ref: "./Subscription-Group.yaml"
+required:
+  - subscription_group
