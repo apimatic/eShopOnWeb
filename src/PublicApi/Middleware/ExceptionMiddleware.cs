@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -41,6 +42,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            context.Response.StatusCode = (int)MapBillingStatus(billingException.Error);
+            var message = billingException.Details.Any()
+                ? $"{billingException.Message} ({string.Join("; ", billingException.Details)})"
+                : billingException.Message;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +64,13 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static HttpStatusCode MapBillingStatus(SubscriptionBillingError error) => error switch
+    {
+        SubscriptionBillingError.NotConfigured => HttpStatusCode.ServiceUnavailable,
+        SubscriptionBillingError.Validation => HttpStatusCode.UnprocessableEntity,
+        SubscriptionBillingError.NotFound => HttpStatusCode.NotFound,
+        SubscriptionBillingError.Conflict => HttpStatusCode.Conflict,
+        _ => HttpStatusCode.BadGateway
+    };
 }
