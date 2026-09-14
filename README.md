@@ -1,4 +1,4 @@
-# Microsoft eShopOnWeb ASP.NET Core Reference Application
+﻿# Microsoft eShopOnWeb ASP.NET Core Reference Application
 
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
 
@@ -8,6 +8,14 @@
 Sample ASP.NET Core reference application, powered by Microsoft, demonstrating a single-process (monolithic) application architecture and deployment model. If you're new to .NET development, read the [Getting Started for Beginners](https://github.com/dotnet-architecture/eShopOnWeb/wiki/Getting-Started-for-Beginners) guide.
 
 A list of Frequently Asked Questions about this repository can be found [here](https://github.com/dotnet-architecture/eShopOnWeb/wiki/Frequently-Asked-Questions).
+
+## Subscription billing
+
+This fork adds recurring-subscription billing to `src/PublicApi`, backed by
+[Maxio Advanced Billing](https://developers.maxio.com/) as the system of record. It runs alongside
+the existing one-time Catalog/Basket/Order flow and does not change it. See
+[docs/subscription-billing.md](docs/subscription-billing.md) for the endpoints, configuration and
+design.
 
 ## Overview Video
 
