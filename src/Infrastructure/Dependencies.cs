@@ -1,8 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -10,6 +14,12 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
+        services.AddOptions<MaxioOptions>()
+            .Bind(configuration.GetSection(MaxioOptions.SectionName));
+        services.AddSingleton<IValidateOptions<MaxioOptions>, MaxioOptionsValidator>();
+        services.AddHttpClient<IMaxioBillingGateway, MaxioBillingGateway>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
+
         bool useOnlyInMemoryDatabase = false;
         if (configuration["UseOnlyInMemoryDatabase"] != null)
         {
