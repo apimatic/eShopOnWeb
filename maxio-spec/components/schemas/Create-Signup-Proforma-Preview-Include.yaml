@@ -1,0 +1,5 @@
+title: Create Signup Proforma Preview Include
+type: string
+enum:
+  - next_proforma_invoice
+example: next_proforma_invoice

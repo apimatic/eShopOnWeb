@@ -1,0 +1,9 @@
+title: Create Invoice Payment Request
+type: object
+properties:
+  payment:
+    $ref: "./Create-Invoice-Payment.yaml"
+  type:
+    $ref: "./Invoice-Payment-Type.yaml"
+required:
+  - payment
