@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,11 +14,13 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +53,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio Advanced Billing - subscription billing.
+// Values are bound from the "Maxio" configuration section (user-secrets / env) and
+// never hard-coded. See MaxioOptions for the exact keys.
+builder.Services.Configure<MaxioOptions>(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddScoped<MaxioSubscriptionService>();
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((sp, httpClient) =>
+{
+    var maxioOptions = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    maxioOptions.EnsureValid();
+
+    httpClient.BaseAddress = new Uri(maxioOptions.ResolveApiBaseUrl());
+    httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+    // Maxio uses HTTP Basic auth with the API key as the username and "X" as the password.
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{maxioOptions.ApiKey}:X"));
+    httpClient.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue("Basic", credentials);
+    httpClient.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
