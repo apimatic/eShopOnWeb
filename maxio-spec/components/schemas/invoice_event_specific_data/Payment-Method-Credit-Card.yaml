@@ -1,0 +1,21 @@
+title: Payment Method Credit Card
+type: object
+properties:
+  card_brand:
+    type: string
+  card_expiration:
+    type: string
+  last_four:
+    type:
+      - string
+      - "null"
+  masked_card_number:
+    type: string
+  type:
+    allOf:
+      - $ref: "./Invoice-Event-Payment-Method.yaml"
+    example: "credit_card"
+required:
+  - card_brand
+  - masked_card_number
+  - type

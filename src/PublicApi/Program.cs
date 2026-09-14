@@ -33,6 +33,9 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Recurring-subscription billing backed by Maxio Advanced Billing (additive capability).
+Microsoft.eShopWeb.Infrastructure.Maxio.MaxioServiceCollectionExtensions.AddMaxioBilling(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();

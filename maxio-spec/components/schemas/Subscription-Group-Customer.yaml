@@ -1,0 +1,13 @@
+title: Subscription Group Customer
+type: object
+properties:
+  first_name:
+    type: string
+  last_name:
+    type: string
+  organization:
+    type: string
+  email:
+    type: string
+  reference:
+    type: string

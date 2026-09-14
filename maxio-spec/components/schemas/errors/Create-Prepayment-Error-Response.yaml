@@ -1,0 +1,5 @@
+title: Create Prepayment Error Response
+type: object
+oneOf:
+  - $ref: "./Error-List-Response.yaml"
+  - $ref: "./Error-String-Map-Response.yaml"

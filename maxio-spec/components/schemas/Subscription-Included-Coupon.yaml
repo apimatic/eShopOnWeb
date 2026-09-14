@@ -1,0 +1,31 @@
+title: Subscription Included Coupon
+type: object
+properties:
+  code:
+    type: string
+    example: '"ABCD_10"'
+  use_count:
+    type: integer
+    example: 2
+  uses_allowed:
+    type: integer
+    example: 10
+  expires_at:
+    type:
+      - string
+      - "null"
+    example: '"2023-07-13T05:18:58-04:00"'
+  recurring:
+    type: boolean
+  amount_in_cents:
+    type:
+      - integer
+      - "null"
+    format: int64
+    minimum: 0
+    example: 1000
+  percentage:
+    type:
+      - string
+      - "null"
+    example: '"15.0"'
