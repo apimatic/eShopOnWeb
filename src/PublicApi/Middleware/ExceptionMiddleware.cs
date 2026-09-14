@@ -41,6 +41,25 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PlanNotFoundException planNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // The upstream billing system errored or was unreachable.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
