@@ -1,0 +1,5 @@
+title: Proforma Invoice Discount Source Type
+type: string
+enum:
+  - Coupon
+  - Referral

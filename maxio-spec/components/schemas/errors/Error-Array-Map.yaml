@@ -1,0 +1,6 @@
+title: Error Array Map
+type: object
+additionalProperties:
+  type: array
+  items:
+    type: string

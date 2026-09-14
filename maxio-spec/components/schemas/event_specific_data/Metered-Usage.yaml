@@ -1,0 +1,23 @@
+title: Metered Usage
+type: object
+properties:
+  previous_unit_balance:
+    type: string
+    minLength: 1
+  new_unit_balance:
+    type: integer
+  usage_quantity:
+    type: integer
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  memo:
+    type: string
+required:
+  - previous_unit_balance
+  - new_unit_balance
+  - usage_quantity
+  - component_id
+  - component_handle
+  - memo
