@@ -41,6 +41,17 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Billing failures carry the status to surface: 400 for caller/validation problems,
+            // 502 when the upstream billing system is unavailable or misbehaves.
+            context.Response.StatusCode = billingException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
