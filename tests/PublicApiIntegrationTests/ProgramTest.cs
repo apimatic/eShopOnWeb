@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Net.Http;
 
 namespace PublicApiIntegrationTests;
@@ -16,6 +17,9 @@ public class ProgramTest
             return _application.CreateClient();
         }
     }
+
+    /// <summary>The running host's services, for reading configuration under test.</summary>
+    public static IServiceProvider Services => _application.Services;
 
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)

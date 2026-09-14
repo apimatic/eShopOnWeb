@@ -29,6 +29,18 @@ public class IdentityTokenClaimService : ITokenClaimsService
         var roles = await _userManager.GetRolesAsync(user);
         var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
 
+        // Carry the user's stable id and email in the token as well, so downstream APIs can
+        // identify the caller from the token alone without a round trip to the identity store.
+        if (!string.IsNullOrEmpty(user.Id))
+        {
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
+        }
+
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
+
         foreach (var role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
