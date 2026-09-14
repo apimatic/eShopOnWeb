@@ -1,0 +1,9 @@
+title: Create Metadata Request
+type: object
+properties:
+  metadata:
+    type: array
+    items:
+      $ref: "./Create-Metadata.yaml"
+required:
+  - metadata

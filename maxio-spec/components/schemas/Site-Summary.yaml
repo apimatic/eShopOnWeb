@@ -1,0 +1,13 @@
+title: Site Summary
+type: object
+properties:
+  seller_name:
+    type: string
+  site_name:
+    type: string
+  site_id:
+    type: integer
+  site_currency:
+    type: string
+  stats:
+    $ref: "./Site-Stats.yaml"
