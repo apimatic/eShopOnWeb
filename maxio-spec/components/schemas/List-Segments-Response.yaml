@@ -1,0 +1,7 @@
+title: List Segments Response
+type: object
+properties:
+  segments:
+    type: array
+    items:
+      $ref: "./Segment.yaml"
