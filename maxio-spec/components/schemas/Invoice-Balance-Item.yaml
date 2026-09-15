@@ -1,0 +1,9 @@
+title: Invoice Balance Item
+type: object
+properties:
+  uid:
+    type: string
+  number:
+    type: string
+  outstanding_amount:
+    type: string
