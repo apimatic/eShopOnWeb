@@ -1,0 +1,40 @@
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class GetMyOrdersEndpoint : IEndpoint<IResult, string, IOrderPaymentService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapGet("api/my-orders",
+            [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+            async (IOrderPaymentService service, HttpContext httpContext) =>
+            {
+                return await HandleAsync(httpContext.RequireBuyerId(), service);
+            })
+            .Produces<ListMyOrdersResponse>()
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(string buyerId, IOrderPaymentService service)
+    {
+        var orders = await service.ListMyOrdersAsync(buyerId);
+        return Results.Ok(new ListMyOrdersResponse
+        {
+            Orders = orders.Select(OrderDtoMapper.ToDto).ToList()
+        });
+    }
+}
+
+public class ListMyOrdersResponse
+{
+    public System.Collections.Generic.List<OrderDto> Orders { get; set; } = new();
+}
