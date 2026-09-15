@@ -1,8 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using System;
+using System.Net.Http;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
+using Microsoft.eShopWeb.Infrastructure.Services;
+using Microsoft.Extensions.Options;
+using TwilioSdk;
+using TwilioSdk.Core.Authentication.Basic;
+using TwilioSdk.Core.Configuration;
+using TwilioSdk.Servers;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +46,61 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+    }
+
+    public static void ConfigureTwilioServices(IConfiguration configuration, IServiceCollection services)
+    {
+        services.AddOptions<TwilioSettings>()
+            .Bind(configuration.GetSection(TwilioSettings.SectionName))
+            .Validate(settings =>
+                    !string.IsNullOrWhiteSpace(settings.AccountSid) &&
+                    !string.IsNullOrWhiteSpace(settings.AuthToken) &&
+                    !string.IsNullOrWhiteSpace(settings.FromNumber) &&
+                    !string.IsNullOrWhiteSpace(settings.MessagingServiceSid),
+                "Twilio:AccountSid, Twilio:AuthToken, Twilio:FromNumber and Twilio:MessagingServiceSid must be configured.")
+            .ValidateOnStart();
+
+        services.AddSingleton<SingleProviderWriteScope>();
+        services.AddTransient<SingleProviderWriteHandler>();
+        services.AddHttpClient("TwilioMessaging", httpClient =>
+            {
+                httpClient.Timeout = TimeSpan.FromSeconds(10);
+            })
+            .AddHttpMessageHandler<SingleProviderWriteHandler>()
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            });
+
+        services.AddSingleton(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<IOptions<TwilioSettings>>().Value;
+            var options = new TwilioSdkClientOptions
+            {
+                Environment = ServerEnvironment.Production,
+                AccountSidAuthToken = new BasicAuthCredentials
+                {
+                    Username = settings.AccountSid,
+                    Password = settings.AuthToken
+                },
+                Retry = RetryOptions.Default() with
+                {
+                    MaxRetries = 1,
+                    Timeout = TimeSpan.FromSeconds(8)
+                }
+            };
+
+            if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+            {
+                options.Server.Default.Production.BaseUrl = settings.BaseUrl;
+            }
+
+            var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("TwilioMessaging");
+            return new TwilioSdkClient(httpClient, options);
+        });
+
+        services.AddSingleton<IMessagingProvider, TwilioMessagingProvider>();
+        services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+        services.AddHostedService<ScheduledMessageCancellationWorker>();
     }
 }
