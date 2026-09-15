@@ -1,0 +1,20 @@
+title: List Mrr Filter
+type: object
+properties:
+  subscription_ids:
+    type: array
+    items:
+      type: integer
+    example:
+      - 1
+      - 2
+      - 3
+    minItems: 1
+    description: "Submit ids in order to limit results. Use in query: `filter[subscription_ids]=1,2,3`."
+    style: form
+    explode: false
+examples:
+  Example:
+    subscription_ids:
+      - 1
+      - 1234

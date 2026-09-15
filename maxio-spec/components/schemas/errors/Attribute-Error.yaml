@@ -1,0 +1,9 @@
+title: Attribute Error
+type: object
+properties:
+  attribute:
+    type: array
+    items:
+      type: string
+required:
+  - attribute

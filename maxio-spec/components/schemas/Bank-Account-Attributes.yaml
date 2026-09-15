@@ -1,0 +1,33 @@
+title: Bank Account Attributes
+type: object
+properties:
+  chargify_token:
+    type: string
+  bank_name:
+    type: string
+    description: (Required when creating a subscription with ACH or GoCardless) The name of the bank where the customer’s account resides
+  bank_routing_number:
+    type: string
+    description: (Required when creating a subscription with ACH. Optional when creating a subscription with GoCardless). The routing number of the bank. It becomes bank_code while passing via GoCardless API
+  bank_account_number:
+    type: string
+    description: (Required when creating a subscription with ACH. Required when creating a subscription with GoCardless and bank_iban is blank) The customerʼs bank account number
+  bank_account_type:
+    $ref: "./Bank-Account-Type.yaml"
+  bank_branch_code:
+    type: string
+    description: "(Optional when creating a subscription with GoCardless) Branch code. Alternatively, an IBAN can be provided"
+  bank_iban:
+    type: string
+    description: "(Optional when creating a subscription with GoCardless). International Bank Account Number. Alternatively, local bank details can be provided"
+  bank_account_holder_type:
+    $ref: "./Bank-Account-Holder-Type.yaml"
+  payment_type:
+    $ref: "./Payment-Type.yaml"
+  current_vault:
+    $ref: "./Bank-Account-Vault.yaml"
+  vault_token:
+    type: string
+  customer_vault_token:
+    type: string
+    description: (only for Authorize.Net CIM storage or Square) The customerProfileId for the owner of the customerPaymentProfileId provided as the vault_token
