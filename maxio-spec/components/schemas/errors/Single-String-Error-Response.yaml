@@ -1,0 +1,5 @@
+title: Single String Error Response
+type: object
+properties:
+  errors:
+    type: string
