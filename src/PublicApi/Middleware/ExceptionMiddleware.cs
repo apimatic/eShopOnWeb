@@ -32,23 +32,42 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int statusCode, string message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+            case ResourceNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+            case PaymentValidationException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+            case InvalidPaymentOperationException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+            case PaymentApprovalRequiredException approval:
+                var message = approval.ApprovalUrl is null
+                    ? approval.Message
+                    : $"{approval.Message} Approval URL: {approval.ApprovalUrl}";
+                return ((int)HttpStatusCode.Conflict, message);
+            case PayPalApiException payPal:
+                // A deterministic provider rejection (4xx) the caller can act on surfaces as that same
+                // client status; a transport/unknown failure surfaces as 502.
+                var status = payPal.IsClientError && payPal.ProviderStatusCode is >= 400 and < 500
+                    ? payPal.ProviderStatusCode.Value
+                    : (int)HttpStatusCode.BadGateway;
+                return (status, payPal.Message);
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
