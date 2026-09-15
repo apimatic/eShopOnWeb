@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,38 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    // Additive lifecycle state introduced with the SMS notification feature. Existing checkout
+    // flows never touch it, so orders default to Placed.
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Marks the order as dispatched. Only a placed order can be dispatched; dispatching an
+    /// already-dispatched or cancelled order is rejected so callers get an accurate outcome.
+    /// </summary>
+    public void MarkDispatched()
+    {
+        if (Status != OrderStatus.Placed)
+        {
+            throw new InvalidOrderStatusTransitionException(Status, OrderStatus.Dispatched);
+        }
+
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>
+    /// Marks the order as cancelled. An order can be cancelled while it is placed or already
+    /// dispatched (a dispatched order can still be recalled). Cancelling twice is rejected.
+    /// </summary>
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOrderStatusTransitionException(Status, OrderStatus.Cancelled);
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
