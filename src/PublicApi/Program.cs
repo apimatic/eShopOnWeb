@@ -37,9 +37,20 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
 
+MapPayPalEnvironmentVariables(builder.Configuration);
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
 builder.Services.Configure<CatalogSettings>(builder.Configuration);
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.PayPal.PayPalOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.PayPal.PayPalOptions.SectionName));
+builder.Services.AddSingleton<Microsoft.eShopWeb.Infrastructure.PayPal.PayPalAccessTokenCache>();
+builder.Services.AddHttpClient<IPayPalGateway, Microsoft.eShopWeb.Infrastructure.PayPal.PayPalGateway>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new CatalogSettings();
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
@@ -160,6 +171,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +189,29 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapPayPalEnvironmentVariables(ConfigurationManager configuration)
+{
+    var mapped = new Dictionary<string, string?>();
+    Map("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    Map("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    Map("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    Map("PAYPAL_CURRENCY", "PayPal:Currency");
+    Map("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+    if (mapped.Count > 0)
+    {
+        configuration.AddInMemoryCollection(mapped);
+    }
+
+    void Map(string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            mapped[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
