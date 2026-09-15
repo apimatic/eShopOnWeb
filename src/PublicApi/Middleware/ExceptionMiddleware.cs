@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Net;
 using System.Threading.Tasks;
+using System.Text.Json;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
+using Microsoft.eShopWeb.PublicApi.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +35,18 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is PaymentApiException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await WriteErrorAsync(context, paymentException.Code, paymentException.Message);
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await WriteErrorAsync(context, payPalException.Code,
+                "PayPal could not complete the request. Retry safely using the same request data.");
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -51,4 +65,13 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static Task WriteErrorAsync(HttpContext context, string code, string message) =>
+        context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            statusCode = context.Response.StatusCode,
+            code,
+            message,
+            traceId = context.TraceIdentifier
+        }));
 }
