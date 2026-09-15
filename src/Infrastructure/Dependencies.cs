@@ -10,11 +10,7 @@ public static class Dependencies
 {
     public static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
     {
-        bool useOnlyInMemoryDatabase = false;
-        if (configuration["UseOnlyInMemoryDatabase"] != null)
-        {
-            useOnlyInMemoryDatabase = bool.Parse(configuration["UseOnlyInMemoryDatabase"]!);
-        }
+        var useOnlyInMemoryDatabase = configuration.GetValue<bool>("UseOnlyInMemoryDatabase");
 
         if (useOnlyInMemoryDatabase)
         {
@@ -36,5 +32,6 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
     }
 }
