@@ -16,6 +16,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.Status)
+            .HasConversion<int>()
+            .IsRequired();
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
