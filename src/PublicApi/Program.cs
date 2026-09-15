@@ -55,6 +55,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -84,6 +86,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindPayPalSettings(builder.Configuration);
+
+builder.Services.Configure<Microsoft.eShopWeb.Infrastructure.Payments.PayPalOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.Infrastructure.Payments.PayPalOptions.SectionName));
+builder.Services.AddHttpClient<IPayPalGateway, Microsoft.eShopWeb.Infrastructure.Payments.PayPalGateway>();
+builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +168,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +186,23 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindPayPalSettings(ConfigurationManager configuration)
+{
+    CopyEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    CopyEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    CopyEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    CopyEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+    CopyEnv("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+
+    void CopyEnv(string envName, string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
