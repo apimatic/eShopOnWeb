@@ -1,0 +1,106 @@
+title: Coupon
+type: object
+properties:
+  id:
+    type: integer
+  name:
+    type: string
+  code:
+    type: string
+  description:
+    type: string
+  amount:
+    type:
+      - number
+      - "null"
+  amount_in_cents:
+    format: int64
+    type:
+      - integer
+      - "null"
+  product_family_id:
+    type: integer
+  product_family_name:
+    type:
+      - string
+      - "null"
+  start_date:
+    format: date-time
+    type: string
+  end_date:
+    format: date-time
+    description: "After the given time, this coupon code will be invalid for new signups. Recurring discounts started before this date will continue to recur even after this date."
+    type:
+      - string
+      - "null"
+  percentage:
+    type:
+      - string
+      - "null"
+  recurring:
+    type: boolean
+  recurring_scheme:
+    $ref: "./Recurring-Scheme.yaml"
+  duration_period_count:
+    type:
+      - integer
+      - "null"
+  duration_interval:
+    type:
+      - integer
+      - "null"
+  duration_interval_unit:
+    type:
+      - string
+      - "null"
+  duration_interval_span:
+    type:
+      - string
+      - "null"
+  allow_negative_balance:
+    type: boolean
+    description: "If set to true, discount is not limited (credits will carry forward to next billing)."
+  archived_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+  conversion_limit:
+    type:
+      - string
+      - "null"
+  stackable:
+    type: boolean
+    description: "A stackable coupon can be combined with other coupons on a Subscription."
+  compounding_strategy:
+    oneOf:
+      - $ref: "./Compounding-Strategy.yaml"
+      - type: "null"
+    description: "Applicable only to stackable coupons.
+      For `compound`, Percentage-based discounts will be calculated against the remaining price, after prior discounts have been calculated.
+      For `full-price`, Percentage-based discounts will always be calculated against the original item price, before other discounts are applied."
+  use_site_exchange_rate:
+    type: boolean
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  discount_type:
+    $ref: "./Discount-Type.yaml"
+  exclude_mid_period_allocations:
+    type: boolean
+  apply_on_cancel_at_end_of_period:
+    type: boolean
+  apply_on_subscription_expiration:
+    type: boolean
+  coupon_restrictions:
+    type: array
+    items:
+      $ref: "./Coupon-Restriction.yaml"
+  currency_prices:
+    type: array
+    description: Returned in read, find, and list endpoints if the query parameter is provided.
+    items:
+      $ref: "./Coupon-Currency.yaml"
