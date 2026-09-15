@@ -1,0 +1,17 @@
+using System;
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class OrderNotificationsWithProviderSidInRangeSpecification : Specification<OrderNotification>
+{
+    public OrderNotificationsWithProviderSidInRangeSpecification(DateTimeOffset from, DateTimeOffset to)
+    {
+        Query.Where(n =>
+                n.ProviderMessageSid != null &&
+                n.CreatedAt >= from &&
+                n.CreatedAt <= to)
+            .OrderBy(n => n.Id);
+    }
+}
