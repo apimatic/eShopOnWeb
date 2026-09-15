@@ -32,23 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            EntityNotFoundException notFound => ((int)HttpStatusCode.NotFound, notFound.Message),
+            ForbiddenException forbidden => ((int)HttpStatusCode.Forbidden, forbidden.Message),
+            ConflictException conflict => ((int)HttpStatusCode.Conflict, conflict.Message),
+            PaymentProcessingException payment => (payment.StatusCode, payment.Message),
+            ArgumentException argument => ((int)HttpStatusCode.BadRequest, argument.Message),
+            UnauthorizedAccessException unauthorized => ((int)HttpStatusCode.Unauthorized, unauthorized.Message),
+            InvalidOperationException invalid => ((int)HttpStatusCode.Conflict, invalid.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = status,
+            Message = message
+        }.ToString());
     }
 }
