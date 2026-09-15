@@ -1,0 +1,16 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+/// <summary>
+/// The notification, if any, already produced under a given operator-supplied idempotency key,
+/// so a repeated re-send request under the same key does not send a second message.
+/// </summary>
+public class OrderNotificationByIdempotencyKeySpecification : Specification<OrderNotification>
+{
+    public OrderNotificationByIdempotencyKeySpecification(string idempotencyKey)
+    {
+        Query.Where(n => n.IdempotencyKey == idempotencyKey);
+    }
+}
