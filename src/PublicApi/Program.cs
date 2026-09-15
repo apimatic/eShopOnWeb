@@ -14,16 +14,22 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Maxio;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddEnvironmentVariables();
+ConfigureMaxioConfiguration(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +50,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName));
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = options.GetBaseAddress();
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("eShopOnWeb-Maxio-Integration/1.0");
+});
+builder.Services.AddScoped<SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +176,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +194,34 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void ConfigureMaxioConfiguration(ConfigurationManager configuration)
+{
+    SetFromEnvironmentIfMissing(configuration, "Maxio:ApiKey", "MAXIO_API_KEY");
+    SetFromEnvironmentIfMissing(configuration, "Maxio:Subdomain", "MAXIO_SITE_SUBDOMAIN");
+    SetFromEnvironmentIfMissing(configuration, "Maxio:ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY");
+    SetFromEnvironmentIfMissing(configuration, "Maxio:BaseUrl", "MAXIO_BASE_URL");
+
+    if (!string.IsNullOrWhiteSpace(configuration["Maxio:BaseUrl"]))
+        return;
+
+    var subdomain = configuration["Maxio:Subdomain"];
+    if (string.IsNullOrWhiteSpace(subdomain))
+        return;
+
+    // The Billing API documentation defines the US host as chargify.com and the EU
+    // host as ebilling.maxio.com. Sandbox sites use the US host unless overridden.
+    var environment = Environment.GetEnvironmentVariable("MAXIO_ENVIRONMENT");
+    var host = string.Equals(environment, "EU", StringComparison.OrdinalIgnoreCase)
+        ? "ebilling.maxio.com"
+        : "chargify.com";
+    configuration["Maxio:BaseUrl"] = $"https://{subdomain}.{host}/";
+}
+
+static void SetFromEnvironmentIfMissing(ConfigurationManager configuration, string key, string environmentVariable)
+{
+    if (string.IsNullOrWhiteSpace(configuration[key]))
+        configuration[key] = Environment.GetEnvironmentVariable(environmentVariable);
+}
 
 public partial class Program { }
