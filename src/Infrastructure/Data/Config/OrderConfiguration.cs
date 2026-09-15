@@ -41,5 +41,38 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // The PayPal-backed payment is an optional owned type living in the Orders table,
+        // with its refunds as an owned collection in a side table.
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+
+            p.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+            p.Property(x => x.CurrencyCode).HasMaxLength(3).IsRequired();
+            p.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalOrderId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.InvoiceId).HasMaxLength(128).IsRequired();
+            p.Property(x => x.AuthorizationId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.AuthorizationStatus).HasMaxLength(32);
+            p.Property(x => x.CaptureId).HasMaxLength(64);
+            p.Property(x => x.CaptureStatus).HasMaxLength(32);
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.CardDescriptor).HasMaxLength(64);
+            p.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            p.OwnsMany(x => x.Refunds, r =>
+            {
+                r.WithOwner();
+                r.Property(rr => rr.RefundId).HasMaxLength(64).IsRequired();
+                r.Property(rr => rr.IdempotencyKey).HasMaxLength(128).IsRequired();
+                r.Property(rr => rr.Amount).HasColumnType("decimal(18,2)");
+                r.Property(rr => rr.Status).HasMaxLength(32);
+            });
+            p.Navigation(x => x.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+        builder.Navigation(x => x.Payment).IsRequired(false);
     }
 }

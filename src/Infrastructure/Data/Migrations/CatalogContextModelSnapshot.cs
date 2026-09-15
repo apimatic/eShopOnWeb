@@ -17,10 +17,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.0")
+                .HasAnnotation("ProductVersion", "8.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.HasSequence("catalog_brand_hilo")
                 .IncrementsBy(10);
@@ -37,7 +37,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BuyerId")
                         .IsRequired()
@@ -55,7 +55,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("BasketId")
                         .HasColumnType("int");
@@ -109,6 +109,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
@@ -155,7 +156,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BuyerId")
                         .IsRequired()
@@ -176,7 +177,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("OrderId")
                         .HasColumnType("int");
@@ -192,6 +193,53 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.PaymentMethodAggregate.SavedPaymentMethod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BuyerId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("CardBrand")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("CardholderName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Expiry")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("Last4")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<string>("VaultId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.ToTable("SavedPaymentMethods");
                 });
 
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
@@ -240,6 +288,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasColumnType("nvarchar(90)");
 
                             b1.Property<string>("State")
+                                .IsRequired()
                                 .HasMaxLength(60)
                                 .HasColumnType("nvarchar(60)");
 
@@ -261,6 +310,133 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasForeignKey("OrderId");
                         });
 
+                    b.OwnsOne("Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.OrderPayment", "Payment", b1 =>
+                        {
+                            b1.Property<int>("OrderId")
+                                .HasColumnType("int");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<DateTimeOffset?>("AuthorizationExpiresAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<string>("AuthorizationId")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("nvarchar(64)");
+
+                            b1.Property<string>("AuthorizationStatus")
+                                .HasMaxLength(32)
+                                .HasColumnType("nvarchar(32)");
+
+                            b1.Property<DateTimeOffset>("AuthorizedAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<string>("CaptureId")
+                                .HasMaxLength(64)
+                                .HasColumnType("nvarchar(64)");
+
+                            b1.Property<string>("CaptureStatus")
+                                .HasMaxLength(32)
+                                .HasColumnType("nvarchar(32)");
+
+                            b1.Property<decimal?>("CapturedAmount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<DateTimeOffset?>("CapturedAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<string>("CardDescriptor")
+                                .HasMaxLength(64)
+                                .HasColumnType("nvarchar(64)");
+
+                            b1.Property<string>("CurrencyCode")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("nvarchar(3)");
+
+                            b1.Property<string>("InvoiceId")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("nvarchar(128)");
+
+                            b1.Property<decimal?>("NetAmount")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal?>("PayPalFee")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<string>("PayPalOrderId")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("nvarchar(64)");
+
+                            b1.Property<string>("Provider")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<int?>("SavedPaymentMethodId")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.HasKey("OrderId");
+
+                            b1.ToTable("Orders");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+
+                            b1.OwnsMany("Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate.PaymentRefund", "Refunds", b2 =>
+                                {
+                                    b2.Property<int>("OrderPaymentOrderId")
+                                        .HasColumnType("int");
+
+                                    b2.Property<int>("Id")
+                                        .ValueGeneratedOnAdd()
+                                        .HasColumnType("int");
+
+                                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b2.Property<int>("Id"));
+
+                                    b2.Property<decimal>("Amount")
+                                        .HasColumnType("decimal(18,2)");
+
+                                    b2.Property<DateTimeOffset>("CreatedAt")
+                                        .HasColumnType("datetimeoffset");
+
+                                    b2.Property<string>("IdempotencyKey")
+                                        .IsRequired()
+                                        .HasMaxLength(128)
+                                        .HasColumnType("nvarchar(128)");
+
+                                    b2.Property<string>("RefundId")
+                                        .IsRequired()
+                                        .HasMaxLength(64)
+                                        .HasColumnType("nvarchar(64)");
+
+                                    b2.Property<string>("Status")
+                                        .IsRequired()
+                                        .HasMaxLength(32)
+                                        .HasColumnType("nvarchar(32)");
+
+                                    b2.HasKey("OrderPaymentOrderId", "Id");
+
+                                    b2.ToTable("PaymentRefund");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("OrderPaymentOrderId");
+                                });
+
+                            b1.Navigation("Refunds");
+                        });
+
+                    b.Navigation("Payment");
+
                     b.Navigation("ShipToAddress")
                         .IsRequired();
                 });
@@ -280,6 +456,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasColumnType("int");
 
                             b1.Property<string>("PictureUri")
+                                .IsRequired()
                                 .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("ProductName")
@@ -295,7 +472,8 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasForeignKey("OrderItemId");
                         });
 
-                    b.Navigation("ItemOrdered");
+                    b.Navigation("ItemOrdered")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", b =>
