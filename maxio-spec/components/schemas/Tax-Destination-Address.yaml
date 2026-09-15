@@ -1,0 +1,7 @@
+title: Tax Destination Address
+type: string
+enum:
+  - shipping_then_billing
+  - billing_then_shipping
+  - shipping_only
+  - billing_only
