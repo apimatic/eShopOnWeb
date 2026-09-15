@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +46,26 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+var paypalOptions = builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required")
+    .Validate(x => x.Environment.Equals("sandbox", StringComparison.OrdinalIgnoreCase) ||
+                   x.Environment.Equals("live", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be sandbox or live")
+    .Validate(x => x.Currency.Length == 3 && x.Currency == x.Currency.ToUpperInvariant(),
+        "PayPal:Currency must be an uppercase, three-letter ISO-4217 code")
+    .Validate(x => string.IsNullOrWhiteSpace(x.BaseUrl) ||
+                   (Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out var uri) &&
+                    (uri.Scheme == Uri.UriSchemeHttps || uri.IsLoopback)),
+        "PayPal:BaseUrl must be an absolute HTTPS URL (HTTP is allowed only for loopback testing)")
+    .Validate(x => !builder.Environment.IsDevelopment() ||
+                   x.Environment.Equals("sandbox", StringComparison.OrdinalIgnoreCase),
+        "Development runs must use the PayPal sandbox environment");
+if (!builder.Environment.IsEnvironment("Testing")) paypalOptions.ValidateOnStart();
+builder.Services.AddHttpClient<IPayPalClient, PayPalClient>();
+builder.Services.AddSingleton<PaymentOperationLock>();
+builder.Services.AddScoped<PaymentWorkflow>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +182,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
