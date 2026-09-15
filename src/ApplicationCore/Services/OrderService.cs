@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +52,44 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateCatalogOrderAsync(
+        string buyerId,
+        IReadOnlyCollection<(int CatalogItemId, int Quantity)> items,
+        Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+        Guard.Against.Null(items, nameof(items));
+
+        if (items.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException("An order must contain at least one catalog item.");
+        }
+
+        var catalogIds = items.Select(i => i.CatalogItemId).Distinct().ToArray();
+        var catalogItems = await _itemRepository.ListAsync(new CatalogItemsSpecification(catalogIds));
+
+        var orderItems = new List<OrderItem>();
+        foreach (var line in items)
+        {
+            if (line.Quantity <= 0)
+            {
+                throw new ArgumentException("Quantity must be greater than zero.", nameof(items));
+            }
+
+            var catalogItem = catalogItems.FirstOrDefault(c => c.Id == line.CatalogItemId)
+                ?? throw new CatalogItemNotFoundException(line.CatalogItemId);
+
+            var pictureUri = string.IsNullOrWhiteSpace(catalogItem.PictureUri)
+                ? "images/products/placeholder.png"
+                : _uriComposer.ComposePicUri(catalogItem.PictureUri);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, pictureUri);
+            orderItems.Add(new OrderItem(itemOrdered, catalogItem.Price, line.Quantity));
+        }
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
     }
 }
