@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,27 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>Where the order is in the fulfilment lifecycle. New orders start <see cref="OrderStatus.Placed"/>.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>An operator marks the order dispatched. Only a placed order can be dispatched.</summary>
+    public void MarkDispatched()
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOrderStateException($"Order {Id} was cancelled and cannot be dispatched.");
+        if (Status == OrderStatus.Dispatched)
+            throw new InvalidOrderStateException($"Order {Id} has already been dispatched.");
+        Status = OrderStatus.Dispatched;
+    }
+
+    /// <summary>An operator cancels the order. A placed or dispatched order can be cancelled.</summary>
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOrderStateException($"Order {Id} has already been cancelled.");
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
