@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,16 +13,22 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using TwilioSdk;
+using TwilioSdk.Core.Authentication.Basic;
+using TwilioSdk.Core.Configuration;
+using TwilioSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +51,75 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- SMS order-notification integration (Twilio) ------------------------------------------------
+// Endpoints read the caller's identity from the JWT via IHttpContextAccessor.
+builder.Services.AddHttpContextAccessor();
+
+// Bind Twilio settings from the "Twilio:" section (values come from user-secrets / environment —
+// never hard-coded). Refuse to boot if a required credential is missing, so a blank secret fails at
+// startup rather than as a 401 on the first message.
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.ConfigSection))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// Non-secret messaging knobs the orchestration needs (sending number label + follow-up delay).
+var twilioConfigSection = builder.Configuration.GetSection(TwilioSettings.ConfigSection);
+builder.Services.AddSingleton(new MessagingSettings
+{
+    FromNumber = twilioConfigSection["FromNumber"] ?? string.Empty,
+    FollowUpDelay = twilioConfigSection.GetValue<TimeSpan?>("FollowUpDelay") ?? TimeSpan.FromDays(3)
+});
+
+// A single long-lived HttpClient for the Twilio SDK: a real per-attempt timeout (so a hung provider
+// gives way in seconds, not ~100s) and a bounded pooled-connection lifetime (so DNS stays fresh
+// behind the long-lived client).
+const string TwilioHttpClientName = "TwilioMessaging";
+builder.Services.AddHttpClient(TwilioHttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var twilio = sp.GetRequiredService<IOptions<TwilioSettings>>().Value;
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(TwilioHttpClientName);
+
+    var options = new TwilioSdkClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        AccountSidAuthToken = new BasicAuthCredentials
+        {
+            Username = twilio.AccountSid,
+            Password = twilio.AuthToken
+        },
+        // Keep retries minimal: a transport failure re-sends a POST on any verb, so a smaller retry
+        // count reduces the chance of a duplicate send on a live (billed) account.
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+
+    // Twilio:BaseUrl overrides ONLY the messaging (api) host, verbatim. It must not touch the
+    // Lookup host (Server.Default4), which stays at its default.
+    if (!string.IsNullOrEmpty(twilio.BaseUrl))
+        options.Server.Default.Production.BaseUrl = twilio.BaseUrl;
+
+    return new TwilioSdkClient(httpClient, options);
+});
+
+builder.Services.AddScoped<ISmsGateway, TwilioSmsGateway>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IApiOrderService, ApiOrderService>();
+// ------------------------------------------------------------------------------------------------
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
