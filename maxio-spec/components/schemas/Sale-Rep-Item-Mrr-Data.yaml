@@ -1,0 +1,17 @@
+title: Sale Rep Item Mrr Data
+type: object
+additionalProperties:
+  $ref: "./Sale-Rep-Item-Mrr.yaml"
+examples:
+  - november_2019:
+      mrr: $0.00
+      usage: $0.00
+      recurring: $0.00
+    december_2019:
+      mrr: $0.00
+      usage: $0.00
+      recurring: $0.00
+    january_2020:
+      mrr: $400.00
+      usage: $0.00
+      recurring: $400.00

@@ -1,0 +1,9 @@
+title: Update Metadata
+type: object
+properties:
+  current_name:
+    type: string
+  name:
+    type: string
+  value:
+    type: string

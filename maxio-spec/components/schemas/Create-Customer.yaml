@@ -1,0 +1,53 @@
+title: Create Customer
+type: object
+description: ""
+properties:
+  first_name:
+    type: string
+  last_name:
+    type: string
+  email:
+    type: string
+  cc_emails:
+    type: string
+  organization:
+    type: string
+  reference:
+    type: string
+  address:
+    type: string
+  address_2:
+    type: string
+  city:
+    type: string
+  state:
+    type: string
+  zip:
+    type: string
+  country:
+    type: string
+  phone:
+    type: string
+  locale:
+    type: string
+    description: Set a specific language on a customer record.
+  vat_number:
+    type: string
+  tax_exempt:
+    type: boolean
+  tax_exempt_reason:
+    type: string
+  parent_id:
+    description: The parent ID in Chargify if applicable. Parent is another Customer object.
+    type:
+      - integer
+      - "null"
+  salesforce_id:
+    type:
+      - string
+      - "null"
+    description: The Salesforce ID of the customer
+required:
+  - first_name
+  - last_name
+  - email
