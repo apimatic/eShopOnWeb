@@ -9,12 +9,42 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     public void Configure(EntityTypeBuilder<Order> builder)
     {
         var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
-
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Metadata.FindNavigation(nameof(Order.PaymentAuthorizations))
+            ?.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(Order.PaymentRefunds))
+            ?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PaymentReference).HasMaxLength(32);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(36);
+        builder.Property(o => o.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(o => o.PayPalCaptureStatus).HasMaxLength(32);
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetProceeds).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.RefundedAmount).HasColumnType("decimal(18,2)");
+
+        builder.HasIndex(o => o.PayPalOrderId).IsUnique().HasFilter("[PayPalOrderId] IS NOT NULL");
+        builder.HasIndex(o => o.PayPalCaptureId).IsUnique().HasFilter("[PayPalCaptureId] IS NOT NULL");
+        builder.HasIndex(o => o.PaymentReference).IsUnique().HasFilter("[PaymentReference] IS NOT NULL");
+
+        builder.HasMany(o => o.PaymentAuthorizations)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(o => o.PaymentRefunds)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
