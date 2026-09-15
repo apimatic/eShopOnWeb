@@ -1,0 +1,49 @@
+title: Segment
+type: object
+properties:
+  id:
+    type: integer
+  component_id:
+    type: integer
+  price_point_id:
+    type: integer
+  event_based_billing_metric_id:
+    type: integer
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  segment_property_1_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+  segment_property_2_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+  segment_property_3_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+  segment_property_4_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  prices:
+    type: array
+    uniqueItems: false
+    minItems: 1
+    items:
+      $ref: "./Segment-Price.yaml"
