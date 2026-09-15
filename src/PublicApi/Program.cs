@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +24,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using TwilioSdk;
+using TwilioSdk.Core.Authentication.Basic;
+using TwilioSdk.Core.Configuration;
+using TwilioSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +50,41 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- SMS order notifications (Twilio) ---
+// Bind the Twilio: section and refuse to boot if a required credential is missing (fails at startup,
+// not on the first message). Values come from configuration (user-secrets); none are hard-coded.
+builder.Services.AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.CONFIG_NAME))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+var twilioSettings = builder.Configuration.GetSection(TwilioSettings.CONFIG_NAME).Get<TwilioSettings>()
+    ?? new TwilioSettings();
+
+builder.Services.AddTwilioSdkClient(options =>
+{
+    options.Environment = ServerEnvironment.Production;
+    options.AccountSidAuthToken = new BasicAuthCredentials
+    {
+        Username = twilioSettings.AccountSid,
+        Password = twilioSettings.AuthToken
+    };
+
+    // Bound a single hung attempt; the gateway bounds the whole call via a linked CancellationToken.
+    options.Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(15) };
+
+    // Optional override of the MESSAGING API host only. The Lookup API lives on a different host and is
+    // deliberately left on its provider default.
+    if (!string.IsNullOrWhiteSpace(twilioSettings.BaseUrl))
+    {
+        options.Server.Default.Production.BaseUrl = twilioSettings.BaseUrl;
+    }
+});
+
+builder.Services.AddScoped<ITwilioMessagingGateway, TwilioMessagingGateway>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
