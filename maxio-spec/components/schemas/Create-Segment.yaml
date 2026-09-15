@@ -1,0 +1,39 @@
+title: Create Segment
+type: object
+properties:
+  segment_property_1_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+    description: A value that will occur in your events that you want to bill upon. The type of the value depends on the property type in the related event based billing metric.
+  segment_property_2_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+    description: A value that will occur in your events that you want to bill upon. The type of the value depends on the property type in the related event based billing metric.
+  segment_property_3_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+    description: A value that will occur in your events that you want to bill upon. The type of the value depends on the property type in the related event based billing metric.
+  segment_property_4_value:
+    type:
+      - string
+      - number
+      - integer
+      - boolean
+    description: A value that will occur in your events that you want to bill upon. The type of the value depends on the property type in the related event based billing metric.
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    items:
+      $ref: "./Create-Or-Update-Segment-Price.yaml"
+required:
+  - pricing_scheme
