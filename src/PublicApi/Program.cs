@@ -1,5 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Net.Http;
+using System;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,12 +13,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +87,23 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindPayPalEnvironmentVariables(builder.Configuration);
+
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddSingleton<IPaymentCurrencyAccessor, PaymentCurrencyAccessor>();
+builder.Services.AddHttpClient("PayPal", (sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<PayPalOptions>>().Value;
+    var baseUrl = options.ResolveBaseUrl();
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddSingleton<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<IShopperCheckoutService, ShopperCheckoutService>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +180,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +198,28 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindPayPalEnvironmentVariables(ConfigurationManager configuration)
+{
+    var overlay = new Dictionary<string, string?>();
+    TryMap(overlay, "PAYPAL_CLIENT_ID", "PayPal:ClientId");
+    TryMap(overlay, "PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+    TryMap(overlay, "PAYPAL_ENVIRONMENT", "PayPal:Environment");
+    TryMap(overlay, "PAYPAL_CURRENCY", "PayPal:Currency");
+    TryMap(overlay, "PAYPAL_BASE_URL", "PayPal:BaseUrl");
+    if (overlay.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overlay);
+    }
+}
+
+static void TryMap(Dictionary<string, string?> overlay, string environmentName, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        overlay[configurationKey] = value;
+    }
+}
 
 public partial class Program { }
