@@ -1,0 +1,5 @@
+title: Subscription Group Update Error Response
+type: object
+properties:
+  errors:
+    $ref: "./Subscription-Group-Update-Error.yaml"
