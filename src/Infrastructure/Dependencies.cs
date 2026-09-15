@@ -3,6 +3,8 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.Infrastructure.Twilio;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -15,6 +17,10 @@ public static class Dependencies
         {
             useOnlyInMemoryDatabase = bool.Parse(configuration["UseOnlyInMemoryDatabase"]!);
         }
+
+        services.Configure<TwilioOptions>(configuration.GetSection(TwilioOptions.SectionName));
+        services.AddHttpClient<IPhoneNumberValidator, TwilioPhoneNumberValidator>();
+        services.AddHttpClient<IMessageProvider, TwilioMessagingClient>();
 
         if (useOnlyInMemoryDatabase)
         {
