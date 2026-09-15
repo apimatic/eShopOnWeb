@@ -6,6 +6,7 @@
     <SystemExtensionVersion>8.0.0</SystemExtensionVersion>
     <EntityFramworkCoreVersion>8.0.2</EntityFramworkCoreVersion>
     <VSCodeGeneratorVersion>8.0.0</VSCodeGeneratorVersion>
+    <PayPalSdkRuntimeVersion>10.0.8</PayPalSdkRuntimeVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Ardalis.ApiEndpoints" Version="4.1.0" />
@@ -14,6 +15,7 @@
     <PackageVersion Include="Ardalis.Result" Version="7.0.0" />
     <PackageVersion Include="Ardalis.Specification" Version="7.0.0" />
     <PackageVersion Include="Ardalis.ListStartupServices" Version="1.1.4" />
+    <PackageVersion Include="AsadAli.Checkout.Sdk" Version="1.0.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.1" />
     <PackageVersion Include="Azure.Identity" Version="1.10.4" />
     <PackageVersion Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
@@ -34,6 +36,16 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Configuration" Version="$(SystemExtensionVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(PayPalSdkRuntimeVersion)" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="$(PayPalSdkRuntimeVersion)" />
     <PackageVersion Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="$(VSCodeGeneratorVersion)" />
     <PackageVersion Include="Microsoft.Web.LibraryManager.Build" Version="2.1.175" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(EntityFramworkCoreVersion)" />
@@ -68,5 +80,19 @@
     <PackageVersion Include="MSTest.TestAdapter" Version="3.2.2" />
     <PackageVersion Include="MSTest.TestFramework" Version="3.2.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'PublicApi' Or '$(MSBuildProjectName)' == 'PublicApiIntegrationTests'">
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="System.Net.Http.Json" VersionOverride="$(PayPalSdkRuntimeVersion)" />
+    <PackageReference Include="System.Text.Json" VersionOverride="$(PayPalSdkRuntimeVersion)" />
   </ItemGroup>
 </Project>
