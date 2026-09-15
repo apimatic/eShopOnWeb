@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,7 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +46,20 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<PaymentOperationLock>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>();
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "PayPal:ClientId is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(x => x.Environment.Equals("sandbox", StringComparison.OrdinalIgnoreCase) ||
+                   x.Environment.Equals("live", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be sandbox or live.")
+    .Validate(x => x.Currency.Length == 3, "PayPal:Currency must be a three-letter currency code.")
+    .Validate(x => string.IsNullOrWhiteSpace(x.BaseUrl) || Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out _),
+        "PayPal:BaseUrl must be an absolute URL when set.");
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,8 +99,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +174,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

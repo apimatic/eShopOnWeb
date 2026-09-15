@@ -12,9 +12,30 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+        builder.Property(x => x.PaymentOperationId).HasDefaultValueSql("NEWID()").IsRequired();
+        builder.Property(x => x.PaymentStatus).HasConversion<string>().HasMaxLength(32).IsRequired()
+            .HasDefaultValue(PaymentStatus.AwaitingPayment);
+        builder.Property(x => x.FulfilmentStatus).HasConversion<string>().HasMaxLength(32).IsRequired()
+            .HasDefaultValue(FulfilmentStatus.Pending);
+        builder.Property(x => x.PayPalOrderId).HasMaxLength(64);
+        builder.Property(x => x.PayPalAuthorizationId).HasMaxLength(64);
+        builder.Property(x => x.PayPalAuthorizationStatus).HasMaxLength(32);
+        builder.Property(x => x.PayPalCaptureId).HasMaxLength(64);
+        builder.Property(x => x.PayPalCaptureStatus).HasMaxLength(32);
+        builder.Property(x => x.CapturedAmount).HasPrecision(18, 2);
+        builder.Property(x => x.PayPalFee).HasPrecision(18, 2);
+        builder.Property(x => x.NetProceeds).HasPrecision(18, 2);
+        builder.Property(x => x.RefundedAmount).HasPrecision(18, 2);
+
+        builder.HasMany(x => x.Refunds).WithOne().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
