@@ -1,8 +1,28 @@
-﻿namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+using System;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
-public class PaymentMethod : BaseEntity
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+
+public class PaymentMethod : BaseEntity, IAggregateRoot
 {
-    public string? Alias { get; private set; }
-    public string? CardId { get; private set; } // actual card data must be stored in a PCI compliant system, like Stripe
-    public string? Last4 { get; private set; }
+    #pragma warning disable CS8618 // Required by Entity Framework
+    private PaymentMethod() { }
+
+    public PaymentMethod(string ownerId, string paypalVaultId, string brand, string last4,
+        string expiry, DateTimeOffset createdAt)
+    {
+        OwnerId = ownerId;
+        PayPalVaultId = paypalVaultId;
+        Brand = brand;
+        Last4 = last4;
+        Expiry = expiry;
+        CreatedAt = createdAt;
+    }
+
+    public string OwnerId { get; private set; }
+    public string PayPalVaultId { get; private set; }
+    public string Brand { get; private set; }
+    public string Last4 { get; private set; }
+    public string Expiry { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 }

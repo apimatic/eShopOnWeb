@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +33,19 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is CommerceException commerceException)
+        {
+            context.Response.StatusCode = commerceException.StatusCode;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                type = "about:blank",
+                title = commerceException.Title,
+                status = commerceException.StatusCode,
+                detail = commerceException.Message,
+                traceId = context.TraceIdentifier
+            });
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
