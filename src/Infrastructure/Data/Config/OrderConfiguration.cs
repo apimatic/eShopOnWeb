@@ -41,5 +41,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<OrderPayment>(p => p.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

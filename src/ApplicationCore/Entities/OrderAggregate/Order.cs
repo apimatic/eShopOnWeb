@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -11,17 +12,25 @@ public class Order : BaseEntity, IAggregateRoot
     private Order() {}
 
     public Order(string buyerId, Address shipToAddress, List<OrderItem> items)
+        : this(buyerId, shipToAddress, items, OrderStatus.Placed)
+    {
+    }
+
+    public Order(string buyerId, Address shipToAddress, List<OrderItem> items, OrderStatus status)
     {
         Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
 
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = status;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +52,52 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void AttachPayment(OrderPayment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+    }
+
+    public void MarkAuthorized()
+    {
+        EnsureTransition(OrderStatus.Authorized, OrderStatus.AwaitingPayment, OrderStatus.Authorized);
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        EnsureTransition(OrderStatus.Fulfilled, OrderStatus.Authorized);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        EnsureTransition(OrderStatus.Cancelled, OrderStatus.AwaitingPayment, OrderStatus.Authorized, OrderStatus.Cancelled);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool partial)
+    {
+        if (Status is not OrderStatus.Fulfilled and not OrderStatus.PartiallyRefunded and not OrderStatus.Refunded)
+        {
+            throw new PaymentException($"Order {Id} cannot be refunded from status {Status}.", 409);
+        }
+
+        Status = partial ? OrderStatus.PartiallyRefunded : OrderStatus.Refunded;
+    }
+
+    private void EnsureTransition(OrderStatus target, params OrderStatus[] allowedFrom)
+    {
+        foreach (var allowed in allowedFrom)
+        {
+            if (Status == allowed)
+            {
+                return;
+            }
+        }
+
+        throw new PaymentException($"Order {Id} cannot move from {Status} to {target}.", 409);
     }
 }
