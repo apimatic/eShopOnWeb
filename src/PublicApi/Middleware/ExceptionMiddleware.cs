@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +33,35 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is PaymentWorkflowException workflowException)
+        {
+            context.Response.StatusCode = (int)workflowException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = workflowException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalPayerActionRequiredException payerActionException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = payerActionException.Message
+            }.ToString());
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            var reference = payPalException.DebugId is null ? string.Empty : $" PayPal debug id: {payPalException.DebugId}.";
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = $"PayPal rejected the operation ({payPalException.Issue ?? payPalException.ErrorName}).{reference}"
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
