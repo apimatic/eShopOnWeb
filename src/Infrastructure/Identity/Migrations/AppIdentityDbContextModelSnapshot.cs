@@ -46,6 +46,62 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity.Migrations
                     b.ToTable("AspNetRoles");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioCustomerMapping", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("MaxioCustomerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("MaxioCustomerMappings");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioSubscriptionMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .UseIdentityColumn();
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MaxioCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxioSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductHandle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaxioSubscriptionId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Reference")
+                        .IsUnique();
+
+                    b.ToTable("MaxioSubscriptionMappings");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.Property<int>("Id")
