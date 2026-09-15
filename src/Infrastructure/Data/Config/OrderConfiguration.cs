@@ -41,5 +41,32 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.OwnsOne(o => o.Payment, payment =>
+        {
+            payment.Property(p => p.PayPalOrderId).HasMaxLength(64);
+            payment.Property(p => p.PayPalOrderStatus).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationStatus).HasMaxLength(64);
+            payment.Property(p => p.CaptureId).HasMaxLength(64);
+            payment.Property(p => p.CaptureStatus).HasMaxLength(64);
+            payment.Property(p => p.Currency).HasMaxLength(3);
+            payment.Property(p => p.CapturedAmount).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.PaypalFee).HasColumnType("decimal(18,2)");
+            payment.Property(p => p.NetProceeds).HasColumnType("decimal(18,2)");
+        });
+        builder.Navigation(o => o.Payment).IsRequired();
+
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
