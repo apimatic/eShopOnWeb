@@ -25,6 +25,17 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// The deployment contract uses MAXIO_* environment variable names. Map them into
+// the typed Maxio section without placing any credential values in the repository.
+var maxioEnvironmentSettings = new Dictionary<string, string?>();
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+if (maxioApiKey is not null) maxioEnvironmentSettings["Maxio:ApiKey"] = maxioApiKey;
+if (maxioSubdomain is not null) maxioEnvironmentSettings["Maxio:Subdomain"] = maxioSubdomain;
+if (maxioProductFamily is not null) maxioEnvironmentSettings["Maxio:ProductFamilyHandle"] = maxioProductFamily;
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentSettings);
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -44,6 +55,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Subscriptions.MaxioOptions>(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Subscriptions.IMaxioClient, Microsoft.eShopWeb.PublicApi.Subscriptions.MaxioClient>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Subscriptions.SubscriptionBillingService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +175,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
