@@ -41,13 +41,28 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            var message = paymentException.Message;
+            if (!string.IsNullOrEmpty(paymentException.DebugId))
+            {
+                message = $"{message} (PayPal debug id: {paymentException.DebugId})";
+            }
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = "An unexpected error occurred."
             }.ToString());
         }
     }
