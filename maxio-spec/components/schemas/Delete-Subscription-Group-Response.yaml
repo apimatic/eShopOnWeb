@@ -1,0 +1,7 @@
+title: Delete Subscription Group Response
+type: object
+properties:
+  uid:
+    type: string
+  deleted:
+    type: boolean
