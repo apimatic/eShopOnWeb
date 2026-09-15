@@ -1,0 +1,10 @@
+title: Event Based Billing List Segments Errors
+type: object
+properties:
+  errors:
+    type: object
+    properties:
+      per_page:
+        $ref: "./Error-Array-Response.yaml"
+      price_point:
+        $ref: "./Error-Array-Response.yaml"
