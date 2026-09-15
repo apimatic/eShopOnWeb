@@ -8,9 +8,9 @@ public class Buyer : BaseEntity, IAggregateRoot
 {
     public string IdentityGuid { get; private set; }
 
-    private List<PaymentMethod> _paymentMethods = new List<PaymentMethod>();
+    private List<SavedPaymentMethod> _paymentMethods = new List<SavedPaymentMethod>();
 
-    public IEnumerable<PaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
+    public IEnumerable<SavedPaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
 
     #pragma warning disable CS8618 // Required by Entity Framework
     private Buyer() { }
