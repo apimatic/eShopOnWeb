@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Configuration;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,9 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// SMS order-notification feature (Twilio-backed) — settings, gateway and application services.
+builder.Services.AddSmsOrderNotifications(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
