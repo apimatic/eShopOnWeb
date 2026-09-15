@@ -32,7 +32,16 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is CheckoutException checkoutException)
+        {
+            context.Response.StatusCode = checkoutException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = checkoutException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()

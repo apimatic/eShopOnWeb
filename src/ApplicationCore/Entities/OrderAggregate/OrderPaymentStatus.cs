@@ -1,0 +1,12 @@
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+public enum OrderPaymentStatus
+{
+    AwaitingPayment = 0,
+    Authorized = 1,
+    Captured = 2,
+    Voided = 3,
+    Refunded = 4,
+    PartiallyRefunded = 5,
+    Failed = 6
+}
