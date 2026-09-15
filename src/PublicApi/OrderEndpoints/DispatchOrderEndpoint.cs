@@ -1,0 +1,82 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using MinimalApi.Endpoint;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class DispatchOrderRequest : BaseRequest
+{
+    public DispatchOrderRequest(int orderId) => OrderId = orderId;
+    public int OrderId { get; }
+}
+
+public class DispatchOrderResponse : BaseResponse
+{
+    public DispatchOrderResponse() { }
+    public DispatchOrderResponse(Guid correlationId) : base(correlationId) { }
+    public int OrderId { get; set; }
+    public string Status { get; set; } = string.Empty;
+}
+
+public class DispatchOrderEndpoint : IEndpoint<IResult, DispatchOrderRequest, IOrderService>
+{
+    private readonly IOrderNotificationService _notifications;
+    private readonly IRepository<ApplicationCore.Entities.OrderAggregate.Order> _orders;
+
+    public DispatchOrderEndpoint(
+        IOrderNotificationService notifications,
+        IRepository<ApplicationCore.Entities.OrderAggregate.Order> orders)
+    {
+        _notifications = notifications;
+        _orders = orders;
+    }
+
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapPost("api/orders/{orderId}/dispatch",
+            [Authorize(Roles = BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS,
+                AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+            async (int orderId, IOrderService orderService) =>
+            {
+                return await HandleAsync(new DispatchOrderRequest(orderId), orderService);
+            })
+            .Produces<DispatchOrderResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(DispatchOrderRequest request, IOrderService orderService)
+    {
+        try
+        {
+            await orderService.DispatchAsync(request.OrderId);
+            var order = await _orders.GetByIdAsync(request.OrderId);
+            if (order is not null)
+            {
+                await _notifications.NotifyOrderDispatchedAsync(order.Id, order.BuyerId);
+            }
+
+            return Results.Ok(new DispatchOrderResponse(request.CorrelationId())
+            {
+                OrderId = request.OrderId,
+                Status = "Dispatched"
+            });
+        }
+        catch (OrderNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (InvalidOrderStateException ex)
+        {
+            return Results.Conflict(new { error = ex.Message });
+        }
+    }
+}

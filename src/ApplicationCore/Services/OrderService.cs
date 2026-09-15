@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,57 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> PlaceOrderAsync(string buyerId, IReadOnlyCollection<CatalogQuantity> items, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+        Guard.Against.Null(shippingAddress, nameof(shippingAddress));
+
+        var requested = items
+            .Where(i => i.Quantity > 0)
+            .GroupBy(i => i.CatalogItemId)
+            .Select(g => new CatalogQuantity(g.Key, g.Sum(x => x.Quantity)))
+            .ToList();
+
+        if (requested.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException();
+        }
+
+        var catalogIds = requested.Select(i => i.CatalogItemId).ToArray();
+        var catalogItems = await _itemRepository.ListAsync(new CatalogItemsSpecification(catalogIds));
+        var missing = catalogIds.Except(catalogItems.Select(c => c.Id)).ToArray();
+        if (missing.Length > 0)
+        {
+            throw new CatalogItemNotFoundException(missing[0]);
+        }
+
+        var orderItems = requested.Select(item =>
+        {
+            var catalogItem = catalogItems.First(c => c.Id == item.CatalogItemId);
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            return new OrderItem(itemOrdered, catalogItem.Price, item.Quantity);
+        }).ToList();
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
+    }
+
+    public async Task DispatchAsync(int orderId)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId)
+            ?? throw new OrderNotFoundException(orderId);
+        order.MarkDispatched();
+        await _orderRepository.UpdateAsync(order);
+    }
+
+    public async Task CancelAsync(int orderId)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId)
+            ?? throw new OrderNotFoundException(orderId);
+        order.MarkCancelled();
+        await _orderRepository.UpdateAsync(order);
     }
 }
