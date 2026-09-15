@@ -20,8 +20,9 @@
     <PackageReference Include="xunit.runner.console" />     
   </ItemGroup>
 
-  <ItemGroup>
+    <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationCore\ApplicationCore.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
   </ItemGroup>
 
