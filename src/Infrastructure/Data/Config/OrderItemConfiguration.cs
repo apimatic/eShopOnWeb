@@ -14,7 +14,11 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
 
             io.Property(cio => cio.ProductName)
                 .HasMaxLength(50)
-                .IsRequired();
+                .IsRequired(false);
+
+            io.Property(cio => cio.PictureUri)
+                .IsRequired(false);
+
         });
 
         builder.Property(oi => oi.UnitPrice)
