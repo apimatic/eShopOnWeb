@@ -25,6 +25,11 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
 
+        // Preserve the nullable shape of the existing database migration when using EF Core 8
+        // with nullable reference type conventions enabled.
+        builder.Property(ci => ci.Description)
+            .IsRequired(false);
+
         builder.HasOne(ci => ci.CatalogBrand)
             .WithMany()
             .HasForeignKey(ci => ci.CatalogBrandId);

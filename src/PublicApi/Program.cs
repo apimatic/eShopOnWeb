@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,17 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// PayPal supplies deployment credentials using flat environment variable names. Map them to
+// the strongly-typed PayPal configuration section without copying secret values into files.
+var paypalEnvironmentConfiguration = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY")
+}.Where(pair => !string.IsNullOrWhiteSpace(pair.Value));
+builder.Configuration.AddInMemoryCollection(paypalEnvironmentConfiguration);
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +63,20 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient(nameof(PayPalClient));
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ClientId), "PayPal:ClientId is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ClientSecret), "PayPal:ClientSecret is required.")
+    .Validate(options => options.Currency?.Length == 3, "PayPal:Currency must be an ISO-4217 currency code.")
+    .Validate(options => string.Equals(options.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(options.Environment, "Live", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be Sandbox or Live.")
+    .Validate(options => string.IsNullOrWhiteSpace(options.BaseUrl) ||
+                         Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
+        "PayPal:BaseUrl must be an absolute URL when specified.");
+builder.Services.AddSingleton<IPaymentGateway, PayPalClient>();
+builder.Services.AddScoped<CommercePaymentService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +187,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
