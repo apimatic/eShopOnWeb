@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -25,7 +26,10 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+MapMaxioEnvironmentVariables(builder.Configuration);
+
 builder.Services.AddEndpoints();
+builder.Services.AddHttpContextAccessor();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -55,6 +59,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -84,6 +90,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+MapMaxioEnvironmentVariables(builder.Configuration);
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +168,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +186,35 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapMaxioEnvironmentVariables(ConfigurationManager configuration)
+{
+    // MAXIO_* names do not match Maxio:* via the default env-var convention (__).
+    // Overlay them onto the Maxio configuration section without writing values to disk.
+    var mappings = new Dictionary<string, string?>();
+
+    var apiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+    if (!string.IsNullOrWhiteSpace(apiKey))
+    {
+        mappings["Maxio:ApiKey"] = apiKey;
+    }
+
+    var subdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+    if (!string.IsNullOrWhiteSpace(subdomain))
+    {
+        mappings["Maxio:Subdomain"] = subdomain;
+    }
+
+    var productFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+    if (!string.IsNullOrWhiteSpace(productFamily))
+    {
+        mappings["Maxio:ProductFamilyHandle"] = productFamily;
+    }
+
+    if (mappings.Count > 0)
+    {
+        configuration.AddInMemoryCollection(mappings);
+    }
+}
 
 public partial class Program { }
