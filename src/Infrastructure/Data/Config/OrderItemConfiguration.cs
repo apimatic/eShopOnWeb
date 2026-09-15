@@ -16,6 +16,7 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
                 .HasMaxLength(50)
                 .IsRequired();
         });
+        builder.Navigation(i => i.ItemOrdered).IsRequired(false);
 
         builder.Property(oi => oi.UnitPrice)
             .IsRequired(true)
