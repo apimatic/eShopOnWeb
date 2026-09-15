@@ -41,6 +41,25 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            var message = paymentException.Message;
+            if (!string.IsNullOrEmpty(paymentException.DebugId)
+                && paymentException.StatusCode >= 400
+                && paymentException.StatusCode != 401)
+            {
+                message = string.IsNullOrEmpty(paymentException.DebugId)
+                    ? paymentException.Message
+                    : $"{paymentException.Message} (debug id: {paymentException.DebugId})";
+            }
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
