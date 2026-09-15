@@ -32,23 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        context.Response.StatusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (int)HttpStatusCode.Conflict,
+            SubscriptionPlanNotFoundException => (int)HttpStatusCode.NotFound,
+            MaxioConfigurationException => (int)HttpStatusCode.ServiceUnavailable,
+            ArgumentException => (int)HttpStatusCode.BadRequest,
+            MaxioBillingException maxio => MapMaxioStatus(maxio.StatusCode),
+            _ => (int)HttpStatusCode.InternalServerError
+        };
+
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
+
+    private static int MapMaxioStatus(int maxioStatus) => maxioStatus switch
+    {
+        400 or 404 or 409 or 422 or 429 => maxioStatus == 422 ? (int)HttpStatusCode.BadRequest : maxioStatus,
+        401 or 403 => (int)HttpStatusCode.ServiceUnavailable,
+        >= 500 => (int)HttpStatusCode.BadGateway,
+        _ => (int)HttpStatusCode.BadGateway
+    };
 }
