@@ -16,6 +16,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        // One-to-one: the order owns its payment (the PayPal hold/capture/refunds).
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<Payment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
