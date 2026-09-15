@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +24,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +47,23 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<ICatalogOrderService, CatalogOrderService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+
+builder.Configuration.AddEnvironmentVariables();
+BindTwilioEnvironmentVariables(builder.Configuration);
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection(TwilioSettings.SectionName));
+builder.Logging.AddFilter("System.Net.Http.HttpClient.TwilioLookupClient", LogLevel.Warning);
+builder.Services.AddHttpClient<ITwilioLookupClient, TwilioLookupClient>(client =>
+{
+    client.BaseAddress = new Uri("https://lookups.twilio.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<ITwilioMessagingClient, TwilioMessagingClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -81,10 +101,20 @@ builder.Services.AddCors(options =>
         });
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+BindTwilioEnvironmentVariables(builder.Configuration);
 
+builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +190,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +208,30 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindTwilioEnvironmentVariables(ConfigurationManager configuration)
+{
+    var mappings = new Dictionary<string, string?>
+    {
+        ["Twilio:AccountSid"] = Environment.GetEnvironmentVariable("TWILIO_ACCOUNT_SID"),
+        ["Twilio:AuthToken"] = Environment.GetEnvironmentVariable("TWILIO_AUTH_TOKEN"),
+        ["Twilio:FromNumber"] = Environment.GetEnvironmentVariable("TWILIO_FROM_NUMBER"),
+        ["Twilio:MessagingServiceSid"] = Environment.GetEnvironmentVariable("TWILIO_MESSAGING_SERVICE_SID")
+    };
+
+    var present = new Dictionary<string, string?>();
+    foreach (var pair in mappings)
+    {
+        if (!string.IsNullOrWhiteSpace(pair.Value))
+        {
+            present[pair.Key] = pair.Value;
+        }
+    }
+
+    if (present.Count > 0)
+    {
+        configuration.AddInMemoryCollection(present);
+    }
+}
 
 public partial class Program { }

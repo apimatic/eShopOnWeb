@@ -2,7 +2,7 @@
 
   <PropertyGroup> 
     <RootNamespace>Microsoft.eShopWeb.PublicApi</RootNamespace>
-    <UserSecretsId>5b662463-1efd-4bae-bde4-befe0be3e8ff</UserSecretsId>
+    <UserSecretsId>16191b3e-b9b2-4bbe-8f0e-58f6dcebad59</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
     <Nullable>enable</Nullable>
@@ -38,3 +38,4 @@
 
 
 </Project>
+
