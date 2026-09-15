@@ -1,0 +1,39 @@
+title: Payer Attributes
+type: object
+properties:
+  first_name:
+    type: string
+  last_name:
+    type: string
+  email:
+    type: string
+  cc_emails:
+    type: string
+  organization:
+    type: string
+  reference:
+    type: string
+  address:
+    type: string
+  address_2:
+    type: string
+  city:
+    type: string
+  state:
+    type: string
+  zip:
+    type: string
+  country:
+    type: string
+  phone:
+    type: string
+  locale:
+    type: string
+  vat_number:
+    type: string
+  tax_exempt:
+    type: boolean
+  tax_exempt_reason:
+    type: string
+  metafields:
+    $ref: "./Metafields-Values.yaml"
