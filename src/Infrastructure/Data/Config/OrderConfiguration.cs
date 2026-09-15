@@ -16,6 +16,18 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        // The payment aggregate belongs to the order; loading/saving the order carries it along.
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<OrderPayment>("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Payment).IsRequired(false);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
