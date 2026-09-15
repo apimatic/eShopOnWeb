@@ -150,6 +150,60 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity.Migrations
                     b.ToTable("AspNetUserTokens");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioCustomerLink", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("MaxioCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("MaxioCustomerId")
+                        .IsUnique();
+
+                    b.ToTable("MaxioCustomerLinks");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioSubscriptionEnrollment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .UseIdentityColumn();
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MaxioSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductHandle")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaxioSubscriptionId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ProductHandle")
+                        .IsUnique();
+
+                    b.ToTable("MaxioSubscriptionEnrollments");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -220,6 +274,24 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity.Migrations
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioCustomerLink", b =>
+                {
+                    b.HasOne("Microsoft.eShopWeb.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Identity.MaxioSubscriptionEnrollment", b =>
+                {
+                    b.HasOne("Microsoft.eShopWeb.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

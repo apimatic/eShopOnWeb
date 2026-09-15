@@ -1,0 +1,14 @@
+title: Invoice PrePayment
+type: object
+properties:
+  subscription_id:
+    type: integer
+    description: The subscription id for the prepayment account
+  amount_in_cents:
+    type: integer
+    format: int64
+    description: The amount in cents of the prepayment that was created as a result of this payment.
+  ending_balance_in_cents:
+    type: integer
+    format: int64
+    description: The total balance of the prepayment account for this subscription including any prior prepayments
