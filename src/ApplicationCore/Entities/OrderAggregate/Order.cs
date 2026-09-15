@@ -22,6 +22,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderFulfilmentStatus FulfilmentStatus { get; private set; } = OrderFulfilmentStatus.Unfulfilled;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +45,35 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void InitializePayment(string currency)
+    {
+        if (Payment is not null)
+        {
+            throw new InvalidOperationException("Payment has already been initialized for this order.");
+        }
+
+        Payment = new OrderPayment(currency);
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Payment?.Status is not (OrderPaymentStatus.Captured or OrderPaymentStatus.PartiallyRefunded or OrderPaymentStatus.Refunded))
+        {
+            throw new InvalidOperationException("An order can be fulfilled only after its payment is captured.");
+        }
+
+        FulfilmentStatus = OrderFulfilmentStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (FulfilmentStatus == OrderFulfilmentStatus.Fulfilled)
+        {
+            throw new InvalidOperationException("A fulfilled order cannot be cancelled.");
+        }
+
+        FulfilmentStatus = OrderFulfilmentStatus.Cancelled;
     }
 }
