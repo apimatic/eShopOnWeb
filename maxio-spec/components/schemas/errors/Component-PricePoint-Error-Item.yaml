@@ -1,0 +1,9 @@
+title: Component PricePoint Error Item
+type: object
+properties:
+  component_id:
+    type: integer
+  message:
+    type: string
+  price_point:
+    type: integer

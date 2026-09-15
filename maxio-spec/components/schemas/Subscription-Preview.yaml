@@ -1,0 +1,7 @@
+title: Subscription Preview
+type: object
+properties:
+  current_billing_manifest:
+    $ref: "./Billing-Manifest.yaml"
+  next_billing_manifest:
+    $ref: "./Billing-Manifest.yaml"

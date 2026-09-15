@@ -1,0 +1,22 @@
+title: Subscription Group Signup Component
+type: object
+properties:
+  component_id:
+    type:
+      - string
+      - integer
+    description: Required if passing any component to `components` attribute.
+  allocated_quantity:
+    type:
+      - string
+      - integer
+  unit_balance:
+    type:
+      - string
+      - integer
+  price_point_id:
+    type:
+      - string
+      - integer
+  custom_price:
+    $ref: "./Subscription-Group-Component-Custom-Price.yaml"

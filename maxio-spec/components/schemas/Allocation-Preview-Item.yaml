@@ -1,0 +1,55 @@
+title: Allocation Preview Item
+type: object
+properties:
+  component_id:
+    type: integer
+  subscription_id:
+    type: integer
+  quantity:
+    oneOf:
+      - type: integer
+      - type: string
+  previous_quantity:
+    oneOf:
+      - type: integer
+      - type: string
+  memo:
+    type:
+      - string
+      - "null"
+  timestamp:
+    type:
+      - string
+      - "null"
+  proration_upgrade_scheme:
+    type: string
+    deprecated: true
+  proration_downgrade_scheme:
+    type: string
+    deprecated: true
+  accrue_charge:
+    type: boolean
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  price_point_id:
+    type: integer
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
+  previous_price_point_id:
+    type: integer
+  price_point_handle:
+    type: string
+  price_point_name:
+    type: string
+  component_handle:
+    type:
+      - string
+      - "null"
