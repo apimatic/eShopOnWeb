@@ -16,6 +16,9 @@
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
 	</ItemGroup>
 	<ItemGroup>
+		<InternalsVisibleTo Include="UnitTests" />
+	</ItemGroup>
+	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
 	</ItemGroup>
 </Project>
