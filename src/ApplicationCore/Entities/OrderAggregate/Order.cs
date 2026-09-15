@@ -23,6 +23,12 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Where this order sits in the payment / fulfilment lifecycle.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    /// <summary>The money-movement record. Null until the order is paid.</summary>
+    public Payment? Payment { get; private set; }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
@@ -43,5 +49,38 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    /// <summary>Attach the hold placed at pay-time and move the order to Authorized.</summary>
+    public void SetAuthorized(Payment payment)
+    {
+        Guard.Against.Null(payment, nameof(payment));
+        Payment = payment;
+        Status = OrderStatus.Authorized;
+    }
+
+    /// <summary>The money was taken at fulfilment.</summary>
+    public void SetFulfilled() => Status = OrderStatus.Fulfilled;
+
+    /// <summary>The held funds were released before fulfilment; no money moved.</summary>
+    public void SetCancelled() => Status = OrderStatus.Cancelled;
+
+    /// <summary>Recompute the refund state after a return against the capture.</summary>
+    public void SetRefundState()
+    {
+        if (Payment == null || !Payment.IsCaptured)
+        {
+            return;
+        }
+
+        var refunded = Payment.TotalRefunded();
+        if (refunded <= 0m)
+        {
+            return;
+        }
+
+        Status = refunded >= (Payment.CapturedAmount ?? 0m)
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
     }
 }
