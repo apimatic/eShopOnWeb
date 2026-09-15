@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,39 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>
+    /// Fulfilment lifecycle. New orders start awaiting payment. Kept on the existing
+    /// Order aggregate so the payment capability is additive rather than a parallel model.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOrderStateException($"Cannot authorize an order in state {Status}.");
+        }
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.Authorized)
+        {
+            throw new InvalidOrderStateException($"Cannot fulfil an order in state {Status}; it must be authorized first.");
+        }
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+        {
+            throw new InvalidOrderStateException("Cannot cancel an order that has already been fulfilled; issue a refund instead.");
+        }
+        Status = OrderStatus.Cancelled;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

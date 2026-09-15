@@ -6,9 +6,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces.PayPal;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -44,6 +47,17 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// --- PayPal payments integration ---
+// Bind settings from the `PayPal:` configuration section (values come from user-secrets /
+// environment; none are hard-coded so the same build runs against a different PayPal account).
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>()
+    ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>();
+builder.Services.AddSingleton<Microsoft.eShopWeb.ApplicationCore.Services.KeyedAsyncLock>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<ISavedCardService, SavedCardService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
