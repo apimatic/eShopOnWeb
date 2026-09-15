@@ -17,11 +17,14 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        Status = OrderStatus.AwaitingPayment;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +47,63 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public OrderPayment StartPayment(string currency, string requestId)
+    {
+        if (Status != OrderStatus.AwaitingPayment)
+        {
+            throw new InvalidOperationException($"Order {Id} cannot be paid while it is {Status}.");
+        }
+
+        Payment ??= new OrderPayment(Total(), currency, requestId);
+        return Payment;
+    }
+
+    public void MarkAuthorized(string paypalOrderId, string authorizationId, string authorizationStatus,
+        DateTimeOffset createdAt, DateTimeOffset? expiresAt)
+    {
+        Payment!.Authorize(paypalOrderId, authorizationId, authorizationStatus, createdAt, expiresAt);
+        Status = OrderStatus.Authorized;
+    }
+
+    public void MarkReauthorized(string authorizationId, string status,
+        DateTimeOffset createdAt, DateTimeOffset? expiresAt)
+        => Payment!.Reauthorize(authorizationId, status, createdAt, expiresAt);
+
+    public void MarkFulfilled(string captureId, string captureStatus, decimal capturedAmount,
+        decimal paypalFee, decimal netAmount, DateTimeOffset capturedAt)
+    {
+        Payment!.Capture(captureId, captureStatus, capturedAmount, paypalFee, netAmount, capturedAt);
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled(string authorizationStatus)
+    {
+        Payment!.Void(authorizationStatus);
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkCancelledWithoutAuthorization()
+    {
+        if (Payment is not null) Payment.Void("VOIDED");
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void ApplyRefund(PaymentRefund refund)
+    {
+        Payment!.CompleteRefund(refund);
+        Status = Payment.CompletedRefundAmount == Payment.CapturedAmount
+            ? OrderStatus.Refunded
+            : OrderStatus.PartiallyRefunded;
+    }
+}
+
+public enum OrderStatus
+{
+    AwaitingPayment,
+    Authorized,
+    Fulfilled,
+    Cancelled,
+    PartiallyRefunded,
+    Refunded
 }
