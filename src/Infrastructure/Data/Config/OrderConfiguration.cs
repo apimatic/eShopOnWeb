@@ -12,6 +12,33 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refunds = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refunds?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(o => o.Version).IsRowVersion();
+        builder.Property(o => o.PaymentStatus).HasConversion<string>().HasMaxLength(32);
+        builder.Property(o => o.PaymentOperationId).IsRequired().HasMaxLength(64);
+        builder.Property(o => o.Currency).HasMaxLength(3);
+        builder.Property(o => o.PayPalOrderId).HasMaxLength(64);
+        builder.Property(o => o.PayPalOrderStatus).HasMaxLength(32);
+        builder.Property(o => o.AuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.AuthorizationStatus).HasMaxLength(32);
+        builder.Property(o => o.CaptureId).HasMaxLength(64);
+        builder.Property(o => o.CaptureStatus).HasMaxLength(32);
+        builder.Property(o => o.AuthorizedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PayPalFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetProceeds).HasColumnType("decimal(18,2)");
+        builder.HasIndex(o => o.PaymentOperationId).IsUnique();
+        builder.HasIndex(o => o.PayPalOrderId).IsUnique().HasFilter("[PayPalOrderId] IS NOT NULL");
+        builder.HasIndex(o => o.AuthorizationId).IsUnique().HasFilter("[AuthorizationId] IS NOT NULL");
+        builder.HasIndex(o => o.CaptureId).IsUnique().HasFilter("[CaptureId] IS NOT NULL");
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
