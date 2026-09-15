@@ -40,15 +40,36 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+            return;
         }
-        else
+
+        if (exception is PaymentException paymentException)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = (int)paymentException.StatusCode;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = paymentException.Message
             }.ToString());
+            return;
         }
+
+        if (exception is UnauthorizedAccessException unauthorized)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = unauthorized.Message
+            }.ToString());
+            return;
+        }
+
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
