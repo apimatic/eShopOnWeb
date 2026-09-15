@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SmsGatewayException smsGatewayException)
+        {
+            // A transient provider problem is a 503 (retry later); a rejection or unknown failure is a 502
+            // (we cannot make it succeed by retrying, and it is not the caller's input to fix). The message
+            // is caller-safe — it never carries the destination number or any secret.
+            context.Response.StatusCode = smsGatewayException.Kind == SmsGatewayErrorKind.Transient
+                ? (int)HttpStatusCode.ServiceUnavailable
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = smsGatewayException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
