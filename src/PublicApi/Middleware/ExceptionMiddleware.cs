@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -32,23 +33,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException => (HttpStatusCode.Conflict, duplicationException.Message),
+            InvalidPhoneNumberException invalidPhone => (HttpStatusCode.BadRequest, invalidPhone.Message),
+            OrderTransitionException transition => (HttpStatusCode.Conflict, transition.Message),
+            ArgumentException argument => (HttpStatusCode.BadRequest, argument.Message),
+            KeyNotFoundException notFound => (HttpStatusCode.NotFound, notFound.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "The caller is not authenticated."),
+            InvalidOperationException invalidOperation => (HttpStatusCode.Conflict, invalidOperation.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
