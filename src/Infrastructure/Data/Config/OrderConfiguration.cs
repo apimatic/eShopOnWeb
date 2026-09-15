@@ -16,6 +16,22 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.PaymentReference)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(b => b.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.HasIndex(b => b.PaymentReference).IsUnique();
+
+        builder.HasOne(b => b.Payment)
+            .WithOne()
+            .HasForeignKey<OrderPayment>("OrderId")
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
