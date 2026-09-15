@@ -15,6 +15,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+        builder.Property(b => b.PaymentReference).IsRequired().HasMaxLength(32);
+        builder.HasIndex(b => b.PaymentReference).IsUnique();
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
@@ -41,5 +43,37 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(x => x.PaymentStatus).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.FulfilmentStatus).HasConversion<string>().HasMaxLength(32);
+
+        builder.OwnsOne(x => x.Payment, payment =>
+        {
+            payment.ToTable("OrderPayments");
+            payment.Property(x => x.PayPalOrderId).HasMaxLength(64).IsRequired();
+            payment.Property(x => x.AuthorizationId).HasMaxLength(64).IsRequired();
+            payment.Property(x => x.AuthorizationStatus).HasMaxLength(32).IsRequired();
+            payment.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            payment.Property(x => x.AuthorizedAmount).HasPrecision(18, 2);
+            payment.Property(x => x.CapturedAmount).HasPrecision(18, 2);
+            payment.Property(x => x.PayPalFee).HasPrecision(18, 2);
+            payment.Property(x => x.NetAmount).HasPrecision(18, 2);
+            payment.Property(x => x.CaptureId).HasMaxLength(64);
+            payment.Property(x => x.CaptureStatus).HasMaxLength(32);
+
+            payment.OwnsMany(x => x.Refunds, refund =>
+            {
+                refund.ToTable("PaymentRefunds");
+                refund.WithOwner().HasForeignKey("OrderId");
+                refund.HasKey(x => x.Id);
+                refund.Property(x => x.Id).ValueGeneratedOnAdd();
+                refund.Property(x => x.IdempotencyKey).HasMaxLength(108).IsRequired();
+                refund.Property(x => x.PayPalRefundId).HasMaxLength(64).IsRequired();
+                refund.Property(x => x.Status).HasMaxLength(32).IsRequired();
+                refund.Property(x => x.Amount).HasPrecision(18, 2);
+                refund.HasIndex("OrderId", nameof(PaymentRefund.IdempotencyKey)).IsUnique();
+            });
+            payment.Navigation(x => x.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
     }
 }
