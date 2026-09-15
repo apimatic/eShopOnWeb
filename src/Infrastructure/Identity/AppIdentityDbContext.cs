@@ -6,6 +6,8 @@ namespace Microsoft.eShopWeb.Infrastructure.Identity;
 
 public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
 {
+    public DbSet<SubscriptionEnrollment> SubscriptionEnrollments => Set<SubscriptionEnrollment>();
+
     public AppIdentityDbContext(DbContextOptions<AppIdentityDbContext> options)
         : base(options)
     {
@@ -14,6 +16,17 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<SubscriptionEnrollment>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(x => x.ProductHandle).HasMaxLength(255).IsRequired();
+            entity.HasIndex(x => new { x.UserId, x.ProductHandle }).IsUnique();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         // Customize the ASP.NET Identity model and override the defaults if needed.
         // For example, you can rename the ASP.NET Identity table names and more.
         // Add your customizations after calling base.OnModelCreating(builder);

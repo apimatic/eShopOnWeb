@@ -1,0 +1,39 @@
+title: Invoice Payment
+type: object
+properties:
+  transaction_time:
+    type: string
+    format: date-time
+  memo:
+    type: string
+  original_amount:
+    type: string
+  applied_amount:
+    type: string
+  payment_method:
+    $ref: "./Invoice-Payment-Method.yaml"
+  transaction_id:
+    type: integer
+  prepayment:
+    type: boolean
+  gateway_handle:
+    type:
+      - string
+      - "null"
+  gateway_used:
+    type: string
+  gateway_transaction_id:
+    type:
+      - string
+      - "null"
+    description: The transaction ID for the payment as returned from the payment gateway
+  received_on:
+    type:
+      - string
+      - "null"
+    format: date
+    description: |-
+      Date reflecting when the payment was received from a customer. Must be in the past. Applicable only to 
+      `external` payments.
+  uid:
+    type: string
