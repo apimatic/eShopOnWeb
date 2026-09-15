@@ -22,6 +22,8 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +46,52 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public void AttachPayment(OrderPayment payment)
+    {
+        Payment = payment;
+    }
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.Cancelled or OrderStatus.Refunded or OrderStatus.PartiallyRefunded)
+        {
+            throw new InvalidOperationException($"Order {Id} in status {Status} cannot be authorized.");
+        }
+
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized)
+        {
+            throw new InvalidOperationException($"Order {Id} must be authorized before it can be fulfilled. Current status: {Status}.");
+        }
+
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status is OrderStatus.Fulfilled or OrderStatus.Refunded or OrderStatus.PartiallyRefunded)
+        {
+            throw new InvalidOperationException($"Order {Id} has already been fulfilled and cannot be cancelled. Issue a refund instead.");
+        }
+
+        Status = OrderStatus.Cancelled;
+    }
+
+    public void MarkRefunded(bool fullyRefunded)
+    {
+        if (Status is not (OrderStatus.Fulfilled or OrderStatus.PartiallyRefunded or OrderStatus.Refunded))
+        {
+            throw new InvalidOperationException($"Order {Id} must be fulfilled before it can be refunded. Current status: {Status}.");
+        }
+
+        Status = fullyRefunded ? OrderStatus.Refunded : OrderStatus.PartiallyRefunded;
+    }
+
+    public bool BelongsTo(string buyerId) =>
+        string.Equals(BuyerId, buyerId, StringComparison.OrdinalIgnoreCase);
 }
