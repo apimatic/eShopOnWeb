@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Http;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +28,44 @@ using MinimalApi.Endpoint.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+var payPalSection = builder.Configuration.GetSection(PayPalSettings.SectionName);
+builder.Services.AddOptions<PayPalSettings>().Bind(payPalSection);
+builder.Services.AddHttpClient("PayPal", client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalSettings>>().Value;
+    if (string.IsNullOrWhiteSpace(settings.ClientId) || string.IsNullOrWhiteSpace(settings.ClientSecret) ||
+        string.IsNullOrWhiteSpace(settings.Currency))
+        throw new InvalidOperationException("PayPal:ClientId, PayPal:ClientSecret, and PayPal:Currency are required.");
+    if (!string.Equals(settings.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("This build is configured to use PayPal sandbox only.");
+
+    var options = new PayPalServerSdk.PayPalServerSdkClientOptions
+    {
+        Environment = PayPalServerSdk.Servers.ServerEnvironment.Sandbox,
+        Oauth2 = new PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials.OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret
+        },
+        Retry = PayPalServerSdk.Core.Configuration.RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(10)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+        options.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    return new PayPalServerSdk.PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<OrderOperationLocks>();
+builder.Services.AddScoped<PayPalPaymentService>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -160,6 +200,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
