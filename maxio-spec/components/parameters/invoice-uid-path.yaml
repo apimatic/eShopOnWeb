@@ -1,0 +1,6 @@
+name: uid
+schema:
+  type: string
+in: path
+required: true
+description: The unique identifier for the invoice, this does not refer to the public facing invoice number.

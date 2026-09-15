@@ -1,0 +1,98 @@
+title: Subscription Component
+type: object
+properties:
+  id:
+    type: integer
+  name:
+    type: string
+  kind:
+    $ref: "./Component-Kind.yaml"
+  unit_name:
+    type: string
+  enabled:
+    type: boolean
+    description: (for on/off components) indicates if the component is enabled for the subscription
+  unit_balance:
+    type: integer
+  currency:
+    type: string
+  allocated_quantity:
+    oneOf:
+      - type: integer
+      - type: string
+    description: "For Quantity-based components: The current allocation for the component on the given subscription. For On/Off components: Use 1 for on. Use 0 for off."
+  pricing_scheme:
+    oneOf:
+      - $ref: "./Pricing-Scheme.yaml"
+      - type: "null"
+  component_id:
+    type: integer
+  component_handle:
+    type:
+      - string
+      - "null"
+  subscription_id:
+    type: integer
+  recurring:
+    type: boolean
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  archived_at:
+    type:
+      - "null"
+      - string
+    format: date-time
+  price_point_id:
+    type:
+      - integer
+      - "null"
+  price_point_handle:
+    type:
+      - string
+      - "null"
+  price_point_type:
+    oneOf:
+      - type: "null"
+      - $ref: "./Price-Point-Type.yaml"
+  price_point_name:
+    type:
+      - string
+      - "null"
+  product_family_id:
+    type: integer
+  product_family_handle:
+    type: string
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  use_site_exchange_rate:
+    type:
+      - boolean
+      - "null"
+  description:
+    type:
+      - string
+      - "null"
+  allow_fractional_quantities:
+    type: boolean
+  subscription:
+    $ref: "./Subscription-Component-Subscription.yaml"
+  historic_usages:
+    type: array
+    items:
+      $ref: "./Historic-Usage.yaml"
+  display_on_hosted_page:
+    type: boolean
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of '30' coupled with an interval_unit of day would mean this component price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component price point, either month or day. This property is only available for sites with Multifrequency enabled.
