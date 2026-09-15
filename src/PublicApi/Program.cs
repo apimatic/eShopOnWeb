@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +16,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,8 +25,23 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var payPalEnvironment = new Dictionary<string, string?>
+{
+    ["PayPal:ClientId"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_ID"),
+    ["PayPal:ClientSecret"] = Environment.GetEnvironmentVariable("PAYPAL_CLIENT_SECRET"),
+    ["PayPal:Environment"] = Environment.GetEnvironmentVariable("PAYPAL_ENVIRONMENT"),
+    ["PayPal:Currency"] = Environment.GetEnvironmentVariable("PAYPAL_CURRENCY"),
+    ["PayPal:BaseUrl"] = Environment.GetEnvironmentVariable("PAYPAL_BASE_URL")
+};
+builder.Configuration.AddInMemoryCollection(payPalEnvironment
+    .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+    .ToDictionary(x => x.Key, x => x.Value));
 
 builder.Services.AddEndpoints();
 
@@ -50,6 +68,39 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetRequiredSection(PayPalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(x => string.Equals(x.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase),
+        "PayPal:Environment must be Sandbox for this application.");
+builder.Services.AddHttpClient("PayPal", client => client.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PayPalOptions>>().Value;
+    var options = new PayPalServerSdkClientOptions
+    {
+        Environment = ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = settings.ClientId,
+            ClientSecret = settings.ClientSecret
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Default.Sandbox.BaseUrl = settings.BaseUrl;
+    }
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("PayPal");
+    return new PayPalServerSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<IPayPalGateway, PayPalGateway>();
+builder.Services.AddSingleton<OperationLock>();
+builder.Services.AddScoped<PaymentApplicationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
