@@ -18,12 +18,23 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddEnvironmentVariables();
+var maxioEnvironmentValues = new Dictionary<string, string?>();
+var maxioApiKey = Environment.GetEnvironmentVariable("MAXIO_API_KEY");
+var maxioSubdomain = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN");
+var maxioProductFamily = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY");
+if (maxioApiKey is not null) maxioEnvironmentValues["Maxio:ApiKey"] = maxioApiKey;
+if (maxioSubdomain is not null) maxioEnvironmentValues["Maxio:Subdomain"] = maxioSubdomain;
+if (maxioProductFamily is not null) maxioEnvironmentValues["Maxio:ProductFamilyHandle"] = maxioProductFamily;
+builder.Configuration.AddInMemoryCollection(maxioEnvironmentValues);
 
 builder.Services.AddEndpoints();
 
@@ -44,12 +55,21 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddOptions<Microsoft.eShopWeb.PublicApi.Maxio.MaxioOptions>()
+    .Bind(builder.Configuration.GetSection("Maxio"));
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Maxio.IMaxioBillingClient, Microsoft.eShopWeb.PublicApi.Maxio.MaxioBillingClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<Microsoft.eShopWeb.PublicApi.Maxio.MaxioOptions>>().Value;
+    Microsoft.eShopWeb.PublicApi.Maxio.MaxioBillingClient.Configure(client, options);
+});
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Subscriptions.SubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -83,8 +103,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -160,6 +178,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
