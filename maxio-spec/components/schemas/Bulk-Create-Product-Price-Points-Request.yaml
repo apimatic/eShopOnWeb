@@ -1,0 +1,9 @@
+title: Bulk Create Product Price Points Request
+type: object
+properties:
+  price_points:
+    type: array
+    items:
+      $ref: "./Create-Product-Price-Point.yaml"
+required:
+  - price_points
