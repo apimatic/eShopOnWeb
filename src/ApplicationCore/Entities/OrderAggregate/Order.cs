@@ -20,8 +20,12 @@ public class Order : BaseEntity, IAggregateRoot
     }
 
     public string BuyerId { get; private set; }
-    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
+    public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.UtcNow;
     public Address ShipToAddress { get; private set; }
+    public OrderLifecycleStatus Status { get; private set; } = OrderLifecycleStatus.Placed;
+    public DateTimeOffset? DispatchedAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public byte[]? RowVersion { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +48,30 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public bool MarkDispatched(DateTimeOffset dispatchedAt)
+    {
+        if (Status == OrderLifecycleStatus.Dispatched) return false;
+        if (Status == OrderLifecycleStatus.Cancelled)
+            throw new InvalidOperationException("A cancelled order cannot be dispatched.");
+
+        Status = OrderLifecycleStatus.Dispatched;
+        DispatchedAt = dispatchedAt;
+        return true;
+    }
+
+    public bool MarkCancelled(DateTimeOffset cancelledAt)
+    {
+        if (Status == OrderLifecycleStatus.Cancelled) return false;
+        Status = OrderLifecycleStatus.Cancelled;
+        CancelledAt = cancelledAt;
+        return true;
+    }
+}
+
+public enum OrderLifecycleStatus
+{
+    Placed,
+    Dispatched,
+    Cancelled
 }

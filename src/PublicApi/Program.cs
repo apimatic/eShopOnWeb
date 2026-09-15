@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,10 +15,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +53,50 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services
+    .AddOptions<TwilioSettings>()
+    .Bind(builder.Configuration.GetSection(TwilioSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => string.IsNullOrWhiteSpace(settings.BaseUrl) ||
+        Uri.TryCreate(settings.BaseUrl, UriKind.Absolute, out _), "Twilio:BaseUrl must be an absolute URI when configured.")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<TwilioRequestContext>();
+builder.Services.AddTransient<TwilioWriteGuardHandler>();
+builder.Services.AddHttpClient("TwilioMessaging", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<TwilioWriteGuardHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<TwilioSettings>>().Value;
+    var options = new TwilioSdk.TwilioSdkClientOptions
+    {
+        Environment = TwilioSdk.Servers.ServerEnvironment.Production,
+        AccountSidAuthToken = new TwilioSdk.Core.Authentication.Basic.BasicAuthCredentials
+        {
+            Username = settings.AccountSid,
+            Password = settings.AuthToken
+        },
+        Retry = TwilioSdk.Core.Configuration.RetryOptions.Default() with
+        {
+            MaxRetries = 1,
+            Timeout = TimeSpan.FromSeconds(5)
+        }
+    };
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+        options.Server.Default.Production.BaseUrl = settings.BaseUrl;
+
+    var httpClient = serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("TwilioMessaging");
+    return new TwilioSdk.TwilioSdkClient(httpClient, options);
+});
+builder.Services.AddSingleton<ITwilioMessagingService, TwilioMessagingService>();
+builder.Services.AddSingleton<NotificationIdempotencyLock>();
+builder.Services.AddScoped<OrderNotificationApplicationService>();
+builder.Services.AddHostedService<NotificationMaintenanceWorker>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -160,6 +207,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
