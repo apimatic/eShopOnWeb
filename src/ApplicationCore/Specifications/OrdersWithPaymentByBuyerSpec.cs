@@ -1,0 +1,21 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+/// <summary>Loads all of a shopper's orders with items and payment state, newest first.</summary>
+public class OrdersWithPaymentByBuyerSpec : Specification<Order>
+{
+    public OrdersWithPaymentByBuyerSpec(string buyerId)
+    {
+        Query
+            .Where(o => o.BuyerId == buyerId)
+            .OrderByDescending(o => o.OrderDate);
+        Query
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ItemOrdered);
+        Query
+            .Include(o => o.Payment!)
+                .ThenInclude(p => p.Refunds);
+    }
+}
