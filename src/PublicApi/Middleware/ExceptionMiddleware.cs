@@ -32,23 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var statusCode = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => HttpStatusCode.Conflict,
+            // Owner-scoped "not found" for orders and saved cards, and missing catalog items.
+            PaymentResourceNotFoundException => HttpStatusCode.NotFound,
+            // Invalid state transitions / validation on payment operations.
+            PaymentOperationException => HttpStatusCode.Conflict,
+            // A stale hold that could not be renewed — operator-actionable.
+            AuthorizationNotRenewableException => HttpStatusCode.Conflict,
+            // PayPal asked for a browser approval we deliberately do not build.
+            PaymentChallengeRequiredException => HttpStatusCode.Conflict,
+            // PayPal rejected the call; surface as a gateway error.
+            PayPalApiException => HttpStatusCode.BadGateway,
+            UnauthorizedAccessException => HttpStatusCode.Unauthorized,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = exception.Message
+        }.ToString());
     }
 }
