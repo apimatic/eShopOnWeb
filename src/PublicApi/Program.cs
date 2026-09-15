@@ -6,10 +6,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.PayPal;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -44,6 +46,29 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// ----- PayPal payment integration -----
+// Bind the PayPal:* section (populated from user-secrets / the PAYPAL_* environment; never hard-coded).
+var payPalSettings = builder.Configuration.GetSection(PayPalSettings.SectionName).Get<PayPalSettings>() ?? new PayPalSettings();
+builder.Services.AddSingleton(payPalSettings);
+
+// Typed PayPal client, built against the api-specs contract. The base address honours PayPal:BaseUrl
+// when set, otherwise it is derived from PayPal:Environment.
+builder.Services.AddHttpClient<IPayPalGateway, PayPalGateway>(client =>
+{
+    client.BaseAddress = new Uri(payPalSettings.ResolveBaseUrl());
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
+
+// Serialize enums (e.g. reconciliation status) as readable names in minimal-API JSON responses.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
