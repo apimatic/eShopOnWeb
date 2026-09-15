@@ -17,11 +17,16 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        FulfillmentStatus = OrderFulfillmentStatus.Unfulfilled;
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderFulfillmentStatus FulfillmentStatus { get; private set; }
+    public DateTimeOffset? FulfilledAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public OrderPayment? Payment { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +48,37 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public void InitializePayment(string currency)
+    {
+        if (Payment != null)
+        {
+            throw new InvalidOperationException("Payment has already been initialized for this order.");
+        }
+
+        Payment = new OrderPayment(currency);
+    }
+
+    public void MarkFulfilled(DateTimeOffset fulfilledAt)
+    {
+        if (FulfillmentStatus != OrderFulfillmentStatus.Unfulfilled)
+        {
+            throw new InvalidOperationException("Only an unfulfilled order can be fulfilled.");
+        }
+
+        FulfillmentStatus = OrderFulfillmentStatus.Fulfilled;
+        FulfilledAt = fulfilledAt;
+    }
+
+    public void MarkCancelled(DateTimeOffset cancelledAt)
+    {
+        if (FulfillmentStatus != OrderFulfillmentStatus.Unfulfilled)
+        {
+            throw new InvalidOperationException("Only an unfulfilled order can be cancelled.");
+        }
+
+        FulfillmentStatus = OrderFulfillmentStatus.Cancelled;
+        CancelledAt = cancelledAt;
     }
 }

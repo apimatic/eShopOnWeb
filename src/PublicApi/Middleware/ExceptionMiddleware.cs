@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
+using System.Text.Json;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +35,32 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is CommerceException commerceException)
+        {
+            context.Response.StatusCode = commerceException.StatusCode;
+            await WriteErrorAsync(context, commerceException.Code, commerceException.Message);
+        }
+        else if (exception is PayPalPayerActionRequiredException actionRequired)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await WriteErrorAsync(context, "payer_action_required", actionRequired.Message,
+                actionRequired.DebugId);
+        }
+        else if (exception is PayPalApiException payPalException)
+        {
+            context.Response.StatusCode = payPalException.StatusCode switch
+            {
+                HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity =>
+                    StatusCodes.Status422UnprocessableEntity,
+                HttpStatusCode.Conflict => StatusCodes.Status409Conflict,
+                HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable =>
+                    StatusCodes.Status503ServiceUnavailable,
+                _ => StatusCodes.Status502BadGateway
+            };
+            await WriteErrorAsync(context, "paypal_error", payPalException.Message,
+                payPalException.DebugId);
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -50,5 +78,17 @@ public class ExceptionMiddleware
                 Message = exception.Message
             }.ToString());
         }
+    }
+
+    private static Task WriteErrorAsync(HttpContext context, string code, string message,
+        string? payPalDebugId = null)
+    {
+        return context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            statusCode = context.Response.StatusCode,
+            code,
+            message,
+            payPalDebugId
+        }));
     }
 }
