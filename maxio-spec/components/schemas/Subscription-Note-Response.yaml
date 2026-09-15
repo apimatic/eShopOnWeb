@@ -1,0 +1,7 @@
+title: Subscription Note Response
+type: object
+properties:
+  note:
+    $ref: "./Subscription-Note.yaml"
+required:
+  - note
