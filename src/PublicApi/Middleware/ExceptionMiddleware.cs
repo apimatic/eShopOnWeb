@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -32,23 +33,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            KeyNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            // The shopper must approve in a browser — reported, not worked around.
+            PaymentApprovalRequiredException => (HttpStatusCode.UnprocessableEntity, exception.Message),
+            // A business-rule violation stated in terms the caller can act on.
+            PaymentException => (HttpStatusCode.BadRequest, exception.Message),
+            // PayPal rejected the request; surface its reason as a bad gateway.
+            PayPalApiException payPalEx => (HttpStatusCode.BadGateway,
+                $"PayPal error ({payPalEx.Issue ?? payPalEx.StatusCode.ToString()}): {payPalEx.Message}"),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
