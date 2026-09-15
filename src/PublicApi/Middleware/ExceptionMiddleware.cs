@@ -32,23 +32,27 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            OrderNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
+            PaymentValidationException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            AuthorizationNotRenewableException => ((int)HttpStatusCode.Conflict, exception.Message),
+            PaymentChallengeRequiredException => ((int)HttpStatusCode.UnprocessableEntity, exception.Message),
+            // Surface a provider 4xx as a client 4xx; a transport/unknown failure as a 502.
+            PaymentGatewayException gatewayException => (
+                gatewayException.ProviderStatusCode is int code && code is >= 400 and < 500
+                    ? code
+                    : (int)HttpStatusCode.BadGateway,
+                gatewayException.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }
