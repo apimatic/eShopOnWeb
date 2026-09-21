@@ -1,0 +1,11 @@
+<!--
+  Vendored Maxio Advanced Billing .NET SDK (source-only; not published to NuGet).
+  This folder-local props file is the nearest ancestor for the SDK project, so it overrides the
+  repository root's central package management. The SDK pins its own PackageReference versions,
+  which requires central package management to be OFF for this project.
+-->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
