@@ -23,6 +23,31 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>Where the order is in its fulfilment lifecycle. New orders are <see cref="OrderStatus.Placed"/>.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Marks the order dispatched. Idempotent: returns <c>true</c> only when the status actually
+    /// changed (so callers can gate outbound notifications on a real transition).
+    /// </summary>
+    public bool Dispatch()
+    {
+        if (Status != OrderStatus.Placed) return false;
+        Status = OrderStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>
+    /// Cancels the order (allowed from <see cref="OrderStatus.Placed"/> or <see cref="OrderStatus.Dispatched"/>).
+    /// Idempotent: returns <c>true</c> only when the status actually changed.
+    /// </summary>
+    public bool Cancel()
+    {
+        if (Status == OrderStatus.Canceled) return false;
+        Status = OrderStatus.Canceled;
+        return true;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
