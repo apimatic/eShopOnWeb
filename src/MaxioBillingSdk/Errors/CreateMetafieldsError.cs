@@ -1,0 +1,47 @@
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using MaxioAdvancedBilling.Core.ErrorResponse;
+using MaxioAdvancedBilling.Core.Models;
+using MaxioAdvancedBilling.Models;
+
+namespace MaxioAdvancedBilling.Errors;
+
+public sealed class CreateMetafieldsError : ApiError
+{
+    private readonly Optional<SingleErrorResponse1> _singleErrorResponse1Value;
+
+    private CreateMetafieldsError(Optional<SingleErrorResponse1> singleErrorResponse1Value,
+        Optional<RawError> fallback) : base(fallback)
+    {
+        _singleErrorResponse1Value = singleErrorResponse1Value;
+    }
+
+    private static CreateMetafieldsError AsSingleErrorResponse1(SingleErrorResponse1 value) =>
+        new(Optional<SingleErrorResponse1>.Some(value), default);
+
+    private static CreateMetafieldsError AsFallback(RawError value) =>
+        new(default, Optional<RawError>.Some(value));
+
+    public bool TryGetSingleErrorResponse1(out SingleErrorResponse1 value) =>
+        _singleErrorResponse1Value.TryGetValue(out value);
+
+    internal static Task<CreateMetafieldsError> Create(HttpResponseMessage response, CancellationToken ct) =>
+        (int)response.StatusCode switch
+        {
+            422 => FromJson<SingleErrorResponse1>(response, ct).As(AsSingleErrorResponse1),
+            _ => FromRawBody(response, ct).As(AsFallback)
+        };
+}
+
+internal sealed class CreateMetafieldsErrorResponse : IErrorResponse<CreateMetafieldsError>
+{
+    public static CreateMetafieldsErrorResponse Instance { get; } = new();
+
+    private CreateMetafieldsErrorResponse()
+    {
+    }
+
+    public Task<CreateMetafieldsError> Map(HttpResponseMessage response, CancellationToken ct) =>
+        CreateMetafieldsError.Create(response, ct);
+}
