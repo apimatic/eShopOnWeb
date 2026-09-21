@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        // Map known exception types to caller-appropriate status codes. Messages here are already caller-safe
+        // (they never carry a phone number, message body, or credential).
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            InvalidPhoneNumberException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            InvalidOrderStateException => ((int)HttpStatusCode.Conflict, exception.Message),
+            ArgumentException => ((int)HttpStatusCode.BadRequest, exception.Message),
+            // A provider failure is never the caller's fault (our credentials, our quota, transport, or a
+            // provider-side rejection of our request) — always surface it as a gateway error, not a 4xx.
+            SmsProviderException => ((int)HttpStatusCode.BadGateway, exception.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
 }

@@ -1,0 +1,31 @@
+using System.Text.Json.Serialization;
+using TwilioSdk.Core.Models;
+using TwilioSdk.Models.Enums;
+
+namespace TwilioSdk.Models;
+
+public record MessagingV2RcsComplianceCountryUpdatePatchResponse
+{
+    /// <summary>
+    /// The ISO 3166-1 alpha-2 country code.
+    /// </summary>
+    [JsonPropertyName("country")]
+    public required string Country { get; init; }
+
+    /// <summary>
+    /// The default compliance registration SID (e.g., from CR-Google) that applies to all countries unless overridden in the <c>countries</c> array.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("registration_sid")]
+    public string? RegistrationSid { get; init; }
+
+    /// <summary>
+    /// The country-level status. Based on the aggregation of the carrier-level status.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("status")]
+    public MessagingV2RcsCountryStatus? Status { get; init; }
+
+    [JsonExtensionData]
+    public AdditionalProperties AdditionalProperties { get; init; } = [];
+}
