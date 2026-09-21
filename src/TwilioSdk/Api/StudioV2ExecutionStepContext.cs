@@ -1,0 +1,58 @@
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using TwilioSdk.Core;
+using TwilioSdk.Core.ErrorResponse;
+using TwilioSdk.Core.Exceptions;
+using TwilioSdk.Core.Models;
+using TwilioSdk.Core.Request;
+using TwilioSdk.Core.Response;
+using TwilioSdk.Models;
+
+namespace TwilioSdk.Api;
+
+public sealed class StudioV2ExecutionStepContext
+{
+    private readonly RawClient _rawClient;
+    private readonly Server _server;
+    private readonly AuthSchemes _auth;
+
+    internal StudioV2ExecutionStepContext(RawClient rawClient, Server server, AuthSchemes auth)
+    {
+        _rawClient = rawClient;
+        _server = server;
+        _auth = auth;
+    }
+
+    /// <summary>
+    /// Retrieve the context for an Execution Step.
+    /// </summary>
+    /// <param name="flowSid">The SID of the Flow with the Step to fetch.</param>
+    /// <param name="executionSid">The SID of the Execution resource with the Step to fetch.</param>
+    /// <param name="stepSid">The SID of the Step to fetch.</param>
+    /// <param name="requestOptions">Per-request options, such as an overriding log level for this call</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>A <see cref="Task{TResult}"/> of <see cref="StudioV1FlowExecutionExecutionStepExecutionStepContext"/> instance.</returns>
+    /// <exception cref="SdkException{TResult}"> of <see cref="RawError"/> when the server returns an error response.</exception>
+    /// <remarks>
+    /// Retrieve the context for an Execution Step.
+    /// </remarks>
+    public Task<StudioV1FlowExecutionExecutionStepExecutionStepContext> FetchExecutionStepContext2(string flowSid,
+        string executionSid,
+        string stepSid,
+        RequestOptions? requestOptions = null,
+        CancellationToken ct = default) =>
+        _rawClient.Execute(_server.Default11("/v2/Flows/{FlowSid}/Executions/{ExecutionSid}/Steps/{StepSid}/Context"),
+            [new TemplateParam("FlowSid", flowSid),
+                new TemplateParam("ExecutionSid", executionSid),
+                new TemplateParam("StepSid", stepSid)],
+            [],
+            [],
+            HttpMethod.Get,
+            EmptyBody.Instance,
+            JsonResponse.Create<StudioV1FlowExecutionExecutionStepExecutionStepContext>(),
+            RawErrorResponse.Instance,
+            [_auth.AccountSidAuthToken],
+            requestOptions,
+            ct);
+}
