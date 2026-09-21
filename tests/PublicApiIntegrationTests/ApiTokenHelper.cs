@@ -26,6 +26,12 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        /// <summary>A shopper token for an arbitrary user name (no roles) — used to test cross-user isolation.</summary>
+        public static string GetTokenForUser(string userName)
+        {
+            return CreateToken(userName, new string[] { });
+        }
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };

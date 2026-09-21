@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Messaging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,12 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// SMS order notifications (Twilio). AddTwilioSmsNotifications binds and validates the Twilio: section
+// (fail-fast at startup) and registers the long-lived provider client + the ISmsGateway port.
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddTwilioSmsNotifications(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

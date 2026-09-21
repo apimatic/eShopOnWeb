@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,27 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is OrderPlacementException orderPlacementException)
+        {
+            // Invalid order request (e.g. unknown catalog items) — the caller can fix it.
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = orderPlacementException.Message
+            }.ToString());
+        }
+        else if (exception is SmsGatewayException smsGatewayException)
+        {
+            // The messaging provider could not be reached / answered with an error on a caller-facing
+            // operation. The message is caller-safe (status + provider code only — never PII or the body).
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = smsGatewayException.Message
             }.ToString());
         }
         else
