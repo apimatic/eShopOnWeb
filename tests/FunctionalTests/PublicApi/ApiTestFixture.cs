@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +18,19 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // Placeholder PayPal config so the host's fail-fast validation passes without real credentials.
+        // These are non-secret dummy values; tests here do not call PayPal.
+        builder.ConfigureHostConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PayPal:ClientId"] = "test-client-id-not-a-secret",
+                ["PayPal:ClientSecret"] = "test-client-secret-not-a-secret",
+                ["PayPal:Environment"] = "sandbox",
+                ["PayPal:Currency"] = "USD"
+            });
+        });
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
