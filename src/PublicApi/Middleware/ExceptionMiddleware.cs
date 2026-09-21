@@ -32,23 +32,28 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException e => ((int)HttpStatusCode.Conflict, e.Message),
+        NotFoundException e => ((int)HttpStatusCode.NotFound, e.Message),
+        PaymentChallengeRequiredException e => ((int)HttpStatusCode.UnprocessableEntity, e.Message),
+        // A caller-fixable rejection (bad card, invalid amount) is 422; our-credentials / provider /
+        // transport failures the caller cannot fix are 502.
+        PaymentGatewayException e => (e.IsClientError
+            ? (int)HttpStatusCode.UnprocessableEntity
+            : (int)HttpStatusCode.BadGateway, e.Message),
+        // Illegal state transition (e.g. fulfilling an order that was never authorized).
+        InvalidOperationException e => ((int)HttpStatusCode.Conflict, e.Message),
+        ArgumentException e => ((int)HttpStatusCode.BadRequest, e.Message),
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
