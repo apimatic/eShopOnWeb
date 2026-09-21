@@ -41,5 +41,36 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        // The PayPal payment is part of the Order aggregate (owned): loaded and saved with the order,
+        // never addressed as a root of its own. Its refunds are an owned collection under it.
+        builder.OwnsOne(o => o.Payment, p =>
+        {
+            p.WithOwner();
+
+            p.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            p.Property(x => x.PayPalOrderId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.AuthorizationId).HasMaxLength(64).IsRequired();
+            p.Property(x => x.AuthorizationStatus).HasMaxLength(32);
+            p.Property(x => x.CaptureStatus).HasMaxLength(32);
+            p.Property(x => x.AuthorizedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.CapturedAmount).HasColumnType("decimal(18,2)");
+            p.Property(x => x.PayPalFee).HasColumnType("decimal(18,2)");
+            p.Property(x => x.NetAmount).HasColumnType("decimal(18,2)");
+
+            p.OwnsMany(x => x.Refunds, r =>
+            {
+                r.WithOwner();
+                r.Property(x => x.PayPalRefundId).HasMaxLength(64).IsRequired();
+                r.Property(x => x.IdempotencyKey).HasMaxLength(128).IsRequired();
+                r.Property(x => x.Status).HasMaxLength(32);
+                r.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            });
+        });
     }
 }

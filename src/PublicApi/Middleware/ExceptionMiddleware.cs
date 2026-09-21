@@ -32,23 +32,25 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            ResourceNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            // Not a valid operation against the current order state (e.g. refund beyond captured) — a conflict.
+            PaymentOperationException => (HttpStatusCode.Conflict, exception.Message),
+            // Bad caller input (unknown catalog item, invalid quantity, missing funding source).
+            ArgumentException => (HttpStatusCode.BadRequest, exception.Message),
+            // Anything that went wrong talking to PayPal. The message is caller-safe and carries PayPal's
+            // reason; surfaced as 502 Bad Gateway. Never leaks SDK/JSON internals.
+            PaymentGatewayException => (HttpStatusCode.BadGateway, exception.Message),
+            _ => (HttpStatusCode.InternalServerError, exception.Message),
+        };
+
+        context.Response.StatusCode = (int)statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
