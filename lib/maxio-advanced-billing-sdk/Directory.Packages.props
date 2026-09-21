@@ -1,0 +1,13 @@
+<Project>
+
+  <!--
+    Local Directory.Packages.props for the vendored Maxio SDK. Its presence stops NuGet's
+    upward search from reaching the repo-root Directory.Packages.props, and it disables
+    Central Package Management for this subtree so the generated csproj may pin its own
+    PackageReference versions inline (as APIMatic emits them).
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+</Project>

@@ -41,6 +41,29 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BillingException billingException)
+        {
+            // Single coherent ladder for the subscription-billing integration. The message is
+            // already caller-safe; a validation failure is the caller's to fix, our credentials /
+            // quota or a provider outage are not (surfaced as 5xx).
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingErrorKind.Validation => (int)HttpStatusCode.BadRequest,
+                BillingErrorKind.NotFound => (int)HttpStatusCode.NotFound,
+                BillingErrorKind.ProviderUnavailable => (int)HttpStatusCode.BadGateway,
+                _ => (int)HttpStatusCode.InternalServerError
+            };
+
+            var message = billingException.Errors.Count > 0
+                ? $"{billingException.Message} {string.Join("; ", billingException.Errors)}"
+                : billingException.Message;
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

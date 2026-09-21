@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Vendored third-party SDK: Maxio Advanced Billing .NET SDK
+    Source: https://github.com/context-plugins/maxio-csharp-sdk (branch main)
+
+    This is generated SDK source, built from source because the package is not published to
+    any NuGet feed. It pins its own PackageReference versions inline, so it opts OUT of the
+    repository's Central Package Management (Directory.Packages.props at the repo root) to
+    avoid NU1008. Do not hand-edit the generated files under this folder; regenerate the SDK
+    upstream instead.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <!-- Keep the vendored SDK out of the solution's analyzers/warnings-as-errors posture. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
