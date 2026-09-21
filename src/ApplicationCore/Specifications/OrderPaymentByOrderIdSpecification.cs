@@ -1,0 +1,13 @@
+using Ardalis.Specification;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
+
+namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
+
+public class OrderPaymentByOrderIdSpecification : Specification<OrderPayment>
+{
+    public OrderPaymentByOrderIdSpecification(int orderId)
+    {
+        Query.Where(p => p.OrderId == orderId)
+            .Include(p => p.Refunds);
+    }
+}
