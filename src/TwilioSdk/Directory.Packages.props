@@ -1,0 +1,7 @@
+<Project>
+  <!-- The vendored Twilio SDK pins its own PackageReference versions and must opt out of the
+       repository's Central Package Management (root Directory.Packages.props). -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

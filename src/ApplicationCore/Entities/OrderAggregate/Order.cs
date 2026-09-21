@@ -23,6 +23,38 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Lifecycle state used to drive order-progress notifications. Defaults to <see cref="OrderStatus.Placed"/>.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Transitions the order to <see cref="OrderStatus.Dispatched"/>. Returns <c>true</c> only when the
+    /// state actually changed, so callers can gate one-time side effects (the "on its way" message and the
+    /// scheduled follow-up) on a real transition rather than firing them on a repeated dispatch.
+    /// </summary>
+    public bool MarkDispatched()
+    {
+        if (Status != OrderStatus.Placed)
+            return false;
+
+        Status = OrderStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>
+    /// Transitions the order to <see cref="OrderStatus.Cancelled"/> (allowed from Placed or Dispatched).
+    /// Returns <c>true</c> only when the state actually changed.
+    /// </summary>
+    public bool MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+            return false;
+
+        Status = OrderStatus.Cancelled;
+        return true;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
