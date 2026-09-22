@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,39 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    /// <summary>Current lifecycle state; a newly placed order starts <see cref="OrderStatus.Placed"/>.</summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Mark the order dispatched. Returns <c>true</c> only when the state actually changed
+    /// (Placed → Dispatched), so callers can gate one-shot side effects (the "on its way" SMS and
+    /// the scheduled follow-up). A repeat call on an already-dispatched order is a no-op returning
+    /// <c>false</c>. Throws for an illegal transition from a cancelled order.
+    /// </summary>
+    public bool Dispatch()
+    {
+        if (Status == OrderStatus.Dispatched) return false;
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOrderStateException($"Order {Id} is cancelled and cannot be dispatched.");
+
+        Status = OrderStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>
+    /// Mark the order cancelled. Returns <c>true</c> only when the state actually changed
+    /// (Placed/Dispatched → Cancelled), so callers can gate the "cancelled" SMS and the
+    /// cancellation of any pending follow-up. A repeat call on an already-cancelled order is a
+    /// no-op returning <c>false</c>.
+    /// </summary>
+    public bool Cancel()
+    {
+        if (Status == OrderStatus.Cancelled) return false;
+
+        Status = OrderStatus.Cancelled;
+        return true;
+    }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

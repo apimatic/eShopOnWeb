@@ -53,6 +53,8 @@
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
+    <!-- Twilio .NET SDK (APIMatic-generated) — vendored via local feed (see nuget.config / lib/twilio-sdk). -->
+    <PackageVersion Include="TwilioSdk" Version="1.0.0" />
     <!-- Test -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />

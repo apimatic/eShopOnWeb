@@ -33,6 +33,11 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Twilio SMS order-notifications: binds the Twilio: section (fail-fast on missing credentials),
+// registers the SDK client and the gateway/validator/services.
+Microsoft.eShopWeb.Infrastructure.Messaging.TwilioMessagingServiceCollectionExtensions
+    .AddTwilioMessaging(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
