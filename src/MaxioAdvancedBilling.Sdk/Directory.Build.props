@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    Vendored, APIMatic-generated Maxio Advanced Billing .NET SDK source (see README.md here).
+    The SDK is not published to NuGet, so it is built from source and referenced as a project.
+    This file scopes a few settings to the vendored subtree only:
+      - Opt out of the host repo's Central Package Management: the generated .csproj pins its own
+        NuGet package versions, which CPM (ManagePackageVersionsCentrally=true at the repo root)
+        would otherwise reject.
+      - Silence analyzers/XML-doc warnings on generated code so it does not add noise to our build.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+</Project>
