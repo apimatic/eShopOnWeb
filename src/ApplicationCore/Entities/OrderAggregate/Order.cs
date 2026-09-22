@@ -23,6 +23,42 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// How far this order has moved for notification purposes. Defaults to <see cref="OrderNotificationStatus.Placed"/>.
+    /// </summary>
+    public OrderNotificationStatus NotificationStatus { get; private set; } = OrderNotificationStatus.Placed;
+
+    /// <summary>
+    /// Move the order to Dispatched. Returns <c>true</c> only if the state actually changed, so the
+    /// caller can gate the "on its way" message and the scheduled follow-up on a real transition and
+    /// not re-notify an order that was already dispatched (or cancelled).
+    /// </summary>
+    public bool TryMarkDispatched()
+    {
+        if (NotificationStatus != OrderNotificationStatus.Placed)
+        {
+            return false;
+        }
+
+        NotificationStatus = OrderNotificationStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>
+    /// Move the order to Cancelled. Returns <c>true</c> only if the state actually changed. An order
+    /// may be cancelled whether it was Placed or Dispatched, but never twice.
+    /// </summary>
+    public bool TryMarkCancelled()
+    {
+        if (NotificationStatus == OrderNotificationStatus.Cancelled)
+        {
+            return false;
+        }
+
+        NotificationStatus = OrderNotificationStatus.Cancelled;
+        return true;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
