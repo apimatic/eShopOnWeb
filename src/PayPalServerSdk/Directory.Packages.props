@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    The vendored PayPal Server SDK (APIMatic-generated, not published to NuGet) declares its
+    package versions directly on its own PackageReference items. The repository root uses central
+    package management (ManagePackageVersionsCentrally=true), which forbids inline versions, so we
+    opt this subtree out. This file shadows the root Directory.Packages.props for everything under
+    src/PayPalServerSdk/.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

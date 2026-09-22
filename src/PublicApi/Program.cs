@@ -33,6 +33,10 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// PayPal payments + saved cards integration (binds PayPal:* config, fail-fast, registers the SDK client
+// and the payment/vault services).
+Microsoft.eShopWeb.Infrastructure.PayPal.PayPalServiceCollectionExtensions.AddPayPalIntegration(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
