@@ -14,6 +14,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- PayPal Server SDK, vendored & built from source (not on any package feed). -->
+		<ProjectReference Include="..\..\lib\pay-pal-server-sdk\PayPalServerSdk.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
