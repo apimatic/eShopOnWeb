@@ -23,6 +23,35 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    // Additive lifecycle state for the SMS-notification capability. Defaults to Placed so existing
+    // order-creation paths are unaffected. Transitions report whether they actually changed state,
+    // so callers can gate one-shot side effects (notifications) on a real transition.
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>Marks the order dispatched. Returns false (a no-op) if it was not in the Placed state.</summary>
+    public bool MarkDispatched()
+    {
+        if (Status != OrderStatus.Placed)
+        {
+            return false;
+        }
+
+        Status = OrderStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>Marks the order cancelled. Returns false (a no-op) if it was already cancelled.</summary>
+    public bool MarkCancelled()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return false;
+        }
+
+        Status = OrderStatus.Cancelled;
+        return true;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
