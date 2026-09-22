@@ -33,6 +33,10 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// PayPal payments + saved-cards integration (options fail-fast, SDK client, gateway, payment services).
+Microsoft.eShopWeb.Infrastructure.Services.PayPal.PayPalServiceCollectionExtensions
+    .AddPayPalIntegration(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
@@ -174,6 +178,10 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// PayPal payment + saved-card endpoints (routed under /api/, JWT-authenticated).
+Microsoft.eShopWeb.PublicApi.PaymentEndpoints.OrderPaymentEndpoints.MapOrderPaymentEndpoints(app);
+Microsoft.eShopWeb.PublicApi.PaymentEndpoints.SavedCardEndpoints.MapSavedCardEndpoints(app);
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();

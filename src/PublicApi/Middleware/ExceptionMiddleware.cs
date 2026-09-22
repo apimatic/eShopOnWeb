@@ -32,23 +32,39 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
     }
+
+    private static (int StatusCode, string Message) Map(Exception exception) => exception switch
+    {
+        DuplicateException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // The caller referenced an order or saved card that is not theirs / does not exist.
+        OrderNotFoundException or PaymentMethodNotFoundException =>
+            ((int)HttpStatusCode.NotFound, exception.Message),
+
+        // A payment operation was requested in a state where it is not valid (e.g. refund before capture,
+        // refund beyond captured amount, pay an already-paid order).
+        PaymentStateException => ((int)HttpStatusCode.Conflict, exception.Message),
+
+        // A challenge that would require a browser: reported, not worked around.
+        BrowserApprovalRequiredException => ((int)HttpStatusCode.UnprocessableEntity, exception.Message),
+
+        // A card decline surfaces the provider's own reason to the caller; a transport/config failure
+        // is an upstream problem, not the caller's.
+        PaymentGatewayException gatewayException =>
+            (gatewayException.ProviderCode is not null
+                ? (int)HttpStatusCode.UnprocessableEntity
+                : (int)HttpStatusCode.BadGateway, gatewayException.Message),
+
+        System.ArgumentException => ((int)HttpStatusCode.BadRequest, exception.Message),
+
+        _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+    };
 }
