@@ -1,0 +1,48 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.eShopWeb.ApplicationCore.Entities.NotificationAggregate;
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
+
+public class OrderNotificationConfiguration : IEntityTypeConfiguration<OrderNotification>
+{
+    public void Configure(EntityTypeBuilder<OrderNotification> builder)
+    {
+        builder.Property(n => n.BuyerId)
+            .IsRequired()
+            .HasMaxLength(256);
+
+        builder.Property(n => n.ToPhoneNumber)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(n => n.Kind)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(n => n.MessageSid)
+            .HasMaxLength(64);
+
+        builder.Property(n => n.ProviderStatus)
+            .HasMaxLength(32);
+
+        builder.Property(n => n.ProviderErrorMessage)
+            .HasMaxLength(512);
+
+        builder.Property(n => n.IdempotencyKey)
+            .HasMaxLength(128);
+
+        builder.HasIndex(n => n.OrderId);
+        builder.HasIndex(n => n.BuyerId);
+
+        // Duplicate-prevention claim for operator re-sends: a caller-supplied idempotency key may
+        // appear at most once. The unique index rejects the second row; OrderNotificationService
+        // catches the resulting DbUpdateException and returns the existing notification's id.
+        // Filtered so the many rows with no key (every non-resend message) are exempt — on SQL Server an
+        // unfiltered unique index treats NULLs as equal and would reject the second null-key row.
+        builder.HasIndex(n => n.IdempotencyKey)
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
+    }
+}

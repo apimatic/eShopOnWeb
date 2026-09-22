@@ -23,6 +23,44 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>
+    /// Fulfilment lifecycle. Guarded transitions below let the SMS-notification feature fire
+    /// side effects only when the state actually changed (idempotent dispatch/cancel).
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.Placed;
+
+    /// <summary>
+    /// Moves the order to <see cref="OrderStatus.Dispatched"/>. Returns <c>true</c> only when the
+    /// transition actually happened (order was <see cref="OrderStatus.Placed"/>), so callers can
+    /// gate outbound notifications on a real change rather than a repeated request.
+    /// </summary>
+    public bool Dispatch()
+    {
+        if (Status != OrderStatus.Placed)
+        {
+            return false;
+        }
+
+        Status = OrderStatus.Dispatched;
+        return true;
+    }
+
+    /// <summary>
+    /// Moves the order to <see cref="OrderStatus.Cancelled"/> from any non-cancelled state. Returns
+    /// <c>true</c> only when the transition actually happened, so a repeated cancel is a no-op that
+    /// fires no further notifications and re-cancels nothing.
+    /// </summary>
+    public bool Cancel()
+    {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return false;
+        }
+
+        Status = OrderStatus.Cancelled;
+        return true;
+    }
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
