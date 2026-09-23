@@ -33,6 +33,10 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Maxio Advanced Billing subscription capability (fail-fast on missing Maxio:* configuration).
+Microsoft.eShopWeb.Infrastructure.Maxio.MaxioBillingServiceCollectionExtensions.AddMaxioBilling(
+    builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
