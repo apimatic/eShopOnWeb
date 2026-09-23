@@ -32,23 +32,50 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    // One ladder for the whole API. Distinct failures stay distinct; nothing leaks card data (the gateway
+    // builds only caller-safe messages), and "our fault" provider failures do not masquerade as the
+    // caller's fault.
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case OrderNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            case PaymentValidationException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            case PaymentChallengeRequiredException:
+                // The card needs browser approval we do not support — the caller must act, but cannot here.
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case PayPalGatewayException gateway:
+                // A caller-actionable provider 4xx (validation/not-found/conflict) passes through; our own
+                // auth/rate-limit problems and transport failures are 502, not the caller's fault.
+                var status = gateway.ProviderStatusCode;
+                if (status is 400 or 404 or 409 or 422)
+                    return (status.Value, gateway.Message);
+                return ((int)HttpStatusCode.BadGateway, gateway.Message);
+
+            case OperationCanceledException:
+                return (StatusGatewayTimeout, "The payment request timed out.");
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
+
+    private const int StatusGatewayTimeout = 504;
 }
