@@ -45,6 +45,12 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// SMS order notifications (Twilio). Binds the Twilio: section, fails fast on a missing credential at startup,
+// and registers the SMS gateway and notification services.
+Microsoft.eShopWeb.Infrastructure.Twilio.TwilioServiceCollectionExtensions.AddTwilioSms(builder.Services, builder.Configuration);
+builder.Services.AddScoped<IContactNumberService, ContactNumberService>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -82,6 +88,9 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+// Serialize enums (e.g. notification DeliveryOutcome) as readable strings in minimal-API JSON responses.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
