@@ -1,0 +1,11 @@
+<!--
+  This vendored SDK opts OUT of the repository's Central Package Management.
+  The generated SDK csproj pins its own package versions inline (netstandard2.0 target),
+  which is incompatible with the root Directory.Packages.props (ManagePackageVersionsCentrally=true).
+  Placing this file here stops MSBuild's upward walk and disables CPM for this subtree only.
+-->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
