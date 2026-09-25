@@ -1,7 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.Extensions.Options;
+using PayPalServerSdk;
+using PayPalServerSdk.Core.Authentication.OAuth2.ClientCredentials;
+using PayPalServerSdk.Core.Configuration;
+using PayPalServerSdk.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -44,6 +51,82 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// ---- PayPal payments integration ----
+// Map the PAYPAL_* environment variables onto the PayPal: configuration section. No value is
+// hard-coded anywhere in the repo; a different PayPal account is used by supplying different
+// environment variables / user-secrets for these keys.
+var payPalConfig = new Dictionary<string, string?>();
+void MapPayPalSetting(string environmentVariable, string key)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        payPalConfig[$"{PayPalOptions.SectionName}:{key}"] = value;
+    }
+}
+MapPayPalSetting("PAYPAL_CLIENT_ID", nameof(PayPalOptions.ClientId));
+MapPayPalSetting("PAYPAL_CLIENT_SECRET", nameof(PayPalOptions.ClientSecret));
+MapPayPalSetting("PAYPAL_ENVIRONMENT", nameof(PayPalOptions.Environment));
+MapPayPalSetting("PAYPAL_CURRENCY", nameof(PayPalOptions.Currency));
+MapPayPalSetting("PAYPAL_BASE_URL", nameof(PayPalOptions.BaseUrl));
+builder.Configuration.AddInMemoryCollection(payPalConfig);
+
+// Fail fast at startup when a credential/currency/environment is missing or unsupported, rather than
+// discovering it as a 401 on the first call in production. Both credential parts are checked.
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(o => o.ResolveEnvironment() is not null,
+        "PayPal:Environment must be a supported PayPal environment (e.g. 'sandbox').")
+    .ValidateOnStart();
+
+const string PayPalHttpClientName = "PayPal";
+builder.Services.AddHttpClient(PayPalHttpClientName, c => c.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    });
+
+// Single, long-lived SDK client (its options — including the secret — are captured once at
+// registration, so a rotated secret takes effect on process restart).
+builder.Services.AddSingleton<PayPalServerSdkClient>(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(PayPalHttpClientName);
+    var payPalOptions = sp.GetRequiredService<IOptions<PayPalOptions>>().Value;
+    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+
+    var clientOptions = new PayPalServerSdkClientOptions
+    {
+        Environment = payPalOptions.ResolveEnvironment() ?? ServerEnvironment.Sandbox,
+        Oauth2 = new OAuth2ClientCredentials
+        {
+            ClientId = payPalOptions.ClientId,
+            ClientSecret = payPalOptions.ClientSecret,
+        },
+        // LoggerFactory is set explicitly and request-body logging stays OFF, so card data is never
+        // logged and the PAYPALSERVERSDKCLIENT_LOG env var cannot switch body logging on externally.
+        Logging = new LoggingOptions
+        {
+            LoggerFactory = loggerFactory,
+            LogRequestBody = false,
+            LogRequestHeaders = false,
+            LogResponseHeaders = false,
+        },
+    };
+
+    if (!string.IsNullOrWhiteSpace(payPalOptions.BaseUrl))
+    {
+        // When set, used verbatim as the API base for every call — including the OAuth token request
+        // (the token URL resolves through this same base).
+        clientOptions.Server.Default.Sandbox.BaseUrl = payPalOptions.BaseUrl;
+    }
+
+    return new PayPalServerSdkClient(httpClient, clientOptions);
+});
+
+builder.Services.AddScoped<IPayPalGateway, PayPalGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
