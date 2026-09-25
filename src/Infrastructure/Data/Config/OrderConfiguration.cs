@@ -16,6 +16,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.PaymentReference)
+            .IsRequired();
+
+        // Payment/fulfilment state, stored as its string name for readable/stable persistence.
+        builder.Property(b => b.PaymentStatus)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();

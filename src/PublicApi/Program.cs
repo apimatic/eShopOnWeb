@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Configuration;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +85,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map the PAYPAL_* environment variables the platform supplies onto the PayPal: configuration keys,
+// without writing any value into a repo file. In dev these also come from .NET user-secrets; in prod
+// they come from the environment. Only present values are added.
+var payPalEnv = new Dictionary<string, string?>();
+void MapPayPalEnv(string envVar, string key)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value)) payPalEnv[key] = value;
+}
+MapPayPalEnv("PAYPAL_CLIENT_ID", "PayPal:ClientId");
+MapPayPalEnv("PAYPAL_CLIENT_SECRET", "PayPal:ClientSecret");
+MapPayPalEnv("PAYPAL_ENVIRONMENT", "PayPal:Environment");
+MapPayPalEnv("PAYPAL_CURRENCY", "PayPal:Currency");
+MapPayPalEnv("PAYPAL_BASE_URL", "PayPal:BaseUrl");
+if (payPalEnv.Count > 0) builder.Configuration.AddInMemoryCollection(payPalEnv);
+
+// PayPal payments (settings fail-fast, SDK client, gateway, application services).
+builder.Services.AddPayPalPayments(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
