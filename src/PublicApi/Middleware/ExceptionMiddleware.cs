@@ -32,23 +32,49 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = Map(exception);
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = status,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int Status, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case OrderNotFoundException:
+                return ((int)HttpStatusCode.NotFound, exception.Message);
+
+            case InvalidOrderPaymentStateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case UnauthorizedAccessException:
+                return ((int)HttpStatusCode.Unauthorized, "Not authorized.");
+
+            case PaymentGatewayException gateway:
+                // An operator-actionable condition (e.g. a hold that can no longer be renewed) is a
+                // conflict the caller/operator must resolve, not a transient server error.
+                if (gateway.OperatorActionable)
+                    return ((int)HttpStatusCode.Conflict, gateway.Message);
+                // Our credentials/quota failing is not the caller's fault → surface as 502/503.
+                if (gateway.StatusCode is 401 or 403)
+                    return ((int)HttpStatusCode.BadGateway, "Payment provider is unavailable.");
+                if (gateway.StatusCode is 429)
+                    return ((int)HttpStatusCode.ServiceUnavailable, "Payment provider is temporarily unavailable.");
+                // PayPal rejected the caller's request → hand back the same class of status.
+                if (gateway.StatusCode is >= 400 and < 500)
+                    return (gateway.StatusCode.Value, gateway.Message);
+                // Transport failure, timeout, unknown outcome, or provider 5xx.
+                return ((int)HttpStatusCode.BadGateway, gateway.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
