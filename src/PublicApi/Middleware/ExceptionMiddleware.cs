@@ -32,23 +32,44 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException dup:
+                return ((int)HttpStatusCode.Conflict, dup.Message);
+            case PaymentValidationException val:
+                return ((int)HttpStatusCode.BadRequest, val.Message);
+            case PaymentNotFoundException nf:
+                return ((int)HttpStatusCode.NotFound, nf.Message);
+            case PaymentConflictException cf:
+                return ((int)HttpStatusCode.Conflict, cf.Message);
+            case PaymentChallengeRequiredException ch:
+                // A browser approval / 3DS challenge is out of scope — reported, not handled.
+                return ((int)HttpStatusCode.UnprocessableEntity, ch.Message);
+            case PaymentGatewayException gw:
+                return gw.Kind switch
+                {
+                    // The caller's request was rejected — hand back an actionable client status.
+                    PaymentGatewayFailureKind.CallerError =>
+                        (gw.StatusCode is >= 400 and < 500 ? gw.StatusCode.Value : (int)HttpStatusCode.BadRequest, gw.Message),
+                    // Our credentials/quota or the provider itself — the caller cannot fix it.
+                    PaymentGatewayFailureKind.ProviderUnavailable =>
+                        ((int)HttpStatusCode.BadGateway, "The payment provider is currently unavailable. Please try again later."),
+                    // A write whose outcome could not be confirmed.
+                    _ => ((int)HttpStatusCode.BadGateway, "The payment outcome could not be confirmed. Please re-check the order state before retrying."),
+                };
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
