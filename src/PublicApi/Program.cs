@@ -45,6 +45,10 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// PayPal payments + saved cards (Flows 1 & 2). Binds PayPal: settings with fail-fast validation,
+// registers the SDK client and payment services.
+Microsoft.eShopWeb.Infrastructure.Payments.PaymentServiceExtensions.AddPayPalPayments(builder.Services, builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();

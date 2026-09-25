@@ -44,4 +44,64 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    // --- Payment / fulfilment state (additive to the original order model) ---
+
+    public OrderPaymentStatus PaymentStatus { get; private set; } = OrderPaymentStatus.AwaitingPayment;
+
+    /// <summary>The PayPal-owned payment state for this order. Null until payment is first attempted.</summary>
+    public OrderPayment? Payment { get; private set; }
+
+    /// <summary>Creates (once) the payment record that will hold PayPal's ids and status.</summary>
+    public OrderPayment BeginPayment(string currencyCode, string referenceId, decimal authorizedAmount)
+    {
+        Payment ??= new OrderPayment(currencyCode, referenceId, authorizedAmount);
+        return Payment;
+    }
+
+    public void RecordAuthorization(string payPalOrderId, string authorizationId, string? status, DateTimeOffset? expiresAt)
+    {
+        EnsurePaymentStarted();
+        Payment!.RecordPayPalOrder(payPalOrderId);
+        Payment!.RecordAuthorization(authorizationId, status, expiresAt);
+        PaymentStatus = OrderPaymentStatus.Authorized;
+    }
+
+    /// <summary>Records a renewed hold (reauthorization) without changing the order's lifecycle status.</summary>
+    public void RecordReauthorization(string authorizationId, string? status, DateTimeOffset? expiresAt)
+    {
+        EnsurePaymentStarted();
+        Payment!.RecordAuthorization(authorizationId, status, expiresAt);
+    }
+
+    public void RecordCapture(string captureId, string? status, decimal? capturedAmount, decimal? paypalFee, decimal? netAmount)
+    {
+        EnsurePaymentStarted();
+        Payment!.RecordCapture(captureId, status, capturedAmount, paypalFee, netAmount);
+        PaymentStatus = OrderPaymentStatus.Fulfilled;
+    }
+
+    public void RecordCancellation()
+    {
+        EnsurePaymentStarted();
+        Payment!.MarkVoided();
+        PaymentStatus = OrderPaymentStatus.Cancelled;
+    }
+
+    public void RecordRefund(string idempotencyKey, string payPalRefundId, decimal amount, string status)
+    {
+        EnsurePaymentStarted();
+        Payment!.AddRefund(idempotencyKey, payPalRefundId, amount, status);
+        PaymentStatus = Payment!.TotalRefunded >= (Payment!.CapturedAmount ?? 0m)
+            ? OrderPaymentStatus.Refunded
+            : OrderPaymentStatus.PartiallyRefunded;
+    }
+
+    private void EnsurePaymentStarted()
+    {
+        if (Payment is null)
+        {
+            throw new System.InvalidOperationException("Order payment has not been started.");
+        }
+    }
 }

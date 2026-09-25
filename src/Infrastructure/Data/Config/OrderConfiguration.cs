@@ -41,5 +41,32 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        // Payment / fulfilment state — owned by the order aggregate (additive).
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<int>();
+
+        builder.OwnsOne(o => o.Payment, payment =>
+        {
+            payment.WithOwner();
+
+            payment.Property(p => p.CurrencyCode).HasMaxLength(3).IsRequired();
+            payment.Property(p => p.ReferenceId).HasMaxLength(128).IsRequired();
+            payment.Property(p => p.PayPalOrderId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationId).HasMaxLength(64);
+            payment.Property(p => p.AuthorizationStatus).HasMaxLength(32);
+            payment.Property(p => p.CaptureId).HasMaxLength(64);
+            payment.Property(p => p.CaptureStatus).HasMaxLength(32);
+
+            payment.OwnsMany(p => p.Refunds, refund =>
+            {
+                refund.WithOwner();
+                refund.Property(r => r.IdempotencyKey).HasMaxLength(256).IsRequired();
+                refund.Property(r => r.PayPalRefundId).HasMaxLength(64).IsRequired();
+                refund.Property(r => r.Status).HasMaxLength(32);
+            });
+
+            payment.Navigation(p => p.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
     }
 }

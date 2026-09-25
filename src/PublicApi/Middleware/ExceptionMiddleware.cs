@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces.Payments;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,51 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    // One boundary: convert every failure kind into a coherent, distinct, leak-free caller status.
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException dup:
+                return ((int)HttpStatusCode.Conflict, dup.Message);
+
+            // Caller-actionable application failures.
+            case PaymentOperationException op:
+                var opStatus = op.Kind switch
+                {
+                    PaymentErrorKind.NotFound => HttpStatusCode.NotFound,
+                    PaymentErrorKind.Conflict => HttpStatusCode.Conflict,
+                    _ => HttpStatusCode.UnprocessableEntity
+                };
+                return ((int)opStatus, op.Message);
+
+            // PayPal answered with a browser-approval challenge — not supported by this integration.
+            case PaymentApprovalRequiredException approval:
+                return ((int)HttpStatusCode.UnprocessableEntity, approval.Message);
+
+            // A stale hold that can no longer be renewed — operator-actionable.
+            case AuthorizationNotRenewableException notRenewable:
+                return ((int)HttpStatusCode.Conflict, notRenewable.Message);
+
+            // Any other PayPal-side failure: pass a caller-fixable 4xx through; otherwise report a gateway error.
+            case PaymentGatewayException gateway:
+                if (gateway.CallerFault && gateway.StatusCode is >= 400 and < 500)
+                {
+                    return (gateway.StatusCode.Value, gateway.Message);
+                }
+                return ((int)HttpStatusCode.BadGateway, gateway.Message);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
     }
 }
