@@ -1,0 +1,96 @@
+title: Bank Account Payment Profile
+type: object
+required:
+  - masked_bank_account_number
+  - payment_type
+properties:
+  id:
+    type: integer
+    description: "The Chargify-assigned ID of the stored bank account. This value can be used as an input to payment_profile_id when creating a subscription, in order to re-use a stored payment profile for the same customer"
+  first_name:
+    type: string
+    description: The first name of the bank account holder
+  last_name:
+    type: string
+    description: The last name of the bank account holder
+  customer_id:
+    type: integer
+    description: The Chargify-assigned id for the customer record to which the bank account belongs
+  current_vault:
+    $ref: "./Bank-Account-Vault.yaml"
+  vault_token:
+    type: string
+    description: The “token” provided by your vault storage for an already stored payment profile
+  billing_address:
+    type:
+      - string
+      - "null"
+    description: The current billing street address for the bank account
+  billing_city:
+    type:
+      - string
+      - "null"
+    description: The current billing address city for the bank account
+  billing_state:
+    type:
+      - string
+      - "null"
+    description: The current billing address state for the bank account
+  billing_zip:
+    type:
+      - string
+      - "null"
+    description: The current billing address zip code for the bank account
+  billing_country:
+    type:
+      - string
+      - "null"
+    description: The current billing address country for the bank account
+  customer_vault_token:
+    type:
+      - string
+      - "null"
+    description: "(only for Authorize.Net CIM storage): the customerProfileId for the owner of the customerPaymentProfileId provided as the vault_token."
+  billing_address_2:
+    type:
+      - string
+      - "null"
+    description: The current billing street address, second line, for the bank account
+  bank_name:
+    type: string
+    description: The bank where the account resides
+  masked_bank_routing_number:
+    type: string
+    description: A string representation of the stored bank routing number with all but the last 4 digits marked with X’s (i.e. ‘XXXXXXX1111’). payment_type will be bank_account
+  masked_bank_account_number:
+    type: string
+    description: A string representation of the stored bank account number with all but the last 4 digits marked with X’s (i.e. ‘XXXXXXX1111’)
+  bank_account_type:
+    $ref: "./Bank-Account-Type.yaml"
+  bank_account_holder_type:
+    $ref: "./Bank-Account-Holder-Type.yaml"
+  payment_type:
+    allOf:
+      - $ref: "./Payment-Type.yaml"
+    default: bank_account
+    example: bank_account
+  verified:
+    type: boolean
+    default: false
+    description: denotes whether a bank account has been verified by providing the amounts of two small deposits made into the account
+  site_gateway_setting_id:
+    type:
+      - integer
+      - "null"
+  gateway_handle:
+    type:
+      - string
+      - "null"
+  created_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was created
+  updated_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was last updated

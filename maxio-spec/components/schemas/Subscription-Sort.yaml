@@ -1,0 +1,10 @@
+title: Subscription Sort
+type: string
+enum:
+  - signup_date
+  - period_start
+  - period_end
+  - next_assessment
+  - updated_at
+  - created_at
+default: signup_date

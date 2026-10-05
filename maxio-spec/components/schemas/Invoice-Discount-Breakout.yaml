@@ -1,0 +1,9 @@
+title: Invoice Discount Breakout
+type: object
+properties:
+  uid:
+    type: string
+  eligible_amount:
+    type: string
+  discount_amount:
+    type: string

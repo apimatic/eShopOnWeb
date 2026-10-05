@@ -1,0 +1,11 @@
+title: Subscription Group Balances
+type: object
+properties:
+  prepayments:
+    $ref: "./Account-Balance.yaml"
+  service_credits:
+    $ref: "./Account-Balance.yaml"
+  open_invoices:
+    $ref: "./Account-Balance.yaml"
+  pending_discounts:
+    $ref: "./Account-Balance.yaml"

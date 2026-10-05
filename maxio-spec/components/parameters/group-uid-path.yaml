@@ -1,0 +1,6 @@
+name: uid
+schema:
+  type: string
+in: path
+required: true
+description: The uid of the subscription group

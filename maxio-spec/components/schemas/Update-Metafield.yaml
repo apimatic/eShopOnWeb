@@ -1,0 +1,16 @@
+title: Update Metafield
+type: object
+properties:
+  current_name:
+    type: string
+  name:
+    type: string
+  scope:
+    $ref: "./Metafield-Scope.yaml"
+  input_type:
+    $ref: "./Metafield-Input.yaml"
+  enum:
+    type: array
+    description: Only applicable when input_type is radio or dropdown.
+    items:
+      type: string

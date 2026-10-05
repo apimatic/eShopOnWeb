@@ -1,0 +1,21 @@
+title: Component Cost Data
+type: object
+properties:
+  component_code_id:
+    type:
+      - integer
+      - "null"
+  price_point_id:
+    type: integer
+  product_id:
+    type: integer
+  quantity:
+    type: string
+  amount:
+    type: string
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  tiers:
+    type: array
+    items:
+      $ref: "./Tier.yaml"

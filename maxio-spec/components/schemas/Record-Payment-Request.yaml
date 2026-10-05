@@ -1,0 +1,7 @@
+title: Record Payment Request
+type: object
+properties:
+  payment:
+    $ref: "./Create-Payment.yaml"
+required:
+  - payment

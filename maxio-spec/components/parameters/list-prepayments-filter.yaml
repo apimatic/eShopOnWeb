@@ -1,0 +1,7 @@
+in: query
+name: filter
+description: Filter to use for List Prepayments operations
+schema:
+  $ref: "../schemas/List-Prepayments-Filter.yaml"
+style: deepObject
+explode: true

@@ -1,0 +1,18 @@
+title: Prepayment Account Balance Changed
+type: object
+properties:
+  reason:
+    type: string
+  prepayment_account_balance_in_cents:
+    type: integer
+    format: int64
+  prepayment_balance_change_in_cents:
+    type: integer
+    format: int64
+  currency_code:
+    type: string
+required:
+  - reason
+  - prepayment_account_balance_in_cents
+  - prepayment_balance_change_in_cents
+  - currency_code
