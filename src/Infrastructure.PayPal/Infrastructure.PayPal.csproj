@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Microsoft.eShopWeb.Infrastructure.PayPal</RootNamespace>
+    <Nullable>enable</Nullable>
+    <!--
+      The PayPal Server SDK is not on NuGet: it ships as source inside the "paypal" plugin
+      (context-plugins marketplace) at sdk/dotnet/. The default below points at the plugin's
+      install location relative to this repository; override PayPalServerSdkProject
+      (e.g. dotnet build -p:PayPalServerSdkProject=/path/to/PayPalServerSdk.csproj) where it lives elsewhere.
+    -->
+    <PayPalServerSdkProject Condition="'$(PayPalServerSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\paypal\sdk\dotnet\PayPalServerSdk.csproj</PayPalServerSdkProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+    <ProjectReference Include="$(PayPalServerSdkProject)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaymentsTests" />
+  </ItemGroup>
+
+</Project>

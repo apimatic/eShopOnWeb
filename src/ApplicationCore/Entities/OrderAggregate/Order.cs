@@ -35,6 +35,41 @@ public class Order : BaseEntity, IAggregateRoot
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
+    /// <summary>
+    /// Payment/fulfilment lifecycle of the order. Orders start awaiting payment; the payment
+    /// flow (see <see cref="PaymentAggregate.Payment"/>) moves them forward.
+    /// </summary>
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Order {Id} cannot be authorized while {Status}.");
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    /// <summary>The authorization was lost (expired/voided at the provider); the shopper has to pay again.</summary>
+    public void ReturnToAwaitingPayment()
+    {
+        if (Status != OrderStatus.PaymentAuthorized && Status != OrderStatus.AwaitingPayment)
+            throw new InvalidOperationException($"Order {Id} cannot return to awaiting payment while {Status}.");
+        Status = OrderStatus.AwaitingPayment;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized && Status != OrderStatus.Fulfilled)
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled while {Status}.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+            throw new InvalidOperationException($"Order {Id} is fulfilled and cannot be cancelled.");
+        Status = OrderStatus.Cancelled;
+    }
+
     public decimal Total()
     {
         var total = 0m;
