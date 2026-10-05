@@ -1,0 +1,73 @@
+title: Prepaid Usage Component
+type: object
+properties:
+  name:
+    type: string
+    description: 'A name for this component that is suitable for showing customers and displaying on billing statements, ie. "Minutes".'
+  unit_name:
+    type: string
+    description: "The name of the unit of measurement for the component. It should be singular since it will be automatically pluralized when necessary. i.e. “message”, which may then be shown as “5 messages” on a subscription’s component line-item"
+  description:
+    type: string
+    description: A description for the component that will be displayed to the user on the hosted signup page.
+  handle:
+    type: string
+    description: "A unique identifier for your use that can be used to retrieve this component is subsequent requests.  Must start with a letter or number and may only contain lowercase letters, numbers, or the characters '.', ':', '-', or '_'."
+    pattern: '^[a-z0-9][a-z0-9\-_:.]*$'
+  taxable:
+    type: boolean
+    description: Boolean flag describing whether a component is taxable or not.
+  pricing_scheme:
+    $ref: "./Pricing-Scheme.yaml"
+  prices:
+    type: array
+    description: "(Not required for ‘per_unit’ pricing schemes) One or more price brackets. See [Price Bracket Rules](https://maxio.zendesk.com/hc/en-us/articles/24261149166733-Component-Pricing-Schemes#price-bracket-rules) for an overview of how price brackets work for different pricing schemes."
+    items:
+      $ref: "./Price.yaml"
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  price_points:
+    type: array
+    items:
+      $ref: "./Create-Prepaid-Component-Price-Point.yaml"
+  unit_price:
+    type:
+      - string
+      - number
+    description: "The amount the customer will be charged per unit when the pricing scheme is “per_unit”. For On/Off Components, this is the amount that the customer will be charged when they turn the component on for the subscription. The price can contain up to 8 decimal places. i.e. 1.00 or 0.0012 or 0.00000065"
+  tax_code:
+    type: string
+    description: A string representing the tax code related to the component type. This is especially important when using the Avalara service to tax based on locale. This attribute has a max length of 10 characters.
+  hide_date_range_on_invoice:
+    type: boolean
+    description: (Only available on Relationship Invoicing sites) Boolean flag describing if the service date range should show for the component on generated invoices.
+  overage_pricing:
+    $ref: "./Overage-Pricing.yaml"
+  rollover_prepaid_remainder:
+    type: boolean
+    description: Boolean which controls whether or not remaining units should be rolled over to the next period
+  renew_prepaid_allocation:
+    type: boolean
+    description: Boolean which controls whether or not the allocated quantity should be renewed at the beginning of each period
+  expiration_interval:
+    type: number
+    description: (only for prepaid usage components where rollover_prepaid_remainder is true) The number of `expiration_interval_unit`s after which rollover amounts should expire
+  expiration_interval_unit:
+    oneOf:
+      - $ref: "./Expiration-Interval-Unit.yaml"
+      - type: "null"
+  display_on_hosted_page:
+    type: boolean
+  allow_fractional_quantities:
+    type: boolean
+  public_signup_page_ids:
+    type: array
+    items:
+      type: integer
+required:
+  - name
+  - overage_pricing
+  - unit_name
+  - pricing_scheme

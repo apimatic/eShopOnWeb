@@ -1,0 +1,9 @@
+title: Subscription Remove Coupon Errors
+type: object
+properties:
+  subscription:
+    type: array
+    items:
+      type: string
+required:
+  - subscription

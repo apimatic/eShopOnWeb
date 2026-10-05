@@ -1,0 +1,5 @@
+title: Cancel Subscription Error Response
+type: object
+oneOf:
+  - $ref: "./Error-List-Response.yaml"
+  - $ref: "./Single-Error-Response.yaml"

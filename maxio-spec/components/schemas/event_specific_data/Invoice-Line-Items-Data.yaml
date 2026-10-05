@@ -1,0 +1,61 @@
+title: Invoice Line Item Event Data
+type: object
+properties:
+  uid:
+    type: string
+  title:
+    type: string
+  description:
+    type: string
+  quantity:
+    type: integer
+  quantity_delta:
+    type:
+      - integer
+      - "null"
+  unit_price:
+    type: string
+  period_range_start:
+    type: string
+  period_range_end:
+    type: string
+  amount:
+    type: string
+  line_references:
+    type: string
+  pricing_details_index:
+    type:
+      - integer
+      - "null"
+  pricing_details:
+    type: array
+    items:
+      $ref: "./Invoice-Line-Item-Pricing-Detail.yaml"
+  tax_code:
+    type:
+      - string
+      - "null"
+  tax_amount:
+    type: string
+  product_id:
+    type: integer
+  product_price_point_id:
+    type:
+      - integer
+      - "null"
+  price_point_id:
+    type:
+      - integer
+      - "null"
+  component_id:
+    type:
+      - integer
+      - "null"
+  billing_schedule_item_id:
+    type:
+      - integer
+      - "null"
+  custom_item:
+    type:
+      - boolean
+      - "null"

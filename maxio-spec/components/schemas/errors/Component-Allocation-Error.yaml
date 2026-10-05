@@ -1,0 +1,7 @@
+title: Component Allocation Error
+type: object
+properties:
+  errors:
+    type: array
+    items:
+      $ref: "./Component-Allocation-Error-Item.yaml"

@@ -1,0 +1,9 @@
+title: Subscription Group Prepayment Method
+type: string
+enum:
+  - check
+  - cash
+  - money_order
+  - ach
+  - paypal_account
+  - other

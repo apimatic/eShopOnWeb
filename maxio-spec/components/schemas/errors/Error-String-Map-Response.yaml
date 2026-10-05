@@ -1,0 +1,5 @@
+title: Error String Map Response
+type: object
+properties:
+  errors:
+    $ref: "./Error-String-Map.yaml"

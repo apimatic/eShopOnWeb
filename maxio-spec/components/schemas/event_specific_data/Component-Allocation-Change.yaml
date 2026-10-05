@@ -1,0 +1,26 @@
+title: Component Allocation Change
+type: object
+properties:
+  previous_allocation:
+    type: integer
+  new_allocation:
+    type: integer
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  memo:
+    type: string
+  allocation_id:
+    type: integer
+  allocated_quantity:
+    oneOf:
+      - type: integer
+      - type: string
+required:
+  - previous_allocation
+  - new_allocation
+  - component_id
+  - component_handle
+  - memo
+  - allocation_id

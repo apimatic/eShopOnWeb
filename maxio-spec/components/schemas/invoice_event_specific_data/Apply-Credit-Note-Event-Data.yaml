@@ -1,0 +1,45 @@
+title: Apply Credit Note Event Data
+type: object
+description: Example schema for an `apply_credit_note` event
+properties:
+  uid:
+    type: string
+    description: Unique identifier for the credit note application. It is generated automatically by Chargify and has the prefix "cdt_" followed by alphanumeric characters.
+  credit_note_number:
+    type: string
+    description: A unique, identifying string that appears on the credit note and in places it is referenced.
+  credit_note_uid:
+    type: string
+    description: Unique identifier for the credit note. It is generated automatically by Chargify and has the prefix "cn_" followed by alphanumeric characters.
+  original_amount:
+    type: string
+    description: The full, original amount of the credit note.
+  applied_amount:
+    type: string
+    description: The amount of the credit note applied to invoice.
+  transaction_time:
+    type: string
+    format: date-time
+    description: The time the credit note was applied, in ISO 8601 format, i.e. "2019-06-07T17:20:06Z"
+  memo:
+    type:
+      - string
+      - "null"
+    description: The credit note memo.
+  role:
+    type: string
+    description: The role of the credit note (e.g. 'general')
+  consolidated_invoice:
+    type: boolean
+    description: Shows whether it was applied to consolidated invoice or not
+  applied_credit_notes:
+    type: array
+    description: List of credit notes applied to children invoices (if consolidated invoice)
+    items:
+      $ref: "./Apply-Credit-Note-Credit-Notes-Data.yaml"
+required:
+  - uid
+  - credit_note_number
+  - credit_note_uid
+  - original_amount
+  - applied_amount

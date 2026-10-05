@@ -1,0 +1,19 @@
+title: Subscription Add Coupon Error
+type: object
+properties:
+  codes:
+    type: array
+    items:
+      type: string
+  coupon_code:
+    type: array
+    items:
+      type: string
+  coupon_codes:
+    type: array
+    items:
+      type: string
+  subscription:
+    type: array
+    items:
+      type: string

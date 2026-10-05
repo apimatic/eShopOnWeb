@@ -1,0 +1,9 @@
+title: Revoked Invitation
+type: object
+properties:
+  last_sent_at:
+    type: string
+  last_accepted_at:
+    type: string
+  uninvited_count:
+    type: integer

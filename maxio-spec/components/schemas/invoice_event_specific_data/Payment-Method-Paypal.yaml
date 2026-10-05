@@ -1,0 +1,13 @@
+title: Payment Method Paypal
+type: object
+properties:
+  email:
+    type: string
+    format: email
+  type:
+    allOf:
+      - $ref: "./Invoice-Event-Payment-Method.yaml"
+    example: "paypal_account"
+required:
+  - email
+  - type
