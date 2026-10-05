@@ -20,7 +20,14 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
-        _application = new WebApplicationFactory<Program>();
-
+        // Placeholders (not secrets) so the Maxio fail-fast validation lets the host start
+        // in environments without Maxio configuration; Maxio-dependent tests are skipped
+        // unless the real environment variables are present.
+        _application = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Maxio:ApiKey", "placeholder-not-a-secret");
+            builder.UseSetting("Maxio:Subdomain", "placeholder-site");
+            builder.UseSetting("Maxio:ProductFamilyHandle", "placeholder-family");
+        });
     }
 }
