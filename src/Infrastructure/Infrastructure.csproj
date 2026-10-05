@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
@@ -12,8 +12,14 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
+	<PropertyGroup>
+		<!-- Maxio Advanced Billing .NET SDK ships as source inside the "maxio" Claude Code plugin (context-plugins marketplace).
+		     Override MaxioSdkProject (e.g. dotnet build -p:MaxioSdkProject=...) when the plugin is installed elsewhere. -->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio\sdk\dotnet\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
