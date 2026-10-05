@@ -30,6 +30,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\IntegrationTests\Payments\FakePayPal.cs" Link="Payments\FakePayPal.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\PublicApi\PublicApi.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
   </ItemGroup>

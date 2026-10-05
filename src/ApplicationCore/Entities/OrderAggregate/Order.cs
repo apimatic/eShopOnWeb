@@ -22,6 +22,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -34,6 +35,27 @@ public class Order : BaseEntity, IAggregateRoot
     // It's much cheaper than .ToList() because it will not have to copy all items in a new collection. (Just one heap alloc for the wrapper instance)
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
+
+    public void MarkPaymentAuthorized()
+    {
+        if (Status != OrderStatus.AwaitingPayment && Status != OrderStatus.PaymentAuthorized)
+            throw new InvalidOperationException($"Order {Id} cannot be authorized while {Status}.");
+        Status = OrderStatus.PaymentAuthorized;
+    }
+
+    public void MarkFulfilled()
+    {
+        if (Status != OrderStatus.PaymentAuthorized && Status != OrderStatus.Fulfilled)
+            throw new InvalidOperationException($"Order {Id} cannot be fulfilled while {Status}.");
+        Status = OrderStatus.Fulfilled;
+    }
+
+    public void MarkCancelled()
+    {
+        if (Status == OrderStatus.Fulfilled)
+            throw new InvalidOperationException($"Order {Id} is already fulfilled and cannot be cancelled.");
+        Status = OrderStatus.Cancelled;
+    }
 
     public decimal Total()
     {
