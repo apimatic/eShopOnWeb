@@ -1,0 +1,7 @@
+in: query
+name: filter
+description: Filter to use for List Segments for a Price Point operation
+schema:
+  $ref: "../schemas/List-Segments-Filter.yaml"
+style: deepObject
+explode: true

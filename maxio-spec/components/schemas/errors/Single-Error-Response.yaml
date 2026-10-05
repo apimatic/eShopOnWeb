@@ -1,0 +1,7 @@
+title: Single Error Response
+type: object
+properties:
+  error:
+    type: string
+required:
+  - error

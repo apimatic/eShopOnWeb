@@ -1,0 +1,5 @@
+title: Resource Type
+type: string
+enum:
+  - subscriptions
+  - customers

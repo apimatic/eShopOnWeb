@@ -1,0 +1,12 @@
+title: Issue Service Credit
+type: object
+properties:
+  amount:
+    type:
+      - number
+      - string
+    minimum: 0
+  memo:
+    type: string
+required:
+  - amount

@@ -1,0 +1,28 @@
+title: List Subscription Groups Item
+type: object
+properties:
+  uid:
+    type: string
+  scheme:
+    type: integer
+  customer_id:
+    type: integer
+  payment_profile_id:
+    type: integer
+  subscription_ids:
+    type: array
+    items:
+      type: integer
+  primary_subscription_id:
+    type: integer
+  next_assessment_at:
+    type: string
+    format: date-time
+  state:
+    type: string
+  cancel_at_end_of_period:
+    type: boolean
+  account_balances:
+    $ref: "./Subscription-Group-Balances.yaml"
+  group_type:
+    $ref: "./Group-Type.yaml"

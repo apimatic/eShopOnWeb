@@ -1,0 +1,5 @@
+title: Create Debit Note Event Data
+type: object
+description: Example schema for an `create_debit_note` event
+allOf:
+  - $ref: "../Debit-Note.yaml"
