@@ -41,6 +41,20 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioBillingException maxioException)
+        {
+            // The provider rejecting the caller's request is the caller's to act on; provider
+            // outages, unknown outcomes and unreadable responses are 502.
+            var statusCode = maxioException.StatusCode is int providerStatus && providerStatus >= 400 && providerStatus < 500
+                ? providerStatus
+                : (int)HttpStatusCode.BadGateway;
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = statusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
