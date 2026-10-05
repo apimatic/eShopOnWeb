@@ -18,10 +18,31 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<MaxioCustomerLink> MaxioCustomerLinks { get; set; }
+    public DbSet<MaxioSubscriptionLink> MaxioSubscriptionLinks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        builder.Entity<MaxioCustomerLink>(entity =>
+        {
+            entity.ToTable("MaxioCustomerLinks");
+            entity.HasKey(link => link.MaxioReference);
+            entity.Property(link => link.MaxioReference).HasMaxLength(64).IsRequired();
+            entity.Property(link => link.MaxioCustomerId).IsRequired();
+        });
+
+        builder.Entity<MaxioSubscriptionLink>(entity =>
+        {
+            entity.ToTable("MaxioSubscriptionLinks");
+            entity.HasKey(link => link.MaxioReference);
+            entity.Property(link => link.MaxioReference).HasMaxLength(128).IsRequired();
+            entity.Property(link => link.UserId).HasMaxLength(64).IsRequired();
+            entity.Property(link => link.ProductHandle).HasMaxLength(128).IsRequired();
+            entity.Property(link => link.State).HasMaxLength(32).IsRequired();
+            entity.HasIndex(link => new { link.UserId, link.ProductHandle });
+        });
     }
 }
