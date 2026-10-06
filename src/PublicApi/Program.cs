@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +25,10 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load environment variable overrides early so settings bound below (e.g. Maxio:)
+// can be supplied from the process environment.
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +49,16 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing (subscription billing system of record).
+// Settings come from the Maxio: configuration section; secret values are
+// supplied via user-secrets / environment variables and never hard-coded.
+// The client is created lazily on first use of a subscription endpoint, so a
+// host without Maxio configuration still starts (and logs) rather than crashing.
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SectionName).Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,7 +98,6 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
-builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -125,6 +139,11 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var (maxioConfigured, maxioConfigError) = maxioSettings.ValidateQuiet();
+app.Logger.LogInformation(maxioConfigured
+    ? "Maxio subscription billing configured."
+    : $"Maxio subscription billing is NOT configured ({maxioConfigError}).");
 
 app.Logger.LogInformation("Seeding Database...");
 
