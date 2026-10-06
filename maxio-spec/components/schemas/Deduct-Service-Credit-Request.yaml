@@ -1,0 +1,7 @@
+title: Deduct Service Credit Request
+type: object
+properties:
+  deduction:
+    $ref: "./Deduct-Service-Credit.yaml"
+required:
+  - deduction

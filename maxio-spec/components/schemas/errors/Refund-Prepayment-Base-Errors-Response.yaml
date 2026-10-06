@@ -1,0 +1,6 @@
+title: Refund Prepayment Base Errors Response
+description: Errors returned on creating a refund prepayment when bad request
+type: object
+properties:
+  errors:
+    $ref: "./Refund-Prepayment-Base-Refund-Error.yaml"

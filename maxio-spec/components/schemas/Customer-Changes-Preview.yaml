@@ -1,0 +1,19 @@
+title: Customer Change
+type: object
+properties:
+  payer:
+    oneOf:
+      - $ref: "./Customer-Payer-Change.yaml"
+      - type: "null"
+  shipping_address:
+    oneOf:
+      - $ref: "./Address-Change.yaml"
+      - type: "null"
+  billing_address:
+    oneOf:
+      - $ref: "./Address-Change.yaml"
+      - type: "null"
+  custom_fields:
+    oneOf:
+      - $ref: "./Customer-Custom-Fields-Change.yaml"
+      - type: "null"
