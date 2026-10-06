@@ -1,0 +1,6 @@
+title: Invoice Discount Type
+type: string
+enum:
+  - percentage
+  - flat_amount
+  - rollover

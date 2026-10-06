@@ -1,0 +1,26 @@
+title: Create Metafield
+type: object
+properties:
+  name:
+    type: string
+  scope:
+    $ref: "./Metafield-Scope.yaml"
+  input_type:
+    $ref: "./Metafield-Input.yaml"
+  enum:
+    type: array
+    description: Only applicable when input_type is radio or dropdown. Empty strings will not be submitted.
+    items:
+      type: string
+examples:
+  - name: my_field
+    scope:
+      csv: "0"
+      invoices: "0"
+      statements: "0"
+      portal: "0"
+      public_show: "0"
+      public_edit: "0"
+    input_type: text
+    enum:
+      - string

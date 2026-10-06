@@ -1,0 +1,9 @@
+title: Component Price Points response
+type: object
+properties:
+  price_points:
+    type: array
+    items:
+      $ref: "./Component-Price-Point.yaml"
+  meta:
+    $ref: "./List-Meta.yaml"

@@ -1,0 +1,6 @@
+name: product_family_id
+in: path
+description: Either the product family's id or its handle prefixed with `handle:`
+schema:
+  type: string
+required: true

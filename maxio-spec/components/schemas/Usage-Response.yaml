@@ -1,0 +1,7 @@
+title: Usage Response
+type: object
+properties:
+  usage:
+    $ref: "./Usage.yaml"
+required:
+  - usage

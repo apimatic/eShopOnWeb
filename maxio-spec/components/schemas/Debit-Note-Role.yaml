@@ -1,0 +1,6 @@
+title: Debit Note Role
+type: string
+enum:
+  - chargeback
+  - refund
+description: "The role of the debit note."

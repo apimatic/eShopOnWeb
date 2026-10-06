@@ -1,0 +1,7 @@
+title: Bank Account Response
+type: object
+properties:
+  payment_profile:
+    $ref: "./Bank-Account-Payment-Profile.yaml"
+required:
+  - payment_profile

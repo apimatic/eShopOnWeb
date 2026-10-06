@@ -1,0 +1,10 @@
+title: Invoice Date Field
+type: string
+enum:
+  - created_at
+  - due_date
+  - issue_date
+  - updated_at
+  - paid_date
+default: due_date
+example: issue_date

@@ -1,0 +1,255 @@
+title: Proforma Invoice
+type: object
+properties:
+  uid:
+    type: string
+  site_id:
+    type: integer
+  customer_id:
+    type:
+      - integer
+      - "null"
+  subscription_id:
+    type:
+      - integer
+      - "null"
+  number:
+    type:
+      - integer
+      - "null"
+  sequence_number:
+    type:
+      - integer
+      - "null"
+  created_at:
+    type: string
+    format: date-time
+  delivery_date:
+    type: string
+    format: date
+  status:
+    $ref: "./Proforma-Invoice-Status.yaml"
+  collection_method:
+    $ref: "./Collection-Method.yaml"
+  payment_instructions:
+    type: string
+  currency:
+    type: string
+  consolidation_level:
+    $ref: "./Consolidation-Level.yaml"
+  product_name:
+    type: string
+  product_family_name:
+    type: string
+  role:
+    $ref: "./Proforma-Invoice-Role.yaml"
+  seller:
+    $ref: "./Invoice-Seller.yaml"
+  customer:
+    $ref: "./Invoice-Customer.yaml"
+  memo:
+    type: string
+  billing_address:
+    $ref: "./Invoice-Address.yaml"
+  shipping_address:
+    $ref: "./Invoice-Address.yaml"
+  subtotal_amount:
+    type: string
+  discount_amount:
+    type: string
+  tax_amount:
+    type: string
+  total_amount:
+    type: string
+  credit_amount:
+    type: string
+  paid_amount:
+    type: string
+  refund_amount:
+    type: string
+  due_amount:
+    type: string
+  line_items:
+    type: array
+    items:
+      $ref: "./Invoice-Line-Item.yaml"
+  discounts:
+    type: array
+    items:
+      $ref: "./Proforma-Discount.yaml"
+  taxes:
+    type: array
+    items:
+      $ref: "./Proforma-Tax.yaml"
+  credits:
+    type: array
+    items:
+      $ref: "./Proforma-Credit.yaml"
+  payments:
+    type: array
+    items:
+      $ref: "./Proforma-Payment.yaml"
+  custom_fields:
+    type: array
+    items:
+      $ref: "./Invoice-Custom-Field.yaml"
+  public_url:
+    type:
+      - string
+      - "null"
+x-examples:
+  example-1:
+    uid: pro_567wxy
+    site_id: 24
+    customer_id: 8
+    subscription_id: 7
+    number: null
+    sequence_number: null
+    created_at: "2022-01-19T12:25:02-05:00"
+    delivery_date: "2022-02-18"
+    status: draft
+    collection_method: automatic
+    payment_instructions: 'Make checks payable to "Acme, Inc."'
+    currency: USD
+    consolidation_level: none
+    product_name: Professional Plan
+    product_family_name: Cloud Compute Servers
+    role: proforma_adhoc
+    seller:
+      name: "Acme, Inc."
+      address:
+        street: null
+        line2: null
+        city: null
+        state: null
+        zip: null
+        country: null
+      phone: 555-555-1234 x137
+    customer:
+      chargify_id: 8
+      first_name: Marty
+      last_name: McFly
+      organization: null
+      email: timetraveller1985@example.com
+      vat_number: null
+      reference: null
+    memo: "Thanks for your business! If you have any questions, contact your account manager."
+    billing_address:
+      street: 200 Billing Rd.
+      line2: Suite 100
+      city: Needham
+      state: MA
+      zip: "02494"
+      country: US
+    shipping_address:
+      street: 100 Shipping St.
+      line2: Apt 200
+      city: Pleasantville
+      state: NC
+      zip: "12345"
+      country: US
+    subtotal_amount: "314.18"
+    discount_amount: "31.42"
+    tax_amount: "19.09"
+    total_amount: "301.85"
+    credit_amount: "50.0"
+    paid_amount: "50.0"
+    refund_amount: "0.0"
+    due_amount: "201.85"
+    line_items:
+      - uid: li_567wxy
+        title: Professional Plan
+        description: 02/18/2022 - 03/18/2022
+        quantity: "1.0"
+        unit_price: "299.0"
+        subtotal_amount: "299.0"
+        discount_amount: "29.9"
+        tax_amount: "18.16"
+        total_amount: "287.26"
+        tiered_unit_price: false
+        period_range_start: "2022-02-18"
+        period_range_end: "2022-03-18"
+        product_id: 138
+        product_version: null
+        product_price_point_id: 138
+        component_id: null
+        price_point_id: null
+      - uid: li_567wxy
+        title: IP Addresses
+        description: 02/18/2022 - 03/18/2022
+        quantity: "5.0"
+        unit_price: "2.0"
+        subtotal_amount: "10.0"
+        discount_amount: "1.0"
+        tax_amount: "0.61"
+        total_amount: "9.61"
+        tiered_unit_price: false
+        period_range_start: "2022-02-18"
+        period_range_end: "2022-03-18"
+        product_id: 138
+        product_version: null
+        product_price_point_id: 138
+        component_id: 121
+        price_point_id: 232
+      - uid: li_567wxy
+        title: Email Messages
+        description: 01/18/2022 - 02/18/2022
+        quantity: "20351.0"
+        unit_price: "0.00025453"
+        subtotal_amount: "5.18"
+        discount_amount: "0.52"
+        tax_amount: "0.31"
+        total_amount: "4.97"
+        tiered_unit_price: false
+        period_range_start: "2022-01-18"
+        period_range_end: "2022-02-18"
+        product_id: 138
+        product_version: null
+        product_price_point_id: 138
+        component_id: 120
+        price_point_id: 231
+    discounts:
+      - title: "Coupon: MULTI3 - Multi-service discount (10%)"
+        source_type: Coupon
+        discount_type: flat_amount
+        eligible_amount: "333.27"
+        discount_amount: "31.42"
+        line_item_breakouts:
+          - eligible_amount: "333.27"
+            discount_amount: "31.42"
+    taxes:
+      - uid: tli_567wxy
+        title: NC Sales Tax
+        source_type: Tax
+        percentage: "6.75"
+        taxable_amount: "282.76"
+        tax_amount: "19.09"
+        line_item_breakouts:
+          - taxable_amount: "269.1"
+            tax_amount: "18.16"
+          - taxable_amount: "9.0"
+            tax_amount: "0.61"
+          - taxable_amount: "4.66"
+            tax_amount: "0.31"
+    credits:
+      - uid: cn_9nv9kbkcv8bkv
+        memo: This credit amount is anticipated to apply when the invoice is generated
+        original_amount: "50.0"
+        applied_amount: "50.0"
+    payments:
+      - memo: This prepayment amount is anticipated to apply when the invoice is generated
+        original_amount: "50.0"
+        applied_amount: "50.0"
+        prepayment: true
+    custom_fields:
+      - owner_id: 7
+        owner_type: Subscription
+        name: Account Manager
+        value: Gerald Strickland
+        metadatum_id: 1
+      - owner_id: 7
+        owner_type: Subscription
+        name: Account Manager Phone
+        value: 555-555-9999 x807
+        metadatum_id: 2
+    public_url: null

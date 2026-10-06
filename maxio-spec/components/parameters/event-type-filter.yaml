@@ -1,0 +1,14 @@
+name: filter
+in: query
+description: |-
+  You can pass multiple event keys after comma.
+  Use in query `filter=signup_success,payment_success`.
+schema:
+  type: array
+  items:
+    $ref: "../schemas/Event-Key.yaml"
+  example:
+    - custom_field_value_change
+    - payment_success
+style: form
+explode: false

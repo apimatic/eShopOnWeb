@@ -1,0 +1,15 @@
+title: Create Reason Code
+type: object
+properties:
+  code:
+    type: string
+    description: The unique identifier for the ReasonCode
+  description:
+    type: string
+    description: The friendly summary of what the code signifies
+  position:
+    type: integer
+    description: The order that code appears in lists
+required:
+  - code
+  - description
