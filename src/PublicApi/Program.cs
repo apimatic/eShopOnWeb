@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +26,10 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the Maxio environment variables into the "Maxio:" configuration section so
+// the same build can run against any Maxio site/catalog without hard-coding values.
+MapMaxioEnvironmentVariables(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -45,6 +51,18 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.CONFIG_SECTION_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+builder.Services.AddHttpClient<MaxioApiClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    client.BaseAddress = new Uri(settings.ResolvedBaseUrl);
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -55,6 +73,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -177,5 +197,24 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapMaxioEnvironmentVariables(IConfiguration configuration)
+{
+    var mappings = new Dictionary<string, string>
+    {
+        ["MAXIO_API_KEY"] = "Maxio:ApiKey",
+        ["MAXIO_SITE_SUBDOMAIN"] = "Maxio:Subdomain",
+        ["MAXIO_DEFAULT_PRODUCT_FAMILY"] = "Maxio:ProductFamilyHandle"
+    };
+
+    foreach (var (environmentVariable, configurationKey) in mappings)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configurationKey] = value;
+        }
+    }
+}
 
 public partial class Program { }
