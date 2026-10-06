@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,11 +14,13 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -55,6 +58,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -84,6 +89,29 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map the Maxio environment variables into the "Maxio" configuration section so the
+// options can be bound with the exact keys Maxio:ApiKey, Maxio:Subdomain,
+// Maxio:ProductFamilyHandle and Maxio:BaseUrl. Values are never hard-coded.
+var maxioEnv = new Dictionary<string, string?>();
+AddIfPresent(maxioEnv, "Maxio:ApiKey", "MAXIO_API_KEY");
+AddIfPresent(maxioEnv, "Maxio:Subdomain", "MAXIO_SITE_SUBDOMAIN");
+AddIfPresent(maxioEnv, "Maxio:ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY");
+AddIfPresent(maxioEnv, "Maxio:BaseUrl", "MAXIO_BASE_URL");
+builder.Configuration.AddInMemoryCollection(maxioEnv);
+
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.CONFIG_NAME);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+
+builder.Services.AddHttpClient<MaxioApiClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = new Uri(options.ResolveBaseUrl());
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:X"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -177,5 +205,14 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddIfPresent(Dictionary<string, string?> target, string configKey, string envVar)
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        target[configKey] = value;
+    }
+}
 
 public partial class Program { }
