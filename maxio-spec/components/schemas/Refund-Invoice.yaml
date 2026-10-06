@@ -1,0 +1,26 @@
+title: Refund Invoice
+type: object
+description: Refund an invoice or a segment of a consolidated invoice.
+properties:
+  amount:
+    type: string
+    description: 'The amount to be refunded in decimal format as a string. Example: "10.50". Must not exceed the remaining refundable balance of the payment.'
+  memo:
+    type: string
+    description: A description that will be attached to the refund
+  payment_id:
+    type: integer
+    description: The ID of the payment to be refunded
+  external:
+    type: boolean
+    description: Flag that marks refund as external (no money is returned to the customer). Defaults to `false`.
+  apply_credit:
+    type: boolean
+    description: "If set to true, creates credit and applies it to an invoice. Defaults to `false`."
+  void_invoice:
+    type: boolean
+    description: "If `apply_credit` set to false and refunding full amount, if `void_invoice` set to true, invoice will be voided after refund. Defaults to `false`."
+required:
+  - amount
+  - memo
+  - payment_id

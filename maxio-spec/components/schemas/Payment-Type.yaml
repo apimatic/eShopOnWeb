@@ -1,0 +1,7 @@
+title: Payment Type
+type: string
+enum:
+  - credit_card
+  - bank_account
+  - paypal_account
+  - apple_pay

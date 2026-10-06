@@ -1,0 +1,26 @@
+title: Invoice Avatax Details
+type: object
+properties:
+  id:
+    type:
+      - integer
+      - "null"
+    format: int64
+  status:
+    type:
+      - string
+      - "null"
+  document_code:
+    type:
+      - string
+      - "null"
+  commit_date:
+    type:
+      - string
+      - "null"
+    format: date-time
+  modify_date:
+    type:
+      - string
+      - "null"
+    format: date-time

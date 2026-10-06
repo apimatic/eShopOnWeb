@@ -1,0 +1,17 @@
+title: Sale Rep Settings
+type: object
+properties:
+  customer_name:
+    type: string
+  subscription_id:
+    type: integer
+  site_link:
+    type: string
+  site_name:
+    type: string
+  subscription_mrr:
+    type: string
+  sales_rep_id:
+    type: integer
+  sales_rep_name:
+    type: string

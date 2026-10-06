@@ -1,0 +1,5 @@
+title: Proforma Bad Request Error Response
+type: object
+properties:
+  errors:
+    $ref: "./Proforma-Error.yaml"

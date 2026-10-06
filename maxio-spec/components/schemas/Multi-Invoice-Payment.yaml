@@ -1,0 +1,16 @@
+title: Multi Invoice Payment
+type: object
+properties:
+  transaction_id:
+    type: integer
+    description: The numeric ID of the transaction.
+  total_amount:
+    type: string
+    description: Dollar amount of the sum of the paid invoices.
+  currency_code:
+    type: string
+    description: The ISO 4217 currency code (3 character string) representing the currency of invoice transaction.
+  applications:
+    type: array
+    items:
+      $ref: "./Invoice-Payment-Application.yaml"

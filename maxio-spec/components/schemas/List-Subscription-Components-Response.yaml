@@ -1,0 +1,9 @@
+title: List Subscription Components Response
+type: object
+properties:
+  subscriptions_components:
+    type: array
+    items:
+      $ref: "./Subscription-Component.yaml"
+required:
+  - subscriptions_components
