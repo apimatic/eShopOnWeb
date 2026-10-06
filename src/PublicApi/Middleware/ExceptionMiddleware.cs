@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.SubscriptionBilling;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -32,7 +33,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is SubscriptionBillingException billingException)
+        {
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                SubscriptionBillingErrorKind.PlanNotFound or SubscriptionBillingErrorKind.ResourceNotFound => (int)HttpStatusCode.NotFound,
+                SubscriptionBillingErrorKind.Duplicate => (int)HttpStatusCode.Conflict,
+                SubscriptionBillingErrorKind.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                SubscriptionBillingErrorKind.Configuration or SubscriptionBillingErrorKind.Unauthorized or SubscriptionBillingErrorKind.Unavailable => (int)HttpStatusCode.ServiceUnavailable,
+                _ => (int)HttpStatusCode.InternalServerError,
+            };
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
