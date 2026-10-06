@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+		<SquareSdkProject Condition="'$(SquareSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\square\sdk\dotnet\Square.csproj</SquareSdkProject>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -13,7 +14,13 @@
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
 	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Square .NET SDK ships as source inside the "square" Claude plugin (context-plugins marketplace).
+		     Override SquareSdkProject when the plugin is installed elsewhere. -->
+		<ProjectReference Include="$(SquareSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
