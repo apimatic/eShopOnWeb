@@ -20,6 +20,10 @@ public class AppIdentityDbContextSeed
         var defaultUser = new ApplicationUser { UserName = "demouser@microsoft.com", Email = "demouser@microsoft.com" };
         await userManager.CreateAsync(defaultUser, AuthorizationConstants.DEFAULT_PASSWORD);
 
+        string subscriberUserName = "subscriber@microsoft.com";
+        var subscriberUser = new ApplicationUser { UserName = subscriberUserName, Email = subscriberUserName };
+        await userManager.CreateAsync(subscriberUser, AuthorizationConstants.DEFAULT_PASSWORD);
+
         string adminUserName = "admin@microsoft.com";
         var adminUser = new ApplicationUser { UserName = adminUserName, Email = adminUserName };
         await userManager.CreateAsync(adminUser, AuthorizationConstants.DEFAULT_PASSWORD);

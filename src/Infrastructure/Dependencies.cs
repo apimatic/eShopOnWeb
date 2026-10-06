@@ -1,8 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +40,10 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        services.Configure<MaxioSettings>(configuration.GetSection(MaxioSettings.CONFIG_NAME));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<MaxioSettings>>().Value);
+        services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>(client =>
+            client.Timeout = TimeSpan.FromSeconds(30));
     }
 }
