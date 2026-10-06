@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,12 +13,14 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +87,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Map the MAXIO_* environment variables onto the "Maxio" configuration section as a fallback
+// when the values have not been provided through user-secrets or appsettings.
+builder.Configuration["Maxio:ApiKey"] ??= builder.Configuration["MAXIO_API_KEY"];
+builder.Configuration["Maxio:Subdomain"] ??= builder.Configuration["MAXIO_SITE_SUBDOMAIN"];
+builder.Configuration["Maxio:ProductFamilyHandle"] ??= builder.Configuration["MAXIO_DEFAULT_PRODUCT_FAMILY"];
+
+// Maxio Advanced Billing (recurring subscriptions)
+var maxioSection = builder.Configuration.GetSection(MaxioOptions.SectionName);
+builder.Services.Configure<MaxioOptions>(maxioSection);
+builder.Services.AddHttpClient<MaxioSubscriptionService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    client.BaseAddress = new Uri(options.ResolvedBaseUrl);
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:x"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<ISubscriptionService>(sp => sp.GetRequiredService<MaxioSubscriptionService>());
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
