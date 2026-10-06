@@ -1,0 +1,7 @@
+title: Update Subscription Request
+type: object
+properties:
+  subscription:
+    $ref: "./Update-Subscription.yaml"
+required:
+  - subscription

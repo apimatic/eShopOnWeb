@@ -1,0 +1,8 @@
+title: Chargeback Status
+type: string
+enum:
+  - open
+  - lost
+  - won
+  - closed
+description: "The current chargeback status."

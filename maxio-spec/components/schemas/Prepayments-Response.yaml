@@ -1,0 +1,8 @@
+title: Prepayments Response
+type: object
+properties:
+  prepayments:
+    type: array
+    uniqueItems: true
+    items:
+      $ref: "./Prepayment.yaml"

@@ -1,0 +1,6 @@
+title: Invoice Discount Source Type
+type: string
+enum:
+  - Coupon
+  - Referral
+  - Ad Hoc Coupon

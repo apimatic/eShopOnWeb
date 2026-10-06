@@ -1,0 +1,7 @@
+title: Event Response
+type: object
+properties:
+  event:
+    $ref: "./Event.yaml"
+required:
+  - event

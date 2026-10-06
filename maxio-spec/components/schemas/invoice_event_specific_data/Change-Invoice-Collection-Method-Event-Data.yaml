@@ -1,0 +1,13 @@
+title: Change Invoice Collection Method Event Data
+type: object
+description: Example schema for an `change_invoice_collection_method` event
+properties:
+  from_collection_method:
+    type: string
+    description: The previous collection method of the invoice.
+  to_collection_method:
+    type: string
+    description: The new collection method of the invoice.
+required:
+  - from_collection_method
+  - to_collection_method

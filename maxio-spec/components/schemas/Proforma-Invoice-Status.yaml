@@ -1,0 +1,6 @@
+title: Proforma Invoice Status
+type: string
+enum:
+  - draft
+  - voided
+  - archived
