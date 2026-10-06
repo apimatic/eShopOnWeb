@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +17,15 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // PublicApi validates its Maxio settings at startup; these tests never call Maxio.
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "offline-test-key",
+            ["Maxio:Subdomain"] = "offline-test",
+            ["Maxio:ProductFamilyHandle"] = "test-family",
+            ["Maxio:BaseUrl"] = "https://maxio.invalid"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
