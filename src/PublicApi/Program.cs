@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,29 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// Maxio Advanced Billing (subscription capability). All values are read from the "Maxio"
+// configuration section - never hard-coded (environment / user-secrets supply them).
+var maxioSection = builder.Configuration.GetSection(MaxioSettings.SECTION_NAME);
+builder.Services.Configure<MaxioSettings>(maxioSection);
+var maxioSettings = maxioSection.Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddHttpClient<IMaxioAdvancedBillingClient, MaxioAdvancedBillingClient>((sp, client) =>
+{
+    var settings = sp.GetRequiredService<MaxioSettings>();
+    if (!string.IsNullOrWhiteSpace(settings.ApiKey))
+    {
+        // Advanced Billing Basic auth: username = API key, password = "x".
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.ApiKey}:x")));
+    }
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl) || !string.IsNullOrWhiteSpace(settings.Subdomain))
+    {
+        client.BaseAddress = new Uri(settings.ResolveBaseUrl());
+    }
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
