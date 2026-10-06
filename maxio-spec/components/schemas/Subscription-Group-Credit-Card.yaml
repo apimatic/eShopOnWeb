@@ -1,0 +1,52 @@
+title: Subscription Group Credit Card
+type: object
+properties:
+  chargify_token:
+    type: string
+    example: tok_592nf92ng0sjd4300p
+  vault_token:
+    type: string
+  current_vault:
+    $ref: "./Credit-Card-Vault.yaml"
+  gateway_handle:
+    type: string
+  first_name:
+    type: string
+  last_name:
+    type: string
+  billing_address:
+    type: string
+  billing_address_2:
+    type: string
+  billing_city:
+    type: string
+  billing_state:
+    type: string
+  billing_zip:
+    type: string
+  billing_country:
+    type: string
+  full_number:
+    type:
+      - string
+      - integer
+    example: 4111111111111111
+  expiration_month:
+    type:
+      - string
+      - integer
+  expiration_year:
+    type:
+      - string
+      - integer
+  last_four:
+    type: string
+  card_type:
+    $ref: "./Card-Type.yaml"
+    example: visa
+  customer_vault_token:
+    type: string
+  cvv:
+    type: string
+  payment_type:
+    type: string

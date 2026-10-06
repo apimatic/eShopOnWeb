@@ -1,0 +1,31 @@
+title: Get One Time Token Request
+type: object
+properties:
+  payment_profile:
+    $ref: "./Get-One-Time-Token-Payment-Profile.yaml"
+required:
+  - payment_profile
+x-examples:
+  example-1:
+    payment_profile:
+      billing_address: 1234 Hill St
+      billing_address_2: null
+      billing_city: Austin
+      billing_country: US
+      billing_state: TX
+      billing_zip: "10001"
+      card_type: visa
+      current_vault: stripe_connect
+      customer_id: null
+      customer_vault_token: null
+      disabled: false
+      expiration_month: 1
+      expiration_year: 2023
+      first_name: John
+      gateway_handle: null
+      id: null
+      last_name: Doe
+      masked_card_number: XXXX-XXXX-XXXX-4242
+      payment_type: credit_card
+      site_gateway_setting_id: 104
+      vault_token: cus_Koo8fbsumxWTht

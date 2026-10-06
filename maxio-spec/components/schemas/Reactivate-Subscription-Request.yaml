@@ -1,0 +1,22 @@
+title: Reactivate Subscription Request
+type: object
+properties:
+  calendar_billing:
+    $ref: "./Reactivation-Billing.yaml"
+  include_trial:
+    type: boolean
+    description: "If `true` is sent, the reactivated Subscription will include a trial if one is available. If `false` is sent, the trial period will be ignored."
+  preserve_balance:
+    type: boolean
+    description: "If `true` is passed, the existing subscription balance will NOT be cleared/reset before adding the additional reactivation charges."
+  coupon_code:
+    type: string
+    description: The coupon code to be applied during reactivation.
+  use_credits_and_prepayments:
+    type: boolean
+    description: "If true is sent, Chargify will use service credits and prepayments upon reactivation. If false is sent, the service credits and prepayments will be ignored."
+  resume:
+    oneOf:
+      - type: boolean
+      - $ref: "./Resume-Options.yaml"
+    description: "If `true`, Chargify will attempt to resume the subscription's billing period. if not resumable, the subscription will be reactivated with a new billing period. If `false`: Chargify will only attempt to reactivate the subscription."

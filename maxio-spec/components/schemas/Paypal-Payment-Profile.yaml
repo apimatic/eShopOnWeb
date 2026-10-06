@@ -1,0 +1,79 @@
+title: Paypal Payment Profile
+type: object
+properties:
+  id:
+    type: integer
+    description: "The Chargify-assigned ID of the stored PayPal payment profile."
+  first_name:
+    type: string
+    description: The first name of the PayPal account holder
+  last_name:
+    type: string
+    description: The last name of the PayPal account holder
+  customer_id:
+    type: integer
+    description: The Chargify-assigned id for the customer record to which the PayPal account belongs
+  current_vault:
+    $ref: "./PayPal-Vault.yaml"
+  vault_token:
+    type: string
+    description: The “token” provided by your vault storage for an already stored payment profile
+  billing_address:
+    type:
+      - string
+      - "null"
+    description: The current billing street address for the PayPal account
+  billing_city:
+    type:
+      - string
+      - "null"
+    description: The current billing address city for the PayPal account
+  billing_state:
+    type:
+      - string
+      - "null"
+    description: The current billing address state for the PayPal account
+  billing_zip:
+    type:
+      - string
+      - "null"
+    description: The current billing address zip code for the PayPal account
+  billing_country:
+    type:
+      - string
+      - "null"
+    description: The current billing address country for the PayPal account
+  customer_vault_token:
+    type:
+      - string
+      - "null"
+  billing_address_2:
+    type:
+      - string
+      - "null"
+    description: The current billing street address, second line, for the PayPal account
+  payment_type:
+    allOf:
+      - $ref: "./Payment-Type.yaml"
+    default: paypal_account
+    example: paypal_account
+  site_gateway_setting_id:
+    type:
+      - integer
+      - "null"
+  gateway_handle:
+    type:
+      - string
+      - "null"
+  paypal_email:
+    type: string
+  created_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was created
+  updated_at:
+    type: string
+    format: date-time
+    description: A timestamp indicating when this payment profile was last updated
+required:
+  - payment_type

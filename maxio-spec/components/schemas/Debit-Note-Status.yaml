@@ -1,0 +1,8 @@
+title: Debit Note Status
+type: string
+enum:
+  - open
+  - applied
+  - banished
+  - paid
+description: "Current status of the debit note."

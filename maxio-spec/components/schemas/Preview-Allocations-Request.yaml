@@ -1,0 +1,18 @@
+title: Preview Allocations Request
+type: object
+properties:
+  allocations:
+    type: array
+    items:
+      $ref: "./Create-Allocation.yaml"
+  effective_proration_date:
+    type: string
+    example: "2023-12-01"
+    format: date
+    description: To calculate proration amounts for a future time. Only within a current subscription period. Only ISO8601 format is supported.
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+required:
+  - allocations
