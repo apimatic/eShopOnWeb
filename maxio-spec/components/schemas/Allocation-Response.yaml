@@ -1,0 +1,5 @@
+title: Allocation Response
+type: object
+properties:
+  allocation:
+    $ref: "./Allocation.yaml"

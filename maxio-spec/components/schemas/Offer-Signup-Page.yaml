@@ -1,0 +1,15 @@
+title: Offer Signup Page
+type: object
+properties:
+  id:
+    type: integer
+  nickname:
+    type: string
+  enabled:
+    type: boolean
+  return_url:
+    type: string
+  return_params:
+    type: string
+  url:
+    type: string

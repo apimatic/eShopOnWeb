@@ -1,0 +1,5 @@
+title: Prepaid Configuration Error Response
+type: object
+oneOf:
+  - $ref: "./Error-String-Map-Response.yaml"
+  - $ref: "./Error-List-Response.yaml"

@@ -1,0 +1,5 @@
+title: Customer Error
+type: object
+properties:
+  customer:
+    type: string
