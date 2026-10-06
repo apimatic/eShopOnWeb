@@ -164,6 +164,80 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Subscription Billing (Maxio Advanced Billing)
+
+eShopOnWeb also supports recurring subscription plans, with **Maxio Advanced Billing** as the
+billing system of record. This is an additive, parallel capability — the existing one-time
+commerce flow (Catalog → Basket → Order) is unchanged.
+
+Subscriptions are exposed as HTTP endpoints on the **PublicApi** project (JWT-authenticated;
+the caller's identity comes from the bearer token). The API:
+
+- `GET /api/subscription-plans` — lists the plans (Maxio products) in the configured Maxio product family (anonymous).
+- `POST /api/subscriptions` — subscribes the authenticated user to a plan (`{"planHandle": "..."}`; when omitted, the first plan in the family is used). Ensures a Maxio customer exists for the eShopOnWeb user (one customer per user, idempotent), enrolls them, and returns plan, price, state and next-billing-date. Repeated calls for the same user + plan never create duplicate subscriptions.
+- `GET /api/my-subscriptions` — lists the authenticated user's subscriptions with plan, price, state and next-billing-date, as recorded in Maxio.
+
+Errors: unknown plan → `404`; Maxio Billing API failure → `502` with Maxio's error list.
+
+### Configuration
+
+All Maxio settings are bound from the `Maxio` configuration section — no values are hard-coded,
+so the same build runs against any Maxio site and catalog:
+
+| Key | Meaning |
+|-----|---------|
+| `Maxio:ApiKey` | Maxio API key (HTTP Basic username) — required |
+| `Maxio:Subdomain` | Maxio site subdomain; base URL is derived as `https://{subdomain}.chargify.com` (US environment) — required unless `Maxio:BaseUrl` is set |
+| `Maxio:ProductFamilyHandle` | Handle of the Maxio product family containing the plans — required |
+| `Maxio:BaseUrl` | Optional override; when set, used verbatim as the API base address |
+
+For local development, load the settings into .NET user-secrets (secrets never enter the repository):
+
+```powershell
+dotnet user-secrets set "Maxio:ApiKey" "<MAXIO_API_KEY>" --project src/PublicApi
+dotnet user-secrets set "Maxio:Subdomain" "<MAXIO_SITE_SUBDOMAIN>" --project src/PublicApi
+dotnet user-secrets set "Maxio:ProductFamilyHandle" "<MAXIO_DEFAULT_PRODUCT_FAMILY>" --project src/PublicApi
+```
+
+`MAXIO_*` environment variables can also be used (the PublicApi loads environment variables too).
+
+### Verifying the subscription flow
+
+1. Ensure the Maxio settings above are configured (user-secrets for `src/PublicApi`) and the dev HTTPS cert is trusted (`dotnet dev-certs https --check --trust`).
+
+2. Run with the in-memory database (no SQL Server needed; note: data, including the
+   user-to-Maxio-customer mapping, is lost when the process stops):
+
+    ```powershell
+    $env:UseOnlyInMemoryDatabase = 'true'
+    dotnet run --project src/PublicApi --launch-profile PublicApi   # https://localhost:38363
+    ```
+
+3. Get a JWT for the seeded demo user (the storefront cookie does not work against PublicApi):
+
+    ```powershell
+    $auth = Invoke-RestMethod -Uri 'https://localhost:38363/api/authenticate' -Method Post `
+        -Body '{"username":"demouser@microsoft.com","password":"Pass@word1"}' `
+        -ContentType 'application/json' -SkipCertificateCheck
+    $h = @{ Authorization = "Bearer $($auth.token)" }
+    ```
+
+4. Browse plans, subscribe, confirm, and re-check idempotency:
+
+    ```powershell
+    Invoke-RestMethod 'https://localhost:38363/api/subscription-plans' -SkipCertificateCheck
+    Invoke-RestMethod 'https://localhost:38363/api/subscriptions' -Method Post -Headers $h `
+        -ContentType 'application/json' -Body '{"planHandle":"eshop-pro"}' -SkipCertificateCheck
+    # repeat the POST: same subscriptionId, "alreadySubscribed": true — never a duplicate
+    Invoke-RestMethod 'https://localhost:38363/api/my-subscriptions' -Headers $h -SkipCertificateCheck
+    ```
+
+The signup works without card capture: the API sends Maxio's documented
+`payment_collection_method` (`remittance` on Relationship Invoicing sites, `invoice` on
+legacy sites), which is valid for the seeded plans that do not require a payment method.
+
+Swagger UI: `https://localhost:38363/swagger` (SubscriptionEndpoints group).
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
