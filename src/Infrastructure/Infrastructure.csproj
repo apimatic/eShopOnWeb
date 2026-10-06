@@ -3,6 +3,9 @@
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+		<!-- The Adyen APIs SDK ships as source inside the adyen plugin (not on NuGet). Override with
+		     -p:AdyenSdkProjectPath=<plugin-root>/sdk/dotnet/AdyenApIs.csproj where the plugin lives elsewhere. -->
+		<AdyenSdkProjectPath Condition="'$(AdyenSdkProjectPath)' == ''">..\..\..\marketplace\plugins\adyen\sdk\dotnet\AdyenApIs.csproj</AdyenSdkProjectPath>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -14,6 +17,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(AdyenSdkProjectPath)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
@@ -35,6 +36,14 @@ public class Order : BaseEntity, IAggregateRoot
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
+    // Payment attempts and refunds are written through their own claims (see IOrderPaymentStore),
+    // so the order's payment state is derived from them rather than stored twice.
+    private readonly List<OrderPaymentAttempt> _paymentAttempts = new List<OrderPaymentAttempt>();
+    public IReadOnlyCollection<OrderPaymentAttempt> PaymentAttempts => _paymentAttempts.AsReadOnly();
+
+    private readonly List<OrderRefund> _refunds = new List<OrderRefund>();
+    public IReadOnlyCollection<OrderRefund> Refunds => _refunds.AsReadOnly();
+
     public decimal Total()
     {
         var total = 0m;
@@ -43,5 +52,30 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public OrderPaymentAttempt? AuthorisedPayment =>
+        _paymentAttempts.FirstOrDefault(a => a.Status == PaymentAttemptStatus.Authorised);
+
+    /// <summary>Refunds the provider has accepted.</summary>
+    public long RefundedMinorUnits =>
+        _refunds.Where(r => r.Status == RefundStatus.Received).Sum(r => r.AmountMinorUnits);
+
+    public OrderPaymentStatus PaymentStatus
+    {
+        get
+        {
+            var payment = AuthorisedPayment;
+            if (payment != null)
+            {
+                var refunded = RefundedMinorUnits;
+                if (refunded >= payment.AmountMinorUnits) return OrderPaymentStatus.Refunded;
+                return refunded > 0 ? OrderPaymentStatus.PartiallyRefunded : OrderPaymentStatus.Paid;
+            }
+
+            return _paymentAttempts.Any(a => a.BlocksNewAttempts)
+                ? OrderPaymentStatus.PaymentPending
+                : OrderPaymentStatus.AwaitingPayment;
+        }
     }
 }

@@ -11,6 +11,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         var navigation = builder.Metadata.FindNavigation(nameof(Order.OrderItems));
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(Order.PaymentAttempts))?.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(Order.Refunds))?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        // Derived from the payment attempts and refunds, never stored twice.
+        builder.Ignore(o => o.PaymentStatus);
+        builder.Ignore(o => o.AuthorisedPayment);
+        builder.Ignore(o => o.RefundedMinorUnits);
 
         builder.Property(b => b.BuyerId)
             .IsRequired()
