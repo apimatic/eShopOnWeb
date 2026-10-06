@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME))
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ApiKey)
+        && !string.IsNullOrWhiteSpace(s.Subdomain)
+        && !string.IsNullOrWhiteSpace(s.ProductFamilyHandle),
+        "Maxio settings are incomplete. Set Maxio:ApiKey, Maxio:Subdomain and Maxio:ProductFamilyHandle.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
