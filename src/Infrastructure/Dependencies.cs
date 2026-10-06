@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
+using Microsoft.eShopWeb.Infrastructure.Subscription;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +39,17 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        // Maxio Advanced Billing (recurring subscriptions) — settings bound from the "Maxio" section,
+        // supplied via user secrets / environment variables.
+        services.AddOptions<MaxioOptions>()
+            .Bind(configuration.GetSection(MaxioOptions.SectionName));
+        services.AddHttpClient(MaxioApiClient.HttpClientName, (sp, httpClient) =>
+            MaxioApiClient.ConfigureHttpClient(
+                httpClient,
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioOptions>>().Value,
+                configuration["MAXIO_ENVIRONMENT"]))
+            .AddTypedClient<MaxioApiClient>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
     }
 }
