@@ -1,0 +1,134 @@
+title: Component
+type: object
+properties:
+  id:
+    type: integer
+    description: The unique ID assigned to the component by Chargify. This ID can be used to fetch the component from the API.
+  name:
+    type: string
+    description: "The name of the Component, suitable for display on statements. i.e. Text Messages."
+  handle:
+    type:
+      - string
+      - "null"
+    description: "The component API handle"
+  pricing_scheme:
+    oneOf:
+      - $ref: "./Pricing-Scheme.yaml"
+      - type: "null"
+  unit_name:
+    type: string
+    description: The name of the unit that the component’s usage is measured in. i.e. message
+  unit_price:
+    type:
+      - string
+      - "null"
+    description: "The amount the customer will be charged per unit. This field is only populated for ‘per_unit’ pricing schemes, otherwise it may be null."
+  product_family_id:
+    type: integer
+    description: The id of the Product Family to which the Component belongs
+  product_family_name:
+    type: string
+    description: The name of the Product Family to which the Component belongs
+  product_family_handle:
+    type: string
+    description: The handle of the Product Family to which the Component belongs
+  price_per_unit_in_cents:
+    type:
+      - integer
+      - "null"
+    format: int64
+    description: deprecated - use unit_price instead
+  kind:
+    $ref: "./Component-Kind.yaml"
+  archived:
+    type: boolean
+    description: Boolean flag describing whether a component is archived or not.
+  taxable:
+    type: boolean
+    description: Boolean flag describing whether a component is taxable or not.
+  description:
+    type:
+      - string
+      - "null"
+    description: The description of the component.
+  default_price_point_id:
+    type:
+      - integer
+      - "null"
+  overage_prices:
+    type:
+      - array
+      - "null"
+    description: "Applicable only to prepaid usage components. An array of overage price brackets."
+    items:
+      $ref: "./Component-Price.yaml"
+  prices:
+    type:
+      - array
+      - "null"
+    description: "An array of price brackets. If the component uses the ‘per_unit’ pricing scheme, this array will be empty."
+    items:
+      $ref: "./Component-Price.yaml"
+  price_point_count:
+    type: integer
+    description: Count for the number of price points associated with the component
+  price_points_url:
+    type:
+      - string
+      - "null"
+    description: URL that points to the location to read the existing price points via GET request
+  default_price_point_name:
+    type: string
+  tax_code:
+    type:
+      - string
+      - "null"
+    description: A string representing the tax code related to the component type. This is especially important when using the Avalara service to tax based on locale. This attribute has a max length of 10 characters.
+  recurring:
+    type: boolean
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  created_at:
+    type: string
+    format: date-time
+    description: Timestamp indicating when this component was created
+  updated_at:
+    type: string
+    format: date-time
+    description: Timestamp indicating when this component was updated
+  archived_at:
+    type:
+      - string
+      - "null"
+    description: Timestamp indicating when this component was archived
+    format: date-time
+  hide_date_range_on_invoice:
+    type: boolean
+    description: (Only available on Relationship Invoicing sites) Boolean flag describing if the service date range should show for the component on generated invoices.
+  allow_fractional_quantities:
+    type: boolean
+  item_category:
+    $ref: "./Component-Item-Category-Type.yaml"
+  use_site_exchange_rate:
+    type:
+      - boolean
+      - "null"
+  accounting_code:
+    type:
+      - string
+      - "null"
+    description: E.g. Internal ID or SKU Number
+  event_based_billing_metric_id:
+    type: integer
+    description: (Only for Event Based Components) This is an ID of a metric attached to the component. This metric is used to bill upon collected events.
+  interval:
+    type: integer
+    description: The numerical interval. i.e. an interval of ‘30’ coupled with an interval_unit of day would mean this component's default price point would renew every 30 days. This property is only available for sites with Multifrequency enabled.
+  interval_unit:
+    oneOf:
+      - $ref: "./Interval-Unit.yaml"
+      - type: "null"
+    description: A string representing the interval unit for this component's default price point, either month or day. This property is only available for sites with Multifrequency enabled.

@@ -1,0 +1,9 @@
+title: Refund Invoice Request
+type: object
+properties:
+  refund:
+    anyOf:
+      - $ref: "./Refund-Invoice.yaml"
+      - $ref: "./Refund-Consolidated-Invoice.yaml"
+required:
+  - refund

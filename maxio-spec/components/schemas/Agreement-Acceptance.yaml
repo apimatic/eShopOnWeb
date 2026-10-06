@@ -1,0 +1,18 @@
+title: Agreement Acceptance
+type: object
+description: Required when creating a subscription with Maxio Payments.
+properties:
+  ip_address:
+    type: string
+    description: Required when providing agreement acceptance params.
+  terms_url:
+    type: string
+    description: Required when creating a subscription with Maxio Payments. Either terms_url or provacy_policy_url required when providing agreement_acceptance params.
+  privacy_policy_url:
+    type: string
+  return_refund_policy_url:
+    type: string
+  delivery_policy_url:
+    type: string
+  secure_checkout_policy_url:
+    type: string

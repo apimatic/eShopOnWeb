@@ -1,0 +1,6 @@
+name: offer_id
+schema:
+  type: integer
+in: path
+required: true
+description: The Chargify id of the offer

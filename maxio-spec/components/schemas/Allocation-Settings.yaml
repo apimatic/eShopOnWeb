@@ -1,0 +1,10 @@
+title: Allocation Settings
+type: object
+properties:
+  upgrade_charge:
+    $ref: "./Credit-Type.yaml"
+  downgrade_credit:
+    $ref: "./Credit-Type.yaml"
+  accrue_charge:
+    type: string
+    description: Either "true" or "false".

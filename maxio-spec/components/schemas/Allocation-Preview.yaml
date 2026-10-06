@@ -1,0 +1,41 @@
+title: Allocation Preview
+type: object
+properties:
+  start_date:
+    type: string
+    format: date-time
+  end_date:
+    type: string
+    format: date-time
+  subtotal_in_cents:
+    type: integer
+    format: int64
+  total_tax_in_cents:
+    type: integer
+    format: int64
+  total_discount_in_cents:
+    type: integer
+    format: int64
+  total_in_cents:
+    type: integer
+    format: int64
+  direction:
+    $ref: "./Allocation-Preview-Direction.yaml"
+  proration_scheme:
+    type: string
+  line_items:
+    type: array
+    items:
+      $ref: "./Allocation-Preview-Line-Item.yaml"
+  accrue_charge:
+    type: boolean
+  allocations:
+    type: array
+    items:
+      $ref: "./Allocation-Preview-Item.yaml"
+  period_type:
+    type: string
+  existing_balance_in_cents:
+    type: integer
+    format: int64
+    description: An integer representing the amount of the subscription's current balance

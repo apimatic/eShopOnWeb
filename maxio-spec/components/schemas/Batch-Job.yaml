@@ -1,0 +1,21 @@
+title: Batch-Job
+type: object
+properties:
+  id:
+    type: integer
+  finished_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+  row_count:
+    type:
+      - integer
+      - "null"
+  created_at:
+    type:
+      - string
+      - "null"
+    format: date-time
+  completed:
+    type: string
