@@ -1,0 +1,9 @@
+title: Applied Credit Note Data
+type: object
+properties:
+  uid:
+    type: string
+    description: The UID of the credit note
+  number:
+    type: string
+    description: The number of the credit note

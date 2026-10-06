@@ -1,0 +1,15 @@
+title: Sale Rep
+type: object
+properties:
+  id:
+    type: integer
+  full_name:
+    type: string
+  subscriptions_count:
+    type: integer
+  test_mode:
+    type: boolean
+  subscriptions:
+    type: array
+    items:
+      $ref: "./Sale-Rep-Subscription.yaml"

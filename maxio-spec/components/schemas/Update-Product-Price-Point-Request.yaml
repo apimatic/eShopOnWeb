@@ -1,0 +1,7 @@
+title: Update Product Price Point Request
+type: object
+properties:
+  price_point:
+    $ref: "./Update-Product-Price-Point.yaml"
+required:
+  - price_point
