@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioApiException maxioException)
+        {
+            var statusCode = maxioException.StatusCode >= 400 && maxioException.StatusCode < 500
+                ? maxioException.StatusCode
+                : (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = statusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
