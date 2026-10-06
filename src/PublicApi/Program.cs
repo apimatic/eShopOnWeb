@@ -9,9 +9,11 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +47,8 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddMaxioBilling(builder.Configuration);
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -55,6 +59,10 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    // AddIdentity registers its cookie scheme as the default authenticate/challenge scheme;
+    // this API authenticates via JWT bearer tokens, so override those defaults.
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
