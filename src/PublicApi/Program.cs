@@ -12,12 +12,15 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -45,11 +48,31 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Maxio Advanced Billing — subscription billing system of record.
+// Credentials and site settings come from configuration (user-secrets / environment),
+// never from code: Maxio:ApiKey, Maxio:Subdomain, Maxio:ProductFamilyHandle, Maxio:BaseUrl.
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey),
+        $"'{MaxioOptions.SectionName}:{nameof(MaxioOptions.ApiKey)}' must be configured (see user-secrets / environment).")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl) || !string.IsNullOrWhiteSpace(o.Subdomain),
+        $"Either '{MaxioOptions.SectionName}:{nameof(MaxioOptions.BaseUrl)}' or '{MaxioOptions.SectionName}:{nameof(MaxioOptions.Subdomain)}' must be configured.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle),
+        $"'{MaxioOptions.SectionName}:{nameof(MaxioOptions.ProductFamilyHandle)}' must be configured.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioApiClient, MaxioApiClient>((sp, client) =>
+{
+    var maxioOptions = sp.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    MaxioApiClient.Configure(client, maxioOptions, builder.Configuration["MAXIO_ENVIRONMENT"]);
+});
+builder.Services.AddScoped<ISubscriptionService, MaxioSubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
