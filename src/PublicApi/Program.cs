@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,20 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing integration (billing system of record for subscriptions).
+// Settings bind from the "Maxio" section; values are supplied via user-secrets or
+// environment variables (MAXIO_API_KEY, MAXIO_SITE_SUBDOMAIN, MAXIO_DEFAULT_PRODUCT_FAMILY),
+// never hard-coded in the repository.
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey), "Maxio:ApiKey is required.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle), "Maxio:ProductFamilyHandle is required.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl) || !string.IsNullOrWhiteSpace(o.Subdomain),
+        "Either Maxio:BaseUrl or Maxio:Subdomain must be configured.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IMaxioBillingClient, MaxioBillingClient>();
+builder.Services.AddScoped<IMaxioSubscriptionService, MaxioSubscriptionService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
