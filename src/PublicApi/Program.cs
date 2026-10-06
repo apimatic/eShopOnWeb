@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using Maxio;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -85,6 +86,18 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Map the MAXIO_* environment variables into the "Maxio" configuration section so the same build
+// can run against a different Maxio site/catalog without editing any file in this repository.
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Maxio:ApiKey"] = Environment.GetEnvironmentVariable("MAXIO_API_KEY"),
+    ["Maxio:Subdomain"] = Environment.GetEnvironmentVariable("MAXIO_SITE_SUBDOMAIN"),
+    ["Maxio:ProductFamilyHandle"] = Environment.GetEnvironmentVariable("MAXIO_DEFAULT_PRODUCT_FAMILY"),
+    ["Maxio:BaseUrl"] = Environment.GetEnvironmentVariable("MAXIO_BASE_URL")
+});
+
+builder.Services.AddMaxio(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -159,6 +172,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseCors(CORS_POLICY);
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

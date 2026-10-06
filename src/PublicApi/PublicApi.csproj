@@ -34,8 +34,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="..\Maxio\Maxio.csproj" />
   </ItemGroup>
 
 
 </Project>
-
