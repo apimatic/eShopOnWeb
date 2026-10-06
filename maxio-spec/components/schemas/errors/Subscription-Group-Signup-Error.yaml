@@ -1,0 +1,17 @@
+title: Subscription Group Signup Error
+type: object
+properties:
+  subscriptions:
+    $ref: "./Subscription-Group-Subscriptions-Error.yaml"
+  payer_reference:
+    type: string
+  payer:
+    $ref: "./Payer-Error.yaml"
+  subscription_group:
+    type: array
+    items:
+      type: string
+  payment_profile_id:
+    type: string
+  payer_id:
+    type: string

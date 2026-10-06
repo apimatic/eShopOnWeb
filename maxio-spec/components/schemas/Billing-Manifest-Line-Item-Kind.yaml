@@ -1,0 +1,10 @@
+title: Billing Manifest Line Item Kind
+type: string
+description: A handle for the billing manifest line item kind
+enum:
+  - baseline
+  - initial
+  - trial
+  - coupon
+  - component
+  - tax

@@ -1,0 +1,15 @@
+title: Paid Invoice
+type: object
+properties:
+  invoice_id:
+    type: string
+    description: |
+      The uid of the paid invoice
+  status:
+    $ref: "./Invoice-Status.yaml"
+  due_amount:
+    type: string
+    description: The remaining due amount on the invoice
+  paid_amount:
+    type: string
+    description: The total amount paid on this invoice (including any prior payments)

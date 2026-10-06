@@ -1,0 +1,15 @@
+title: Coupon Currency
+type: object
+properties:
+  id:
+    type:
+      - integer
+      - "null"
+  currency:
+    type: string
+  price:
+    type:
+      - number
+      - "null"
+  coupon_id:
+    type: integer

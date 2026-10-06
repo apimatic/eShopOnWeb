@@ -1,0 +1,27 @@
+title: Create Multi Invoice Payment
+type: object
+properties:
+  memo:
+    type: string
+    description: A description to be attached to the payment.
+  details:
+    type: string
+    description: |
+      Additional information related to the payment method (eg. Check #).
+  method:
+    $ref: "./Invoice-Payment-Method-Type.yaml"
+  amount:
+    type:
+      - string
+      - number
+    description: Dollar amount of the sum of the invoices payment (eg. "10.50" => $10.50).
+  received_on:
+    type: string
+    description: Date reflecting when the payment was received from a customer. Must be in the past.
+  applications:
+    type: array
+    items:
+      $ref: "./Create-Invoice-Payment-Application.yaml"
+required:
+  - amount
+  - applications

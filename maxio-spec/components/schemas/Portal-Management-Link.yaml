@@ -1,0 +1,21 @@
+title: Portal Management Link
+type: object
+properties:
+  url:
+    type: string
+  fetch_count:
+    type: integer
+  created_at:
+    type: string
+    format: date-time
+  new_link_available_at:
+    type: string
+    format: date-time
+  expires_at:
+    type: string
+    format: date-time
+  last_invite_sent_at:
+    type:
+      - string
+      - "null"
+    format: date-time
