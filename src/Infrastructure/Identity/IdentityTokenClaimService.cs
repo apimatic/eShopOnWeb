@@ -29,6 +29,11 @@ public class IdentityTokenClaimService : ITokenClaimsService
         var roles = await _userManager.GetRolesAsync(user);
         var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
 
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
+
         foreach (var role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
