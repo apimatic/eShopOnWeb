@@ -1,0 +1,7 @@
+title: Bank Account Verification Request
+type: object
+properties:
+  bank_account_verification:
+    $ref: "./Bank-Account-Verification.yaml"
+required:
+  - bank_account_verification

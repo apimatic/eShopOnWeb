@@ -1,0 +1,21 @@
+title: Subscription Group Signup Failure Data
+type: object
+properties:
+  payer_id:
+    type: integer
+  payer_reference:
+    type: string
+  payment_profile_id:
+    type: integer
+  payment_collection_method:
+    type: string
+  payer_attributes:
+    $ref: "../Payer-Attributes.yaml"
+  credit_card_attributes:
+    $ref: "../Subscription-Group-Credit-Card.yaml"
+  bank_account_attributes:
+    $ref: "../Subscription-Group-Bank-Account.yaml"
+  subscriptions:
+    type: array
+    items:
+      $ref: "../Subscription-Group-Signup-Item.yaml"
