@@ -41,6 +41,33 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionPlanNotFoundException planNotFoundException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotFoundException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioApiException maxioApiException)
+        {
+            // Pass the billing system's own client-error status through when it
+            // is actionable for the API caller (validation/not-found); anything
+            // else (server errors, unreachable provider) surfaces as bad gateway.
+            context.Response.StatusCode = maxioApiException.StatusCode switch
+            {
+                404 => (int)HttpStatusCode.NotFound,
+                422 => (int)HttpStatusCode.UnprocessableEntity,
+                409 => (int)HttpStatusCode.Conflict,
+                _ => (int)HttpStatusCode.BadGateway,
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = maxioApiException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
