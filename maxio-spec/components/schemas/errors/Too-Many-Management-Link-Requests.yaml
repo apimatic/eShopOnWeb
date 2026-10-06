@@ -1,0 +1,11 @@
+title: Too Many Management Link Requests
+type: object
+properties:
+  error:
+    type: string
+  new_link_available_at:
+    type: string
+    format: date-time
+required:
+  - error
+  - new_link_available_at

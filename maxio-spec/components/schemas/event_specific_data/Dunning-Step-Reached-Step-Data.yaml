@@ -1,0 +1,31 @@
+title: Dunning Step Data
+type: object
+properties:
+  day_threshold:
+    type: integer
+  action:
+    type: string
+  email_body:
+    type:
+      - string
+      - "null"
+  email_subject:
+    type:
+      - string
+      - "null"
+  send_email:
+    type: boolean
+  send_bcc_email:
+    type: boolean
+  send_sms:
+    type: boolean
+  sms_body:
+    type:
+      - string
+      - "null"
+required:
+  - day_threshold
+  - action
+  - send_email
+  - send_bcc_email
+  - send_sms

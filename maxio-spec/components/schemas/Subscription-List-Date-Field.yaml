@@ -1,0 +1,5 @@
+title: Subscription List Date Field
+type: string
+enum:
+  - updated_at
+example: updated_at

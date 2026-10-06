@@ -1,0 +1,42 @@
+title: Subscription Group Signup Item
+type: object
+properties:
+  product_handle:
+    type: string
+    description: "The API Handle of the product for which you are creating a subscription. Required, unless a `product_id` is given instead."
+  product_id:
+    type: integer
+    description: The Product ID of the product for which you are creating a subscription. You can pass either `product_id` or `product_handle`.
+  product_price_point_id:
+    type: integer
+    description: The ID of the particular price point on the product.
+  product_price_point_handle:
+    type: string
+    description: The user-friendly API handle of a product's particular price point.
+  offer_id:
+    type: integer
+    description: "Use in place of passing product and component information to set up the subscription with an existing offer. May be either the Chargify ID of the offer or its handle prefixed with `handle:`"
+  reference:
+    type: string
+    description: The reference value (provided by your app) for the subscription itelf.
+  primary:
+    type: boolean
+    description: One of the subscriptions must be marked as primary in the group.
+  currency:
+    type: string
+    description: "(Optional) If Multi-Currency is enabled and the currency is configured in Chargify, pass it at signup to create a subscription on a non-default currency. Note that you cannot update the currency of an existing subscription."
+  coupon_codes:
+    type: array
+    description: An array for all the coupons attached to the subscription.
+    items:
+      type: string
+  components:
+    type: array
+    items:
+      $ref: "./Subscription-Group-Signup-Component.yaml"
+  custom_price:
+    $ref: "./Subscription-Custom-Price.yaml"
+  calendar_billing:
+    $ref: "./Calendar-Billing.yaml"
+  metafields:
+    $ref: "./Metafields-Values.yaml"

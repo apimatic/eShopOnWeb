@@ -1,0 +1,7 @@
+title: Update Reason Code Request
+type: object
+properties:
+  reason_code:
+    $ref: "./Update-Reason-Code.yaml"
+required:
+  - reason_code

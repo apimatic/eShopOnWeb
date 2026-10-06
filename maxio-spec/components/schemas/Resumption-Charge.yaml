@@ -1,0 +1,8 @@
+title: Resumption Charge
+type: string
+default: prorated
+enum:
+  - prorated
+  - immediate
+  - delayed
+description: (For calendar billing subscriptions only) The way that the resumed subscription's charge should be handled

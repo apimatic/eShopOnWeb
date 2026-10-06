@@ -1,0 +1,16 @@
+title: Subscription Group Prepayment
+type: object
+properties:
+  amount:
+    type: integer
+  details:
+    type: string
+  memo:
+    type: string
+  method:
+    $ref: "./Subscription-Group-Prepayment-Method.yaml"
+required:
+  - amount
+  - details
+  - memo
+  - method

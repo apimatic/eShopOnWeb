@@ -1,0 +1,73 @@
+title: Get One Time Token Payment Profile
+type: object
+properties:
+  id:
+    type: "null"
+  first_name:
+    type: string
+    minLength: 1
+  last_name:
+    type: string
+    minLength: 1
+  masked_card_number:
+    type: string
+    minLength: 1
+  card_type:
+    $ref: "./Card-Type.yaml"
+    minLength: 1
+  expiration_month:
+    type: number
+  expiration_year:
+    type: number
+  customer_id:
+    type: "null"
+  current_vault:
+    $ref: "./Credit-Card-Vault.yaml"
+  vault_token:
+    type: string
+    minLength: 1
+  billing_address:
+    type: string
+    minLength: 1
+  billing_address_2:
+    type: string
+  billing_city:
+    type: string
+    minLength: 1
+  billing_country:
+    type: string
+    minLength: 1
+  billing_state:
+    type: string
+    minLength: 1
+  billing_zip:
+    type: string
+    minLength: 1
+  payment_type:
+    type: string
+    minLength: 1
+  disabled:
+    type: boolean
+  site_gateway_setting_id:
+    type: integer
+  customer_vault_token:
+    type: "null"
+  gateway_handle:
+    type: "null"
+required:
+  - billing_address
+  - billing_city
+  - billing_country
+  - billing_state
+  - billing_zip
+  - card_type
+  - current_vault
+  - disabled
+  - expiration_month
+  - expiration_year
+  - first_name
+  - last_name
+  - masked_card_number
+  - payment_type
+  - site_gateway_setting_id
+  - vault_token

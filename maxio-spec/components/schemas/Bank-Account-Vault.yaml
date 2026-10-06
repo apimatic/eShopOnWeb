@@ -1,0 +1,12 @@
+title: Bank Account Vault
+type: string
+description: The vault that stores the payment profile with the provided vault_token. Use `bogus` for testing.
+enum:
+  - authorizenet
+  - blue_snap
+  - bogus
+  - forte
+  - gocardless
+  - maxio_payments
+  - maxp
+  - stripe_connect

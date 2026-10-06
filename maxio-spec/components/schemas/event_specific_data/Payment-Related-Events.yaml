@@ -1,0 +1,10 @@
+title: Payment Related Events
+type: object
+properties:
+  product_id:
+    type: integer
+  account_transaction_id:
+    type: integer
+required:
+  - product_id
+  - account_transaction_id
