@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ardalis.ApiEndpoints" />
+<PackageReference Include="Ardalis.ApiEndpoints" />
+    <PackageReference Include="AsadAli.AdvancedBilling.Sdk" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="MinimalApi.Endpoint" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
