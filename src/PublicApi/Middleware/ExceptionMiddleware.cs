@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,7 +33,19 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is MaxioApiException maxioException)
+        {
+            var statusCode = maxioException.StatusCode is >= 400 and <= 599
+                ? maxioException.StatusCode
+                : (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = statusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = statusCode,
+                Message = maxioException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
