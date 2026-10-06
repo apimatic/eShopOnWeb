@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +38,25 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        ConfigureSubscriptionBilling(configuration, services);
+    }
+
+    private static void ConfigureSubscriptionBilling(IConfiguration configuration, IServiceCollection services)
+    {
+        services.AddOptions<MaxioOptions>()
+            .Bind(configuration.GetSection(MaxioOptions.SectionName))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey),
+                $"{MaxioOptions.SectionName}:ApiKey is required (configure it via user-secrets or the environment).")
+            .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl) || !string.IsNullOrWhiteSpace(o.Subdomain),
+                $"Either {MaxioOptions.SectionName}:BaseUrl or {MaxioOptions.SectionName}:Subdomain must be configured.")
+            .Validate(o => !string.IsNullOrWhiteSpace(o.ProductFamilyHandle),
+                $"{MaxioOptions.SectionName}:ProductFamilyHandle is required.")
+            .ValidateOnStart();
+
+        services.AddHttpClient<MaxioApiClient>();
+        services.AddSingleton<MaxioSubscriptionBillingService>();
+        services.AddSingleton<ISubscriptionBillingService>(sp =>
+            sp.GetRequiredService<MaxioSubscriptionBillingService>());
     }
 }
