@@ -1,14 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Billing;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -84,6 +89,20 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SECTION_NAME).Get<MaxioSettings>() ?? new MaxioSettings();
+builder.Services.AddSingleton(maxioSettings);
+builder.Services.AddSingleton<IKeyedLock, KeyedLock>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddHttpClient<IMaxioClient, MaxioClient>((serviceProvider, http) =>
+{
+    var settings = serviceProvider.GetRequiredService<MaxioSettings>();
+    http.BaseAddress = settings.ResolveBaseUrl();
+    http.Timeout = TimeSpan.FromSeconds(30);
+    var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.RequireApiKey()}:x"));
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
