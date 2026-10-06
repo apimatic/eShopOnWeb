@@ -1,0 +1,9 @@
+title: Batch Job Response
+type: object
+properties:
+  batchjob:
+    $ref: "./Batch-Job.yaml"
+required:
+  - batchjob
+x-stoplight:
+  id: igb6nbuojdj23

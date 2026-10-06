@@ -1,0 +1,6 @@
+title: Service Credit Type
+type: string
+description: The type of entry
+enum:
+  - Credit
+  - Debit

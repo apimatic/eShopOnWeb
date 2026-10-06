@@ -1,0 +1,7 @@
+title: Subscription Group Single Error
+type: object
+properties:
+  subscription_group:
+    type: string
+required:
+  - subscription_group

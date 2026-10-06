@@ -1,0 +1,26 @@
+title: Proforma Invoice Tax
+type: object
+properties:
+  uid:
+    type: string
+    minLength: 1
+  title:
+    type: string
+    minLength: 1
+  source_type:
+    $ref: "./Tax-Source-Type.yaml"
+  percentage:
+    type: string
+    minLength: 1
+  taxable_amount:
+    type: string
+    minLength: 1
+  tax_amount:
+    type: string
+    minLength: 1
+  line_item_breakouts:
+    type: array
+    uniqueItems: true
+    minItems: 1
+    items:
+      $ref: "./Invoice-Tax-Breakout.yaml"

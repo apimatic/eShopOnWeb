@@ -1,0 +1,11 @@
+title: List Public Keys Meta
+type: object
+properties:
+  total_count:
+    type: integer
+  current_page:
+    type: integer
+  total_pages:
+    type: integer
+  per_page:
+    type: integer

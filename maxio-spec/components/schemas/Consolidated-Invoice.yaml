@@ -1,0 +1,7 @@
+title: Consolidated Invoice
+type: object
+properties:
+  invoices:
+    type: array
+    items:
+      $ref: "./Invoice.yaml"

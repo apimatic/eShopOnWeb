@@ -1,0 +1,11 @@
+title: Auto Invite
+description:
+type: integer
+enum:
+  - 0
+  - 1
+x-enum-elements:
+  - name: No
+    description: Do not send the invitation email.
+  - name: Yes
+    description: Automatically send the invitation email.

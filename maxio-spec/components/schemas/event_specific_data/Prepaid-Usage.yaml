@@ -1,0 +1,38 @@
+title: Prepaid Usage
+type: object
+properties:
+  previous_unit_balance:
+    type: string
+    minLength: 1
+  previous_overage_unit_balance:
+    type: string
+    minLength: 1
+  new_unit_balance:
+    type: integer
+  new_overage_unit_balance:
+    type: integer
+  usage_quantity:
+    type: integer
+  overage_usage_quantity:
+    type: integer
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  memo:
+    type: string
+  allocation_details:
+    type: array
+    items:
+      $ref: "./Prepaid-Usage-Allocation-Detail.yaml"
+required:
+  - previous_unit_balance
+  - previous_overage_unit_balance
+  - new_unit_balance
+  - new_overage_unit_balance
+  - usage_quantity
+  - overage_usage_quantity
+  - component_id
+  - component_handle
+  - memo
+  - allocation_details

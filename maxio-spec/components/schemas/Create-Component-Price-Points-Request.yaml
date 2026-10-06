@@ -1,0 +1,11 @@
+title: Create Component Price Points Request
+type: object
+properties:
+  price_points:
+    type: array
+    items:
+      anyOf:
+        - $ref: "./Create-Component-Price-Point.yaml"
+        - $ref: "./Create-Prepaid-Component-Price-Point.yaml"
+required:
+  - price_points

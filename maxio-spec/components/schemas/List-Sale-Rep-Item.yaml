@@ -1,0 +1,13 @@
+title: List Sale Rep Item
+type: object
+properties:
+  id:
+    type: integer
+  full_name:
+    type: string
+  subscriptions_count:
+    type: integer
+  mrr_data:
+    $ref: "./Sale-Rep-Item-Mrr-Data.yaml"
+  test_mode:
+    type: boolean

@@ -1,0 +1,28 @@
+title: Usage
+type: object
+properties:
+  id:
+    type: integer
+    format: int64
+    minimum: 0
+  memo:
+    type:
+      - string
+      - "null"
+  created_at:
+    type: string
+    format: date-time
+  price_point_id:
+    type: integer
+  quantity:
+    type:
+      - integer
+      - string
+  overage_quantity:
+    type: integer
+  component_id:
+    type: integer
+  component_handle:
+    type: string
+  subscription_id:
+    type: integer

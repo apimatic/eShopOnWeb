@@ -1,0 +1,5 @@
+title: Update Allocation Expiration Date
+type: object
+properties:
+  allocation:
+    $ref: "./Allocation-Expiration-Date.yaml"
