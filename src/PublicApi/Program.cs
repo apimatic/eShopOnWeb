@@ -45,6 +45,13 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+// Maxio subscription billing capability (additive; values come from the "Maxio:" configuration
+// section, e.g. user-secrets or MAXIO_* environment variables - never from source control).
+builder.Configuration.ApplyMaxioEnvironmentFallback();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Services.ICurrentUser, Microsoft.eShopWeb.PublicApi.Services.CurrentUser>();
+builder.Services.AddScoped<Microsoft.eShopWeb.ApplicationCore.Services.SubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
