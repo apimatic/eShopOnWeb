@@ -18,6 +18,9 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<OrderPaymentAttempt> OrderPaymentAttempts { get; set; }
+    public DbSet<OrderRefund> OrderRefunds { get; set; }
+    public DbSet<PaymentProviderRecordEntry> PaymentProviderRecord { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
