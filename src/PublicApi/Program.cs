@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,11 +14,13 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.MaxioBilling;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -44,6 +47,33 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Maxio Advanced Billing (subscription billing system of record).
+builder.Services.AddOptions<MaxioOptions>()
+    .Bind(builder.Configuration.GetSection(MaxioOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<MaxioOptions>, MaxioOptionsValidator>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<MaxioOptions>>().Value);
+
+builder.Services.AddHttpClient(MaxioBillingService.HttpClientName, httpClient =>
+    {
+        // Backstop for one attempt; the SDK's retry timeout matches this so a
+        // hung Maxio cannot pin a request for the 100s defaults.
+        httpClient.Timeout = MaxioClientFactory.PerAttemptTimeout;
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var maxioOptions = serviceProvider.GetRequiredService<IOptions<MaxioOptions>>().Value;
+    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    return MaxioClientFactory.Create(maxioOptions, httpClientFactory.CreateClient(MaxioBillingService.HttpClientName));
+});
+builder.Services.AddScoped<IMaxioBillingService, MaxioBillingService>();
+builder.Services.AddHttpContextAccessor();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
