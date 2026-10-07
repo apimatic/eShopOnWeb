@@ -41,5 +41,29 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.HasMany(o => o.PaymentAttempts)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.PaymentAttempts).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey("OrderId")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Ignore(o => o.AuthorisedPayment);
+        builder.Ignore(o => o.UnsettledPayment);
+        builder.Ignore(o => o.PaidAmountMinor);
+        builder.Ignore(o => o.RefundedAmountMinor);
+        builder.Ignore(o => o.RefundableAmountMinor);
+        builder.Ignore(o => o.CanStartPayment);
     }
 }
