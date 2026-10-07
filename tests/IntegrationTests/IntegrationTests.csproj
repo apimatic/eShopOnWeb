@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\UnitTests\UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Payments.Adyen\Payments.Adyen.csproj" />
   </ItemGroup>
 
   <ItemGroup>
