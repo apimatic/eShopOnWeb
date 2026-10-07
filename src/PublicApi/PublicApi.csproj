@@ -36,6 +36,22 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    Wikimedia EventStreams SDK: ships as source inside the "wikimedia" plugin (context-plugins marketplace),
+    it is not on NuGet and must not be copied into this repository. The default path assumes the plugin sits
+    next to the repository clone; point WikimediaEventStreamsSdkProject at your own copy otherwise, e.g.
+    dotnet build -p:WikimediaEventStreamsSdkProject=C:\path\to\wikimedia\sdk\dotnet\WikimediaEventStreams.csproj
+  -->
+  <PropertyGroup>
+    <WikimediaEventStreamsSdkProject Condition="'$(WikimediaEventStreamsSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\wikimedia\sdk\dotnet\WikimediaEventStreams.csproj</WikimediaEventStreamsSdkProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(WikimediaEventStreamsSdkProject)" />
+  </ItemGroup>
+  <Target Name="CheckWikimediaEventStreamsSdk" BeforeTargets="ResolveProjectReferences;CollectPackageReferences">
+    <Error Condition="!Exists('$(WikimediaEventStreamsSdkProject)')" Text="Wikimedia EventStreams SDK project not found at '$(WikimediaEventStreamsSdkProject)'. Install the 'wikimedia' plugin and set the WikimediaEventStreamsSdkProject property to its sdk/dotnet/WikimediaEventStreams.csproj." />
+  </Target>
+
 
 </Project>
 
