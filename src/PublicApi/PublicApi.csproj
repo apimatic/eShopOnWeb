@@ -31,9 +31,17 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!-- The Box Platform API SDK ships as source inside the "box" Claude Code plugin (context-plugins marketplace);
+         it is not published to NuGet. Override BoxSdkProject (e.g. /p:BoxSdkProject=...) where the plugin is
+         installed elsewhere. -->
+    <BoxSdkProject Condition="'$(BoxSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\box\sdk\dotnet\BoxPlatformApi.csproj</BoxSdkProject>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="$(BoxSdkProject)" />
   </ItemGroup>
 
 
