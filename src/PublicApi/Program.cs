@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.TrendsEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using WikimediaEventStreams;
+using WikimediaEventStreams.Core.Configuration;
+using WikimediaEventStreams.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +55,37 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Wikimedia EventStreams
+const string WikimediaHttpClient = "Wikimedia";
+builder.Services.AddTransient<WikimediaUserAgentHandler>();
+builder.Services.AddHttpClient(WikimediaHttpClient, c =>
+{
+    // Bounds one HTTP attempt. For a streaming call the SDK's StreamReadTimeout (15s idle) is the
+    // active bound; this is a transport-level backstop for the initial connection.
+    c.Timeout = TimeSpan.FromSeconds(90);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+})
+.AddHttpMessageHandler<WikimediaUserAgentHandler>();
+
+builder.Services.AddSingleton<WikimediaEventStreamsClient>(sp =>
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = factory.CreateClient(WikimediaHttpClient);
+    var loggerFactory = sp.GetService<ILoggerFactory>();
+    var options = new WikimediaEventStreamsClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        StreamReadTimeout = TimeSpan.FromSeconds(15),
+        Retry = RetryOptions.Default() with { MaxRetries = 0 },
+        Logging = new WikimediaEventStreams.Core.Configuration.LoggingOptions { LoggerFactory = loggerFactory }
+    };
+    return new WikimediaEventStreamsClient(httpClient, options);
+});
+builder.Services.AddScoped<IWikiRevisionStream, WikiRevisionStreamService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
