@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.WikiTrendsEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using WikimediaEventStreams;
+using WikimediaEventStreams.Core.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +54,35 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Wikimedia EventStreams client — named HttpClient keeps the pipeline off the shared default
+builder.Services.AddHttpClient("WikimediaEventStreams", c =>
+    {
+        c.DefaultRequestHeaders.UserAgent.TryParseAdd("eShopOnWeb-trends/1.0 (shop-ops@example.com)");
+        c.Timeout = TimeSpan.FromSeconds(10);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var options = new WikimediaEventStreamsClientOptions
+    {
+        // Disable retries: SSE opens are GET but retrying a hung stream multiplies the cost
+        Retry = RetryOptions.Default() with { MaxRetries = 0, Timeout = null },
+        // No-data detection: raise SdkTimeoutException after 15s with no frame
+        StreamReadTimeout = TimeSpan.FromSeconds(15),
+        // Explicit LoggerFactory prevents the WIKIMEDIAEVENTSTREAMSCLIENT_LOG env var from
+        // switching on unredacted body logging from outside the code.
+        Logging = new() { LoggerFactory = sp.GetService<ILoggerFactory>() }
+    };
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("WikimediaEventStreams");
+    return new WikimediaEventStreamsClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IWikiTrendsService, WikiTrendsService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
