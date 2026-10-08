@@ -41,5 +41,27 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.Currency)
+            .HasMaxLength(3);
+
+        builder.Property(o => o.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.AmountPaid)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.AmountRefunded)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.PaymentPspReference)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PaymentConcurrencyStamp)
+            .IsConcurrencyToken();
+
+        builder.Ignore(o => o.RefundableAmount);
+        builder.Ignore(o => o.IsPaid);
     }
 }
