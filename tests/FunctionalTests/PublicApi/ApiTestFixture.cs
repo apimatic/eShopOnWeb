@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +18,15 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // Offline placeholders so the Adyen settings check passes; no test here calls Adyen.
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Adyen:ApiKey"] = "offline-test-placeholder",
+            ["Adyen:MerchantAccount"] = "OfflineTestMerchant",
+            ["Adyen:Environment"] = "test",
+            ["Adyen:Currency"] = "USD",
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>

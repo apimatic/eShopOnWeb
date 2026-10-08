@@ -32,7 +32,18 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var paymentStatus = PaymentStatusCode(exception);
+        if (paymentStatus is not null)
+        {
+            // These exceptions carry caller-safe messages by contract.
+            context.Response.StatusCode = paymentStatus.Value;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -51,4 +62,19 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    private static int? PaymentStatusCode(Exception exception) => exception switch
+    {
+        OrderNotFoundException => (int)HttpStatusCode.NotFound,
+        PaymentValidationException => (int)HttpStatusCode.BadRequest,
+        PaymentConflictException => (int)HttpStatusCode.Conflict,
+        // The provider refused data the caller sent: they can fix it.
+        PaymentGatewayException { Failure: PaymentGatewayFailure.Rejected } => (int)HttpStatusCode.UnprocessableEntity,
+        // Adyen did not answer within the time budget.
+        PaymentGatewayException { TimedOut: true } => (int)HttpStatusCode.GatewayTimeout,
+        // Our credentials, throttling, transport failures, provider errors: not the caller's fault.
+        PaymentGatewayException => (int)HttpStatusCode.BadGateway,
+        BadHttpRequestException badRequest => badRequest.StatusCode,
+        _ => null
+    };
 }

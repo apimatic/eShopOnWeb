@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,9 @@ using MinimalApi.Endpoint.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+// Adyen:* settings may come from the ADYEN_* environment variables (user-secrets or a secret store otherwise).
+builder.Configuration.AddAdyenEnvironmentVariables();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -48,6 +52,10 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+// Card payments and refunds through Adyen; the host refuses to start when an Adyen:* setting is missing.
+builder.Services.AddAdyenPayments(builder.Configuration,
+    returnUrl: new Uri(new Uri(baseUrlConfig!.WebBase.Replace("host.docker.internal", "localhost")), "Order/MyOrders").ToString());
 
 builder.Services.AddMemoryCache();
 

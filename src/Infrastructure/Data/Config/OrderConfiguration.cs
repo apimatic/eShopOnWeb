@@ -41,5 +41,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.HasMany(o => o.Payments)
+            .WithOne()
+            .HasForeignKey(p => p.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(o => o.Payments).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(o => o.Refunds).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
