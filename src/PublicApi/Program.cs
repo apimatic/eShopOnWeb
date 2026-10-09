@@ -1,7 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using Microsoft.eShopWeb.PublicApi.WikiEditsEndpoints;
+using WikimediaEventStreams;
+using WikimediaEventStreams.Core.Configuration;
+using WikimediaEventStreams.Core.Hooks;
+using WikimediaEventStreams.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -50,6 +56,41 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+const string WikiClientName = "WikimediaEventStreams";
+builder.Services.AddHttpClient(WikiClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(35);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var loggerFactory = sp.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>();
+    var httpClient = factory.CreateClient(WikiClientName);
+    var options = new WikimediaEventStreamsClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        StreamReadTimeout = TimeSpan.FromSeconds(15),
+        Logging = new LoggingOptions { LoggerFactory = loggerFactory },
+        Retry = RetryOptions.Default() with { Timeout = TimeSpan.FromSeconds(30) },
+        Hooks =
+        [
+            SdkHook.OnRequest((req, _) =>
+            {
+                req.Headers.Remove("User-Agent");
+                req.Headers.TryAddWithoutValidation("User-Agent", "eShopOnWeb-trends/1.0 (shop-ops@example.com)");
+            })
+        ]
+    };
+    return new WikimediaEventStreamsClient(httpClient, options);
+});
+
+builder.Services.AddScoped<IWikiTrendsService, WikiTrendsService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
