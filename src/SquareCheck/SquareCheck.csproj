@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Microsoft.eShopWeb.SquareCheck</RootNamespace>
+    <AssemblyName>SquareCheck</AssemblyName>
+    <UserSecretsId>c1c54ec7-26cc-419d-9e19-5fd29bf7778d</UserSecretsId>
+    <!--
+      The Square .NET SDK is not published to NuGet; it ships as source inside the "square" plugin
+      (context-plugins marketplace). This default points at where the plugin sits next to this repository
+      on the machine it was built on. Override it per machine without editing this file:
+        dotnet build -p:SquareSdkProject=<plugin-root>/sdk/dotnet/Square.csproj
+      or set the SquareSdkProject environment variable.
+    -->
+    <SquareSdkProject Condition="'$(SquareSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\square\sdk\dotnet\Square.csproj</SquareSdkProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(SquareSdkProject)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SquareCheck.UnitTests" />
+  </ItemGroup>
+
+  <Target Name="RequireSquareSdk" BeforeTargets="CollectPackageReferences;ResolveProjectReferences">
+    <Error Condition="!Exists('$(SquareSdkProject)')"
+           Text="The Square .NET SDK was not found at '$(SquareSdkProject)'. Install the 'square' plugin and pass -p:SquareSdkProject=&lt;plugin-root&gt;/sdk/dotnet/Square.csproj (or set the SquareSdkProject environment variable). It needs the .NET 10 SDK (C# 14)." />
+  </Target>
+
+</Project>
