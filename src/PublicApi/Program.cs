@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.TrendsEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,6 +24,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using WikimediaEventStreams;
+using WikimediaEventStreams.Core.Hooks;
+using WikimediaEventStreams.Servers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +49,22 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddWikimediaEventStreamsClient(options =>
+{
+    options.Environment = ServerEnvironment.Production;
+    // StreamReadTimeout is the inter-frame idle timeout; 15 s → "no-data" when Wikimedia goes quiet.
+    options.StreamReadTimeout = TimeSpan.FromSeconds(15);
+    options.Hooks =
+    [
+        SdkHook.OnRequest((req, _) =>
+        {
+            req.Headers.Remove("User-Agent");
+            req.Headers.TryAddWithoutValidation("User-Agent", "eShopOnWeb-trends/1.0 (shop-ops@example.com)");
+        })
+    ];
+});
+builder.Services.AddScoped<IWikiEditsWatcher, WikiEditsWatcher>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
