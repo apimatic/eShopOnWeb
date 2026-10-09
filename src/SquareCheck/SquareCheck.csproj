@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Microsoft.eShopWeb.SquareCheck</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UserSecretsId>eshoponweb-squarecheck-5b7c0d2e-8a41-4f0e-9a51-0d6f3c2b7e19</UserSecretsId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      The Square .NET SDK is not on NuGet: it ships as source inside the "square" plugin
+      (context-plugins marketplace). Point this at your local copy of the plugin's
+      sdk/dotnet/Square.csproj when it is installed somewhere else:
+        dotnet build -p:SquareSdkProject=C:\path\to\plugins\square\sdk\dotnet\Square.csproj
+    -->
+    <SquareSdkProject Condition="'$(SquareSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\square\sdk\dotnet\Square.csproj</SquareSdkProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Kestrel hosts the loopback redirect address the browser returns to after sign-in. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(SquareSdkProject)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SquareCheck.UnitTests" />
+  </ItemGroup>
+
+</Project>
