@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 
@@ -49,5 +51,54 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
+    }
+
+    public async Task<Order> CreateOrderAsync(string buyerId, IReadOnlyCollection<OrderItemRequest> items, Address shippingAddress)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.Null(items, nameof(items));
+        if (items.Count == 0)
+        {
+            throw new EmptyBasketOnCheckoutException();
+        }
+
+        // Merge duplicate lines for the same catalog item so stock is drawn down once per item.
+        var requestedByItem = items
+            .GroupBy(i => i.CatalogItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        var catalogItemsSpecification = new CatalogItemsSpecification(requestedByItem.Keys.ToArray());
+        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+        var catalogItemsById = catalogItems.ToDictionary(c => c.Id);
+
+        // Validate every line up front — existence and sufficient stock — so the order is refused
+        // as a whole and no item is decremented when any line cannot be satisfied.
+        foreach (var (catalogItemId, quantity) in requestedByItem)
+        {
+            if (!catalogItemsById.TryGetValue(catalogItemId, out var catalogItem))
+            {
+                throw new CatalogItemNotFoundException(catalogItemId);
+            }
+            if (quantity > catalogItem.UnitsInStock)
+            {
+                throw new InsufficientStockException(catalogItemId, catalogItem.UnitsInStock, quantity);
+            }
+        }
+
+        var orderItems = new List<OrderItem>();
+        foreach (var (catalogItemId, quantity) in requestedByItem)
+        {
+            var catalogItem = catalogItemsById[catalogItemId];
+
+            // Take the ordered units off eShop's own stock (throws on over-draw — defensive).
+            catalogItem.RemoveStock(quantity);
+            await _itemRepository.UpdateAsync(catalogItem);
+
+            var itemOrdered = new CatalogItemOrdered(catalogItem.Id, catalogItem.Name, _uriComposer.ComposePicUri(catalogItem.PictureUri));
+            orderItems.Add(new OrderItem(itemOrdered, catalogItem.Price, quantity));
+        }
+
+        var order = new Order(buyerId, shippingAddress, orderItems);
+        return await _orderRepository.AddAsync(order);
     }
 }
