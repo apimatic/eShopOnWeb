@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Marketplace;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,31 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// The Walmart account credentials arrive as the env vars WALMART_CLIENT_ID / WALMART_CLIENT_SECRET
+// (and an optional WALMART_BASE_URL). Map them onto the configuration keys the settings bind to
+// (Walmart:ClientId / Walmart:ClientSecret / Walmart:BaseUrl) so the same build runs against any
+// Walmart account without the values ever being written into the repository. On a dev machine the
+// values can equally come from .NET user-secrets; whichever source supplies them, the keys are the
+// same. Walmart:BaseUrl may also be supplied the standard way (Walmart__BaseUrl / appsettings).
+var walmartFromEnv = new Dictionary<string, string?>();
+foreach (var (envVar, configKey) in new[]
+         {
+             ("WALMART_CLIENT_ID", "Walmart:ClientId"),
+             ("WALMART_CLIENT_SECRET", "Walmart:ClientSecret"),
+             ("WALMART_BASE_URL", "Walmart:BaseUrl"),
+         })
+{
+    var value = Environment.GetEnvironmentVariable(envVar);
+    if (!string.IsNullOrEmpty(value))
+    {
+        walmartFromEnv[configKey] = value;
+    }
+}
+if (walmartFromEnv.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(walmartFromEnv);
+}
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +70,11 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<IOrderPlacementService, OrderPlacementService>();
+
+// Walmart Marketplace inventory integration (binds Walmart: settings with start-up validation,
+// constructs the Walmart APIs SDK client, registers IWalmartInventoryService).
+builder.Services.AddWalmartInventory(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

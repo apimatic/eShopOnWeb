@@ -1,5 +1,6 @@
 ﻿using System;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -14,6 +15,13 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public CatalogType? CatalogType { get; private set; }
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
+
+    /// <summary>
+    /// How many units of this item eShop currently holds and can sell. This is eShop's own
+    /// level — it is pushed to Walmart only at the next sync, never implicitly. Defaults to 0
+    /// for an item whose stock was never set.
+    /// </summary>
+    public int StockQuantity { get; private set; }
 
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
@@ -51,6 +59,28 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Sets eShop's absolute on-hand level for this item (does not touch Walmart).
+    /// </summary>
+    public void SetStock(int quantity)
+    {
+        Guard.Against.Negative(quantity, nameof(quantity));
+        StockQuantity = quantity;
+    }
+
+    /// <summary>
+    /// Takes ordered units off eShop's level. Refuses an order for more than is held.
+    /// </summary>
+    public void RemoveStock(int quantity)
+    {
+        Guard.Against.NegativeOrZero(quantity, nameof(quantity));
+        if (quantity > StockQuantity)
+        {
+            throw new InsufficientStockException(Id, StockQuantity, quantity);
+        }
+        StockQuantity -= quantity;
     }
 
     public void UpdatePictureUri(string pictureName)
