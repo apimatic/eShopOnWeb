@@ -15,6 +15,13 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     public int CatalogBrandId { get; private set; }
     public CatalogBrand? CatalogBrand { get; private set; }
 
+    /// <summary>
+    /// The number of units eShop currently holds in stock for this item. An item whose stock has
+    /// never been set holds 0. This is eShop's own level and is independent of what any external
+    /// sales channel (e.g. Walmart Marketplace) records for it.
+    /// </summary>
+    public int StockQuantity { get; private set; }
+
     public CatalogItem(int catalogTypeId,
         int catalogBrandId,
         string description,
@@ -51,6 +58,31 @@ public class CatalogItem : BaseEntity, IAggregateRoot
     {
         Guard.Against.Zero(catalogTypeId, nameof(catalogTypeId));
         CatalogTypeId = catalogTypeId;
+    }
+
+    /// <summary>
+    /// Sets eShop's stock level for this item to an absolute quantity. Does not touch any
+    /// external sales channel; a marketplace learns the new level at the next sync.
+    /// </summary>
+    public void SetStock(int quantity)
+    {
+        Guard.Against.Negative(quantity, nameof(quantity));
+        StockQuantity = quantity;
+    }
+
+    /// <summary>
+    /// Takes <paramref name="quantity"/> units off eShop's stock for this item (e.g. when an
+    /// order is placed). Throws <see cref="Exceptions.InsufficientStockException"/> when the shop
+    /// holds fewer units than requested.
+    /// </summary>
+    public void RemoveStock(int quantity)
+    {
+        Guard.Against.NegativeOrZero(quantity, nameof(quantity));
+        if (quantity > StockQuantity)
+        {
+            throw new Exceptions.InsufficientStockException(Id, StockQuantity, quantity);
+        }
+        StockQuantity -= quantity;
     }
 
     public void UpdatePictureUri(string pictureName)

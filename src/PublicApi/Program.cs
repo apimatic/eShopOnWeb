@@ -33,6 +33,10 @@ builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
+// Walmart Marketplace inventory integration (settings bound from the "Walmart:" section).
+Microsoft.eShopWeb.Infrastructure.Walmart.WalmartServiceCollectionExtensions
+    .AddWalmartInventoryIntegration(builder.Services, builder.Configuration);
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
