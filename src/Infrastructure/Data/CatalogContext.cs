@@ -13,6 +13,7 @@ public class CatalogContext : DbContext
 
     public DbSet<Basket> Baskets { get; set; }
     public DbSet<CatalogItem> CatalogItems { get; set; }
+    public DbSet<CatalogStockEntry> CatalogStock { get; set; }
     public DbSet<CatalogBrand> CatalogBrands { get; set; }
     public DbSet<CatalogType> CatalogTypes { get; set; }
     public DbSet<Order> Orders { get; set; }
