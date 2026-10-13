@@ -1,0 +1,32 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddCatalogItemStockQuantity : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            // Additive change: eShop's own stock level per catalog item. Defaults to 0 for
+            // existing rows. (Unrelated model/snapshot drift that the scaffolder picked up is
+            // intentionally omitted to keep this migration focused.)
+            migrationBuilder.AddColumn<int>(
+                name: "StockQuantity",
+                table: "Catalog",
+                type: "int",
+                nullable: false,
+                defaultValue: 0);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "StockQuantity",
+                table: "Catalog");
+        }
+    }
+}
