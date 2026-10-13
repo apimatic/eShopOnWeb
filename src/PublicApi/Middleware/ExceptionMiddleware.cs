@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Walmart;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -32,23 +33,45 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = Map(exception);
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static (int StatusCode, string Message) Map(Exception exception)
+    {
+        switch (exception)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
+            case DuplicateException:
+                return ((int)HttpStatusCode.Conflict, exception.Message);
+
+            case InsufficientStockException:
+                return ((int)HttpStatusCode.BadRequest, exception.Message);
+
+            case WalmartIntegrationException walmart:
+                return MapWalmart(walmart);
+
+            default:
+                return ((int)HttpStatusCode.InternalServerError, exception.Message);
         }
+    }
+
+    private static (int StatusCode, string Message) MapWalmart(WalmartIntegrationException exception)
+    {
+        var status = (int?)exception.StatusCode;
+        return status switch
+        {
+            // Our credentials / our quota — the caller did nothing wrong and cannot fix it.
+            401 or 403 => ((int)HttpStatusCode.BadGateway, "Walmart is currently unavailable."),
+            429 => ((int)HttpStatusCode.ServiceUnavailable, "Walmart is temporarily unavailable."),
+            // Walmart rejected the request (e.g. an unknown SKU) — surface the same class so the operator can act.
+            >= 400 and < 500 => (status.Value, exception.Message),
+            // Transport, timeout, 5xx, or unknown outcome — no meaningful caller status.
+            _ => ((int)HttpStatusCode.BadGateway, exception.Message),
+        };
     }
 }
