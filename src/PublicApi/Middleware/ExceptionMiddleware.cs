@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is InsufficientStockException insufficientStockException)
+        {
+            // An order for more than eShop holds is refused.
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = insufficientStockException.Message
+            }.ToString());
+        }
+        else if (exception is Microsoft.eShopWeb.Infrastructure.Walmart.WalmartApiException walmartException)
+        {
+            // Walmart could not be reached or rejected the call; surface it as an upstream (502) failure.
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = walmartException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
