@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\t8rafay-task8-openapi-opus48medium-004\\repo\\.claude\\hooks\\maxio-process-guard.ps1\""
+          }
+        ]
+      },
+      {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\t8rafay-task8-openapi-opus48medium-004\\repo\\.claude\\hooks\\task8-web-guard.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
