@@ -194,6 +194,80 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate.BillingCustomer", b =>
+                {
+                    b.Property<string>("BuyerId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("ClaimToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ClaimedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CustomerReference")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("ProviderCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("BuyerId");
+
+                    b.HasIndex("CustomerReference")
+                        .IsUnique();
+
+                    b.ToTable("BillingCustomers");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate.SubscriptionEnrollment", b =>
+                {
+                    b.Property<string>("Reference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("BuyerId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("ClaimToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ClaimedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PlanHandle")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("ProviderSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Reference");
+
+                    b.HasIndex("BuyerId");
+
+                    b.ToTable("SubscriptionEnrollments");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
                 {
                     b.HasOne("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", null)

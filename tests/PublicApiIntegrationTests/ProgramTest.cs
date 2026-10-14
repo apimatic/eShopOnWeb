@@ -7,7 +7,7 @@ namespace PublicApiIntegrationTests;
 [TestClass]
 public class ProgramTest
 {
-    private static WebApplicationFactory<Program> _application = new();
+    private static WebApplicationFactory<Program> _application = CreateApplication();
 
     public static HttpClient NewClient
     {
@@ -20,7 +20,9 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
-        _application = new WebApplicationFactory<Program>();
-
+        _application = CreateApplication();
     }
+
+    private static WebApplicationFactory<Program> CreateApplication() =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(TestServerResponseBodyFilter.AddTo);
 }

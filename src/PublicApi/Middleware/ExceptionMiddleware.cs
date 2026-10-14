@@ -1,19 +1,24 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Billing;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(RequestDelegate next)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext httpContext)
@@ -32,7 +37,17 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = billingException.StatusCode;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                StatusCode = billingException.StatusCode,
+                billingException.Message,
+                billingException.Errors
+            }));
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
@@ -43,6 +58,7 @@ public class ExceptionMiddleware
         }
         else
         {
+            _logger.LogError(exception, "Unhandled exception for {Method} {Path}.", context.Request.Method, context.Request.Path);
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsync(new ErrorDetails()
             {
