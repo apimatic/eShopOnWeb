@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -40,6 +41,16 @@ public class ExceptionMiddleware
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
             }.ToString());
+        }
+        else if (exception is SubscriptionRequestException subscriptionRequestException)
+        {
+            context.Response.StatusCode = (int)subscriptionRequestException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails { StatusCode = context.Response.StatusCode, Message = subscriptionRequestException.Message }.ToString());
+        }
+        else if (exception is ProviderFailureException providerFailureException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails { StatusCode = context.Response.StatusCode, Message = providerFailureException.Message }.ToString());
         }
         else
         {
