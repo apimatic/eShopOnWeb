@@ -1,13 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Net.Http;
+using PublicApiIntegrationTests.SubscriptionEndpoints;
 
 namespace PublicApiIntegrationTests;
 
 [TestClass]
 public class ProgramTest
 {
-    private static WebApplicationFactory<Program> _application = new();
+    // Fake Maxio settings + in-process Maxio stub: the host validates billing settings on start.
+    private static WebApplicationFactory<Program> _application = new PublicApiTestFactory();
 
     public static HttpClient NewClient
     {
@@ -20,7 +22,7 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
-        _application = new WebApplicationFactory<Program>();
+        _application = new PublicApiTestFactory();
 
     }
 }
