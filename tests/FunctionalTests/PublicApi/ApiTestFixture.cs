@@ -6,6 +6,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace Microsoft.eShopWeb.FunctionalTests.PublicApi;
 
@@ -16,6 +18,13 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "test-only",
+            ["Maxio:Subdomain"] = "test-only",
+            ["Maxio:ProductFamilyHandle"] = "test-family",
+            ["Maxio:BaseUrl"] = "https://billing.example.test"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>

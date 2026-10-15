@@ -22,6 +22,21 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Data.BillingClaim", b =>
+                {
+                    b.Property<string>("Id").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("UserId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+                    b.Property<string>("Site").IsRequired().HasMaxLength(2048).HasColumnType("nvarchar(2048)");
+                    b.Property<string>("Kind").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<string>("Reference").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("ProductHandle").HasMaxLength(255).HasColumnType("nvarchar(255)");
+                    b.Property<int?>("ProviderId").HasColumnType("int");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("datetimeoffset");
+                    b.Property<DateTimeOffset>("LastCheckedAt").HasColumnType("datetimeoffset");
+                    b.HasKey("Id");
+                    b.ToTable("BillingClaims");
+                });
+
             modelBuilder.HasSequence("catalog_brand_hilo")
                 .IncrementsBy(10);
 

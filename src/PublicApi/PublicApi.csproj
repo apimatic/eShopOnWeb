@@ -6,6 +6,7 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
     <Nullable>enable</Nullable>
+    <MaxioSdkRoot Condition="'$(MaxioSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\codex-home\plugins\cache\maxio-subagent-exp\maxio-advanced-billing\0.1.0\sdk\dotnet</MaxioSdkRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +35,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="$(MaxioSdkRoot)\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
   </ItemGroup>
 
 
