@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -25,10 +27,17 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpoints();
+// Only this assembly owns HTTP endpoints. Scanning every loaded dependency also
+// loads private SQL client implementation types that may not support SDK roll-forward.
+foreach (var endpointType in typeof(Program).Assembly.GetTypes()
+    .Where(t => !t.IsAbstract && !t.IsInterface && typeof(MinimalApi.Endpoint.IEndpoint).IsAssignableFrom(t)))
+{
+    builder.Services.AddScoped(typeof(MinimalApi.Endpoint.IEndpoint), endpointType);
+}
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Services.AddSubscriptionBilling(builder.Configuration);
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -160,6 +169,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
