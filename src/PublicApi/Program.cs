@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Http;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -22,10 +23,39 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetRequiredSection("Maxio"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+var maxioSettings = builder.Configuration.GetRequiredSection("Maxio").Get<MaxioSettings>()!;
+if (string.IsNullOrWhiteSpace(maxioSettings.ApiKey) || string.IsNullOrWhiteSpace(maxioSettings.Subdomain) || string.IsNullOrWhiteSpace(maxioSettings.ProductFamilyHandle))
+    throw new InvalidOperationException("Maxio:ApiKey, Maxio:Subdomain, and Maxio:ProductFamilyHandle must be configured.");
+builder.Services.AddHttpClient("MaxioAdvancedBilling", client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
+builder.Services.AddSingleton(sp =>
+{
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials { Username = maxioSettings.ApiKey, Password = "x" },
+        Retry = RetryOptions.Disabled() with { Timeout = TimeSpan.FromSeconds(10) },
+        Logging = new LoggingOptions { LoggerFactory = sp.GetRequiredService<ILoggerFactory>(), LogRequestBody = false }
+    };
+    options.Server.Production.Us.Site = maxioSettings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl)) options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    return new MaxioAdvancedBillingClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("MaxioAdvancedBilling"), options);
+});
+builder.Services.AddScoped<MaxioSubscriptionService>();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");

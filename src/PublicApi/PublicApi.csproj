@@ -34,6 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="C:\claude-runs\t1subhamza-t1sub-treatment-cdx-gpt56terramedium-002\codex-home\plugins\cache\maxio-subagent-exp\maxio-advanced-billing\0.1.0\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
   </ItemGroup>
 
 
