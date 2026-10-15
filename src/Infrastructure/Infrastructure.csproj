@@ -15,6 +15,18 @@
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
 	</ItemGroup>
+	<!--
+		Maxio Advanced Billing .NET SDK. It is not published to NuGet: it ships as source inside the
+		maxio-advanced-billing Claude Code plugin. The default path assumes the plugin is installed beside
+		this clone; override it with -p:MaxioSdkProjectPath=<path to MaxioAdvancedBilling.csproj> (or an
+		environment variable of the same name) on machines where the plugin lives elsewhere.
+	-->
+	<PropertyGroup>
+		<MaxioSdkProjectPath Condition="'$(MaxioSdkProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProjectPath>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="$(MaxioSdkProjectPath)" />
+	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
 	</ItemGroup>

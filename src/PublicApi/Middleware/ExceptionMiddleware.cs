@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
@@ -32,7 +33,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingProviderException billingException)
+        {
+            // Billing failures carry a caller-safe message; never the provider exception's own text.
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingFailureKind.Rejected => StatusCodes.Status422UnprocessableEntity,
+                BillingFailureKind.Timeout => StatusCodes.Status504GatewayTimeout,
+                _ => StatusCodes.Status502BadGateway
+            };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                StatusCode = context.Response.StatusCode,
+                billingException.Message,
+                billingException.Errors
+            }));
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
