@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +13,8 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Billing;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -22,13 +25,28 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
+using MinimalApi.Endpoint;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpoints();
+// Register this API's endpoint classes only; scanning every loaded assembly also
+// inspects unrelated provider internals when multiple test hosts share a process.
+foreach (var endpoint in typeof(Program).Assembly.GetTypes().Where(t => !t.IsAbstract && typeof(IEndpoint).IsAssignableFrom(t)))
+    builder.Services.AddScoped(typeof(IEndpoint), endpoint);
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddUserSecrets<Program>(optional: true).AddEnvironmentVariables();
+// Support the supplied environment aliases through the required Maxio configuration section.
+var maxioAliases = new Dictionary<string, string?>();
+foreach (var alias in new[] { ("ApiKey", "MAXIO_API_KEY"), ("Subdomain", "MAXIO_SITE_SUBDOMAIN"), ("ProductFamilyHandle", "MAXIO_DEFAULT_PRODUCT_FAMILY") })
+{
+    if (builder.Configuration["Maxio:" + alias.Item1] == null && Environment.GetEnvironmentVariable(alias.Item2) is { } value)
+        maxioAliases["Maxio:" + alias.Item1] = value;
+}
+builder.Configuration.AddInMemoryCollection(maxioAliases);
+builder.Services.AddSubscriptionBilling(builder.Configuration);
+builder.Services.AddHostedService<BillingReconciliationWorker>();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -160,6 +178,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
