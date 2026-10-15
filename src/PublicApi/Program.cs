@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Billing.Maxio;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,13 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+// Subscription billing (Maxio Advanced Billing is the system of record). Fails startup on missing Maxio: settings.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped(typeof(IClaimStore<>), typeof(EfClaimStore<>));
+builder.Services.AddScoped<IBillingSubscriberDirectory, IdentityBillingSubscriberDirectory>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
