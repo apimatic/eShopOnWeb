@@ -3,7 +3,14 @@
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+		<!-- The Maxio SDK ships as source inside the maxio-advanced-billing plugin (it is not on NuGet), so this path is
+		     machine-local. Override with /p:MaxioSdkProject=<path to MaxioAdvancedBilling.csproj> where the plugin lives elsewhere. -->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
@@ -14,6 +21,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
