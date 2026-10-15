@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,23 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionException subscriptionException)
+        {
+            context.Response.StatusCode = subscriptionException.Failure switch
+            {
+                SubscriptionFailure.UserNotFound => (int)HttpStatusCode.Unauthorized,
+                SubscriptionFailure.InvalidPlan => (int)HttpStatusCode.UnprocessableEntity,
+                SubscriptionFailure.InProgress => (int)HttpStatusCode.Conflict,
+                SubscriptionFailure.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            // Only the caller-safe message is written; the SDK exception stays in the logs.
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = subscriptionException.Message
             }.ToString());
         }
         else
