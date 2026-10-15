@@ -49,6 +49,23 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.ToTable("Baskets");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Data.BillingClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ProviderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BillingClaims");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
                 {
                     b.Property<int>("Id")
