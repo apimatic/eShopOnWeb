@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +17,14 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // Non-secret placeholders so the Maxio fail-fast validation passes; tests never reach Maxio.
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "test-only-placeholder",
+            ["Maxio:Subdomain"] = "test-site",
+            ["Maxio:ProductFamilyHandle"] = "test-family"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>

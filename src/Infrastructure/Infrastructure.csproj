@@ -15,6 +15,13 @@
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
 	</ItemGroup>
+	<PropertyGroup>
+		<!-- The Maxio SDK ships as source inside the maxio-advanced-billing plugin (not on NuGet). Override MaxioSdkProject where the plugin lives elsewhere. -->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="$(MaxioSdkProject)" />
+	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
 	</ItemGroup>
