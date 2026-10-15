@@ -28,6 +28,15 @@ public class ExceptionMiddleware
         }
     }
 
+    private static HttpStatusCode? BillingStatusCode(Exception exception) => exception switch
+    {
+        SubscriptionPlanNotOfferedException => HttpStatusCode.BadRequest,
+        SubscriberNotFoundException => HttpStatusCode.Unauthorized,
+        BillingRejectedException => HttpStatusCode.UnprocessableEntity,
+        BillingUnavailableException => HttpStatusCode.ServiceUnavailable,
+        _ => null
+    };
+
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
@@ -39,6 +48,16 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (BillingStatusCode(exception) is HttpStatusCode billingStatus)
+        {
+            // Billing exceptions carry caller-safe messages; provider details stay in the logs.
+            context.Response.StatusCode = (int)billingStatus;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
             }.ToString());
         }
         else

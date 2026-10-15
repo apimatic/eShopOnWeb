@@ -194,6 +194,53 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.SubscriptionAggregate.SubscriptionEnrollment", b =>
+                {
+                    b.Property<string>("EnrollmentKey")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int?>("BillingCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillingSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CustomerReference")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("PlanHandle")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("SubscriptionReference")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("EnrollmentKey");
+
+                    b.ToTable("SubscriptionEnrollments");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
                 {
                     b.HasOne("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", null)
