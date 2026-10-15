@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Http;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -20,6 +21,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
+using Microsoft.eShopWeb.PublicApi.Subscriptions;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
@@ -45,6 +51,36 @@ builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 
+builder.Services.AddOptions<MaxioSettings>()
+    .Bind(builder.Configuration.GetRequiredSection("Maxio"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+var maxioSettings = builder.Configuration.GetRequiredSection("Maxio").Get<MaxioSettings>()!;
+if (string.IsNullOrWhiteSpace(maxioSettings.ApiKey) || string.IsNullOrWhiteSpace(maxioSettings.Subdomain) || string.IsNullOrWhiteSpace(maxioSettings.ProductFamilyHandle))
+    throw new InvalidOperationException("Maxio:ApiKey, Maxio:Subdomain, and Maxio:ProductFamilyHandle must be configured.");
+
+builder.Services.AddHttpClient("MaxioAdvancedBilling", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        Environment = string.Equals(settings.Environment, "EU", StringComparison.OrdinalIgnoreCase) ? ServerEnvironment.Eu : ServerEnvironment.Us,
+        BasicAuth = new BasicAuthCredentials { Username = settings.ApiKey, Password = "x" },
+        Retry = RetryOptions.Disabled() with { Timeout = TimeSpan.FromSeconds(30) },
+        Logging = new LoggingOptions { LoggerFactory = sp.GetRequiredService<ILoggerFactory>(), LogRequestBody = false, LogRequestHeaders = false, LogResponseHeaders = false }
+    };
+    options.Server.Production.Us.Site = settings.Subdomain;
+    options.Server.Production.Eu.Site = settings.Subdomain;
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Production.Us.BaseUrl = settings.BaseUrl;
+        options.Server.Production.Eu.BaseUrl = settings.BaseUrl;
+    }
+    return new MaxioAdvancedBillingClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("MaxioAdvancedBilling"), options);
+});
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
@@ -55,6 +91,8 @@ var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(config =>
 {
@@ -67,6 +105,12 @@ builder.Services.AddAuthentication(config =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+});
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 const string CORS_POLICY = "CorsPolicy";
@@ -160,6 +204,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
