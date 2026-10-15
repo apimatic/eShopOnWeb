@@ -5,6 +5,16 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
+	<!--
+		The Maxio Advanced Billing .NET SDK is not published to NuGet; it ships as source inside the
+		maxio-advanced-billing Claude Code plugin. The default path below assumes the plugin is installed
+		next to this repository clone. Override it per machine/CI with
+		  dotnet build -p:MaxioAdvancedBillingSdkProject=<path-to>/MaxioAdvancedBilling.csproj
+	-->
+	<PropertyGroup>
+		<MaxioAdvancedBillingSdkProject Condition="'$(MaxioAdvancedBillingSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioAdvancedBillingSdkProject>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
@@ -14,8 +24,12 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioAdvancedBillingSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
+	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="IntegrationTests" />
 	</ItemGroup>
 </Project>
