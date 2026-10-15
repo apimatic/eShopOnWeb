@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>Microsoft.eShopWeb.Infrastructure.Maxio</RootNamespace>
+		<Nullable>enable</Nullable>
+		<!--
+		  The Maxio Advanced Billing .NET SDK is not published to NuGet; it ships as source inside the
+		  maxio-advanced-billing Claude Code plugin. Point MaxioSdkProject at your copy of
+		  <plugin-root>/sdk/dotnet/src/MaxioAdvancedBilling/MaxioAdvancedBilling.csproj
+		  (e.g. dotnet build -p:MaxioSdkProject=...) when it is not at the default location below.
+		-->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProject)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Infrastructure.Maxio.Tests" />
+	</ItemGroup>
+
+</Project>
