@@ -14,6 +14,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<ProjectReference Include="..\..\..\codex-home\plugins\cache\maxio-subagent-exp\maxio-advanced-billing\0.1.0\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

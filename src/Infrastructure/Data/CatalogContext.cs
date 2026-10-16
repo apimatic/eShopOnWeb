@@ -18,10 +18,23 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<Microsoft.eShopWeb.Infrastructure.Billing.BillingClaim> BillingClaims { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        builder.Entity<Microsoft.eShopWeb.Infrastructure.Billing.BillingClaim>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasMaxLength(64);
+            b.Property(x => x.Scope).HasMaxLength(64);
+            b.Property(x => x.UserId).HasMaxLength(450);
+            b.Property(x => x.CustomerReference).HasMaxLength(80);
+            b.Property(x => x.Reference).HasMaxLength(80);
+            b.Property(x => x.ProductHandle).HasMaxLength(255);
+            b.Property(x => x.State).HasMaxLength(20);
+            b.HasIndex(x => new { x.Scope, x.UserId });
+        });
     }
 }

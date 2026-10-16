@@ -31,6 +31,57 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
             modelBuilder.HasSequence("catalog_type_hilo")
                 .IncrementsBy(10);
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Billing.BillingClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CustomerReference")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ProductHandle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("ProviderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Scope", "UserId");
+
+                    b.ToTable("BillingClaims");
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", b =>
                 {
                     b.Property<int>("Id")

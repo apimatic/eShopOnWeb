@@ -32,7 +32,18 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BadHttpRequestException badRequest)
+        {
+            // Development enables throwing on minimal-API binding failures. Do not expose
+            // framework messages or convert invalid JSON/unknown members into a server error.
+            context.Response.StatusCode = badRequest.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The request body or parameters are invalid."
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
