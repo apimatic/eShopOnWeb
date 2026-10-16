@@ -9,6 +9,8 @@ Sample ASP.NET Core reference application, powered by Microsoft, demonstrating a
 
 A list of Frequently Asked Questions about this repository can be found [here](https://github.com/dotnet-architecture/eShopOnWeb/wiki/Frequently-Asked-Questions).
 
+Recurring subscription billing is available through PublicApi alongside the existing checkout flow. See [Maxio setup and verification](docs/subscription-billing.md).
+
 ## Overview Video
 
 [Steve "ardalis" Smith](https://twitter.com/ardalis) recorded [a live stream providing an overview of the eShopOnWeb reference app](https://www.youtube.com/watch?v=vRZ8ucGac8M&ab_channel=Ardalis) in October 2020. 

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup> 
+    <MaxioSdkRoot Condition="'$(MaxioSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\codex-home\plugins\cache\maxio-subagent-exp\maxio-advanced-billing\0.1.0\sdk\dotnet</MaxioSdkRoot>
     <RootNamespace>Microsoft.eShopWeb.PublicApi</RootNamespace>
     <UserSecretsId>b55af60a-85a4-41a4-adbe-de38f59477d4</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
@@ -32,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="$(MaxioSdkRoot)\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>

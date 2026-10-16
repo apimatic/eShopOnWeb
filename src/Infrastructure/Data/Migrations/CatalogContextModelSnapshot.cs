@@ -31,6 +31,19 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
             modelBuilder.HasSequence("catalog_type_hilo")
                 .IncrementsBy(10);
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Data.BillingClaim", b =>
+            {
+                b.Property<string>("Id").HasMaxLength(80).HasColumnType("nvarchar(80)");
+                b.Property<string>("Kind").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                b.Property<string>("CustomerReference").IsRequired().HasMaxLength(80).HasColumnType("nvarchar(80)");
+                b.Property<string>("ProductHandle").HasMaxLength(255).HasColumnType("nvarchar(255)");
+                b.Property<int?>("ProviderId").HasColumnType("int");
+                b.Property<DateTimeOffset>("CreatedAt").HasColumnType("datetimeoffset");
+                b.Property<DateTimeOffset?>("LastCheckedAt").HasColumnType("datetimeoffset");
+                b.HasKey("Id");
+                b.ToTable("BillingClaims");
+            });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", b =>
                 {
                     b.Property<int>("Id")
