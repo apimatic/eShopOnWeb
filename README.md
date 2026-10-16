@@ -171,3 +171,7 @@ We have some great contributions from the community, and while these aren't main
 [eShopOnWeb VB.NET](https://github.com/VBAndCs/eShopOnWeb_VB.NET) by Mohammad Hamdy Ghanem
 
 [FShopOnWeb](https://github.com/NitroDevs/FShopOnWeb) An F# take on eShopOnWeb by Sean G. Wright and Kyle McMaster
+
+## Subscription billing
+
+PublicApi now supports recurring subscriptions alongside cart checkout through the installed Maxio Advanced Billing plugin SDK. See [the subscription guide](docs/subscriptions.md) for configuration, endpoint contracts, a repeatable sandbox verification script, and deployment/recovery details.

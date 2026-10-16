@@ -3,6 +3,8 @@
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+		<!-- Override this path when the Maxio plugin is installed elsewhere. -->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\codex-home\plugins\cache\maxio-subagent-exp\maxio-advanced-billing\0.1.0\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -14,6 +16,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

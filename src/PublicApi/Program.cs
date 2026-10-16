@@ -12,6 +12,8 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Billing;
+using Microsoft.eShopWeb.PublicApi.SubscriptionEndpoints;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -25,7 +27,13 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpoints();
+// Limit discovery to our endpoints. Scanning every loaded dependency can fail on
+// framework-specific types when the host is created repeatedly (for example in tests).
+foreach (var type in typeof(Program).Assembly.GetTypes())
+{
+    if (!type.IsAbstract && !type.IsInterface && typeof(MinimalApi.Endpoint.IEndpoint).IsAssignableFrom(type))
+        builder.Services.AddScoped(typeof(MinimalApi.Endpoint.IEndpoint), type);
+}
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -84,6 +92,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Services.AddSubscriptionBilling(builder.Configuration);
+builder.Services.AddHostedService<BillingReconciliationWorker>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +170,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

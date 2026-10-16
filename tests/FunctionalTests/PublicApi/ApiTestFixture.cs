@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,6 +21,14 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
         {
+            services.Configure<MaxioSettings>(settings =>
+            {
+                settings.ApiKey = "test-only-not-a-real-key";
+                settings.Subdomain = "test-only";
+                settings.ProductFamilyHandle = "fixture-family";
+                settings.BaseUrl = "https://billing.invalid";
+                settings.Environment = "US";
+            });
             services.AddScoped(sp =>
             {
                 // Replace SQLite with in-memory database for tests
