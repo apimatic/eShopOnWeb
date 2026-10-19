@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Net;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
@@ -9,6 +11,9 @@ namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
 public class ExceptionMiddleware
 {
+    // application/json body, never embedded in HTML: plain apostrophes/quotes in messages are fine.
+    private static readonly JsonSerializerOptions BillingErrorJsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private readonly RequestDelegate _next;
 
     public ExceptionMiddleware(RequestDelegate next)
@@ -32,7 +37,29 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingFailureKind.InvalidRequest => (int)HttpStatusCode.BadRequest,
+                BillingFailureKind.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                BillingFailureKind.Conflict => (int)HttpStatusCode.Conflict,
+                _ => (int)HttpStatusCode.ServiceUnavailable
+            };
+            if (billingException.Kind is BillingFailureKind.Conflict or BillingFailureKind.Unavailable)
+            {
+                context.Response.Headers.RetryAfter = "5";
+            }
+
+            // Only the caller-safe message and provider validation messages; never SDK/exception internals.
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                StatusCode = context.Response.StatusCode,
+                billingException.Message,
+                billingException.Errors
+            }, BillingErrorJsonOptions));
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()

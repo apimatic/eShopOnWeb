@@ -5,6 +5,12 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
+	<PropertyGroup>
+		<!-- The Maxio Advanced Billing .NET SDK ships as source inside the maxio-advanced-billing Claude Code plugin
+		     (it is not on NuGet). Override with -p:MaxioSdkRoot=<plugin-root>/sdk/dotnet when the plugin lives elsewhere. -->
+		<MaxioSdkRoot Condition="'$(MaxioSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet</MaxioSdkRoot>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
@@ -14,6 +20,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkRoot)\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
