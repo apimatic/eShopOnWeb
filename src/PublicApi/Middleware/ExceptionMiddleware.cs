@@ -41,6 +41,16 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // Carries a caller-safe message; provider exception detail stays in the server logs.
+            context.Response.StatusCode = billingException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
