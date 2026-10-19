@@ -1,8 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>		
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<!--
+	  Maxio Advanced Billing .NET SDK. It is not on NuGet: it ships as source inside the
+	  maxio-advanced-billing plugin and is referenced where it sits (never copied into this repo).
+	  The default path assumes the plugin marketplace is checked out next to this repository.
+	  Re-point it with `dotnet build -p:MaxioSdkProjectPath=<path to MaxioAdvancedBilling.csproj>`
+	  or a MaxioSdkProjectPath environment variable. Building the SDK requires the .NET 10 SDK (C# 14).
+	-->
+	<PropertyGroup>
+		<MaxioSdkProjectPath Condition="'$(MaxioSdkProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProjectPath>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -14,6 +25,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProjectPath)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

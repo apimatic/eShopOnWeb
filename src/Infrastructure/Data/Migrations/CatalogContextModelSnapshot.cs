@@ -194,6 +194,42 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("Microsoft.eShopWeb.Infrastructure.Billing.SubscriptionEnrollment", b =>
+                {
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int?>("BillingCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillingSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("ClaimedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PlanHandle")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubscriptionReference")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("UserName");
+
+                    b.ToTable("SubscriptionEnrollments", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
                 {
                     b.HasOne("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", null)
