@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
@@ -24,7 +25,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
@@ -41,6 +42,19 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (MapBillingFailure(exception) is var (status, message, retryAfterSeconds) && status != 0)
+        {
+            context.Response.StatusCode = status;
+            if (retryAfterSeconds is int seconds)
+            {
+                context.Response.Headers.RetryAfter = seconds.ToString();
+            }
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = status,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -51,4 +65,22 @@ public class ExceptionMiddleware
             }.ToString());
         }
     }
+
+    /// <summary>
+    /// One mapping for every billing failure. Provider 4xx validation is the caller's to fix; our
+    /// credentials/quota/configuration and provider outages are not, so they map to 5xx.
+    /// </summary>
+    private static (int Status, string Message, int? RetryAfterSeconds) MapBillingFailure(Exception exception) => exception switch
+    {
+        UnknownSubscriptionPlanException e => (StatusCodes.Status400BadRequest, e.Message, null),
+        SubscriptionConflictException e => (StatusCodes.Status409Conflict, e.Message, null),
+        BillingOutcomeUnknownException => (StatusCodes.Status503ServiceUnavailable,
+            "Your request is being confirmed with the billing provider. Please check again shortly.", 5),
+        BillingProviderException { Kind: BillingFailureKind.Rejected } e => (StatusCodes.Status422UnprocessableEntity,
+            e.ProviderMessages.Count > 0 ? $"{e.Message} {string.Join(" ", e.ProviderMessages.Select(m => m.TrimEnd('.') + "."))}" : e.Message, null),
+        BillingProviderException { Kind: BillingFailureKind.Throttled } e => (StatusCodes.Status503ServiceUnavailable, e.Message, 10),
+        BillingProviderException { Kind: BillingFailureKind.Unavailable } e => (StatusCodes.Status503ServiceUnavailable, e.Message, 5),
+        BillingProviderException e => (StatusCodes.Status502BadGateway, e.Message, null),
+        _ => (0, string.Empty, null)
+    };
 }
