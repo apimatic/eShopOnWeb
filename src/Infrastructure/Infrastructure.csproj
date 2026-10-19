@@ -12,8 +12,15 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
+	<PropertyGroup>
+		<!-- The Maxio Advanced Billing .NET SDK is not published to NuGet; it ships as source with the
+		     maxio-advanced-billing plugin. Override MaxioSdkProject (e.g. dotnet build -p:MaxioSdkProject=...)
+		     when the plugin is installed somewhere else on your machine. -->
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

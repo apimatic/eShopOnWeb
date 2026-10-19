@@ -32,7 +32,23 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingFailureKind.InvalidRequest => (int)HttpStatusCode.BadRequest,
+                BillingFailureKind.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                BillingFailureKind.Conflict => (int)HttpStatusCode.Conflict,
+                _ => (int)HttpStatusCode.ServiceUnavailable
+            };
+            // BillingException messages are written to be caller-safe; provider payloads stay in the logs.
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billingException.Message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
