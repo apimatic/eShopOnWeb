@@ -36,6 +36,27 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    Maxio Advanced Billing .NET SDK. It is not published to NuGet: it ships as source inside the
+    maxio-advanced-billing Claude Code plugin, and this project builds against it where it sits.
+    The default path is MACHINE-LOCAL (it points into the plugin's install directory next to this repo).
+    On another machine or CI, point it at that machine's copy:
+      dotnet build -p:MaxioSdkProjectPath=<path-to>/sdk/dotnet/src/MaxioAdvancedBilling/MaxioAdvancedBilling.csproj
+    Never copy the SDK source into this repository.
+  -->
+  <PropertyGroup>
+    <MaxioSdkProjectPath Condition="'$(MaxioSdkProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProjectPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MaxioSdkProjectPath)" />
+  </ItemGroup>
+
+  <Target Name="EnsureMaxioSdkProjectExists" BeforeTargets="PrepareForBuild;ResolveProjectReferences;_GenerateRestoreProjectSpec;CollectPackageReferences">
+    <Error Condition="!Exists('$(MaxioSdkProjectPath)')"
+           Text="Maxio Advanced Billing SDK project not found at '$(MaxioSdkProjectPath)'. Install the maxio-advanced-billing plugin or pass -p:MaxioSdkProjectPath=&lt;path to MaxioAdvancedBilling.csproj&gt;." />
+  </Target>
+
 
 </Project>
 
