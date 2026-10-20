@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +17,16 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // Non-secret placeholders so the PublicApi's Maxio settings validation passes; BaseUrl points at a
+        // closed local port so nothing can reach a real billing site from these tests.
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "test-placeholder-not-a-real-key",
+            ["Maxio:Subdomain"] = "test-placeholder-site",
+            ["Maxio:ProductFamilyHandle"] = "test-placeholder-family",
+            ["Maxio:BaseUrl"] = "http://127.0.0.1:9/"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>

@@ -36,6 +36,27 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    Maxio Advanced Billing .NET SDK. It is not published to NuGet: it ships as source inside the
+    maxio-advanced-billing Claude Code plugin and is referenced where it sits (never copied into this repo).
+    The default path assumes the plugin marketplace is checked out next to this repository. Override it on
+    another machine or in CI with:  dotnet build -p:MaxioAdvancedBillingSdkProject=<path to MaxioAdvancedBilling.csproj>
+    (or set the MaxioAdvancedBillingSdkProject environment variable). Building it requires the .NET 10 SDK
+    (it uses C# 14); global.json rolls forward to it.
+  -->
+  <PropertyGroup>
+    <MaxioAdvancedBillingSdkProject Condition="'$(MaxioAdvancedBillingSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioAdvancedBillingSdkProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MaxioAdvancedBillingSdkProject)" />
+  </ItemGroup>
+
+  <Target Name="CheckMaxioAdvancedBillingSdkProject" BeforeTargets="CollectPackageReferences;ResolveProjectReferences">
+    <Error Condition="!Exists('$(MaxioAdvancedBillingSdkProject)')"
+           Text="The Maxio Advanced Billing SDK project was not found at '$(MaxioAdvancedBillingSdkProject)'. Install the maxio-advanced-billing plugin and pass -p:MaxioAdvancedBillingSdkProject=&lt;path to MaxioAdvancedBilling.csproj&gt;." />
+  </Target>
+
 
 </Project>
 
