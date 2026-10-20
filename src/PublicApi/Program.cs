@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Maxio;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -36,6 +37,8 @@ Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configu
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
         .AddDefaultTokenProviders();
+
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));

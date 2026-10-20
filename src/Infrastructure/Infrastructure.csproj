@@ -13,7 +13,12 @@
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
 	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- Machine-local: the Maxio SDK ships as source inside the maxio-advanced-billing plugin. Re-point if the plugin lives elsewhere. -->
+		<ProjectReference Include="..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
