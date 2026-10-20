@@ -41,6 +41,33 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionPlanNotOfferedException planNotOfferedException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = planNotOfferedException.Message
+            }.ToString());
+        }
+        else if (exception is BillingProviderException billingException)
+        {
+            // Our credentials, quota or the provider being down are not the caller's fault: 503/502, never 401/429.
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingFailureKind.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                BillingFailureKind.Unavailable => (int)HttpStatusCode.ServiceUnavailable,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            var message = billingException.Errors.Count > 0
+                ? $"{billingException.Message} {string.Join(" ", billingException.Errors)}"
+                : billingException.Message;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
