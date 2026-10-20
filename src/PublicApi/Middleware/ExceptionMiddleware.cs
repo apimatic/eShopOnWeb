@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.SubscriptionBilling;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,19 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionBillingException billingException)
+        {
+            // Message is caller-safe by construction; provider error detail (if any) is appended.
+            context.Response.StatusCode = (int)billingException.StatusCode;
+            var message = billingException.Errors.Count == 0
+                ? billingException.Message
+                : $"{billingException.Message} {string.Join(" ", billingException.Errors)}";
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
             }.ToString());
         }
         else
