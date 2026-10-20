@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Maxio Advanced Billing .NET SDK location.
+    The SDK is not published to NuGet; it ships as source inside the maxio-advanced-billing plugin
+    (sdk/dotnet/ under the plugin root) and is consumed as a ProjectReference (never copied into this repo).
+    Default: the plugin checked out beside this repository (<parent>/marketplace/plugins/maxio-advanced-billing).
+    Override per machine/CI without editing any project file, either with
+      dotnet build /p:MaxioSdkProjectPath=<path-to>/MaxioAdvancedBilling.csproj
+    or by setting the environment variable MaxioSdkProjectPath to that path.
+    The SDK project uses C# 14, so it must be built with the .NET 10 SDK (see global.json rollForward).
+  -->
+  <PropertyGroup>
+    <MaxioSdkProjectPath Condition="'$(MaxioSdkProjectPath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj'))</MaxioSdkProjectPath>
+  </PropertyGroup>
+</Project>
