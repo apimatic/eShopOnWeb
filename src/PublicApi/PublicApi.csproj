@@ -31,7 +31,13 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!-- Maxio Advanced Billing SDK source shipped with the maxio-advanced-billing plugin. Override with -p:MaxioSdkProject=<path to MaxioAdvancedBilling.csproj> -->
+    <MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+  </PropertyGroup>
+
   <ItemGroup>
+    <ProjectReference Include="$(MaxioSdkProject)" />
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>

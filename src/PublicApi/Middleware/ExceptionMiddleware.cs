@@ -32,23 +32,22 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (status, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException => (HttpStatusCode.Conflict, exception.Message),
+            SubscriptionInProgressException => (HttpStatusCode.Conflict, exception.Message),
+            PlanNotOfferedException => (HttpStatusCode.NotFound, exception.Message),
+            BillingRejectedException => (HttpStatusCode.BadRequest, exception.Message),
+            BillingUnavailableException => (HttpStatusCode.BadGateway, exception.Message),
+            OperationCanceledException => (HttpStatusCode.ServiceUnavailable, "The request timed out or was cancelled."),
+            _ => (HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = (int)status;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
