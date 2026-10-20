@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.PublicApi.AuthEndpoints;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -16,6 +18,16 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // The host refuses to start without Maxio settings; these placeholders are not credentials and
+        // point at an unroutable host, so nothing here can reach a real billing site.
+        builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "test-placeholder-not-a-secret",
+            ["Maxio:Subdomain"] = "test-site",
+            ["Maxio:ProductFamilyHandle"] = "eshop-subscribe",
+            ["Maxio:BaseUrl"] = "https://maxio.test.invalid"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
