@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -32,6 +33,26 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Map the MAXIO_* environment aliases onto the Maxio:* keys. An explicit Maxio:* value (user-secrets, appsettings,
+// Maxio__* env var) always wins; an alias only fills a key that is still blank.
+var maxioAliases = new Dictionary<string, string?>();
+foreach (var (alias, maxioKey) in new[]
+{
+    ("MAXIO_API_KEY", "Maxio:ApiKey"),
+    ("MAXIO_SITE_SUBDOMAIN", "Maxio:Subdomain"),
+    ("MAXIO_DEFAULT_PRODUCT_FAMILY", "Maxio:ProductFamilyHandle")
+})
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration[maxioKey]) && !string.IsNullOrWhiteSpace(builder.Configuration[alias]))
+    {
+        maxioAliases[maxioKey] = builder.Configuration[alias];
+    }
+}
+builder.Configuration.AddInMemoryCollection(maxioAliases);
+
+// Fails the host at startup when Maxio configuration is missing or invalid.
+builder.Services.AddMaxioBilling(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()
