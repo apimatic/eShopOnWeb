@@ -14,6 +14,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<!-- The Maxio SDK is not on NuGet: it ships as source inside the maxio-advanced-billing plugin (sibling checkout of this repo). Re-point if the plugin lives elsewhere. -->
+		<ProjectReference Include="..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
