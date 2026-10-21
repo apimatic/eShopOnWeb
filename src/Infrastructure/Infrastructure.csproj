@@ -12,8 +12,16 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
 	</ItemGroup>
+	<PropertyGroup>
+		<!-- The Maxio Advanced Billing .NET SDK ships as source inside the maxio-advanced-billing Claude Code plugin
+		     (it is not on NuGet). The default path assumes the plugin marketplace sits next to this clone; on another
+		     machine or CI, override it: dotnet build -p:MaxioSdkProjectPath=<plugin-root>/sdk/dotnet/src/MaxioAdvancedBilling/MaxioAdvancedBilling.csproj
+		     or set the MaxioSdkProjectPath environment variable. -->
+		<MaxioSdkProjectPath Condition="'$(MaxioSdkProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProjectPath>
+	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkProjectPath)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
