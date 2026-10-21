@@ -9,6 +9,7 @@ using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.Infrastructure.Billing.Maxio;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
@@ -25,6 +26,10 @@ using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// MAXIO_* environment variables, when present, are the lowest-priority values of the Maxio: section;
+// user-secrets (development), Maxio__* variables and the host's secret store override them.
+builder.Configuration.AddMaxioEnvironmentVariableFallback();
+
 builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
@@ -32,6 +37,9 @@ builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+
+// Recurring-subscription billing with Maxio. Throws here, at startup, when a Maxio: setting is missing.
+builder.Services.AddMaxioSubscriptionBilling(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

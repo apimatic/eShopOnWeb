@@ -1,9 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>		
+	<PropertyGroup>
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
+
+	<PropertyGroup>
+		<!--
+		  The Maxio Advanced Billing .NET SDK is not published as a package; it is built from source where the
+		  maxio-advanced-billing plugin keeps it. Override MaxioSdkRoot (an MSBuild property or environment
+		  variable) to point at the SDK folder (the one holding sdk-map.md) on another machine or CI runner.
+		-->
+		<MaxioSdkRoot Condition="'$(MaxioSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet</MaxioSdkRoot>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
@@ -14,6 +27,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+		<ProjectReference Include="$(MaxioSdkRoot)\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
