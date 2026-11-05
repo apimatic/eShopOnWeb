@@ -34,6 +34,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <!-- Maxio SDK ships in the maxio-advanced-billing plugin; machine-local path, re-point if the plugin lives elsewhere. -->
+    <ProjectReference Include="..\..\..\marketplace\plugins\maxio-advanced-billing\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj" />
   </ItemGroup>
 
 
