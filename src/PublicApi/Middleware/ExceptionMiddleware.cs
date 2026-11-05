@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Subscriptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,27 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException or SubscriptionRejectedException)
+        {
+            context.Response.StatusCode = exception is SubscriptionPlanNotFoundException
+                ? (int)HttpStatusCode.NotFound
+                : (int)HttpStatusCode.UnprocessableEntity;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
+            }.ToString());
+        }
+        else if (exception is BillingUnavailableException)
+        {
+            // Detail stays in the logs; callers get a generic message.
+            context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "Subscription billing is temporarily unavailable."
             }.ToString());
         }
         else
