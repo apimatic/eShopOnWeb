@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.ApplicationCore.Subscriptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,20 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is SubscriptionPlanNotFoundException or BillingRejectedException or BillingUnavailableException)
+        {
+            context.Response.StatusCode = exception switch
+            {
+                SubscriptionPlanNotFoundException => (int)HttpStatusCode.NotFound,
+                BillingRejectedException => (int)HttpStatusCode.UnprocessableEntity,
+                _ => (int)HttpStatusCode.ServiceUnavailable
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = exception.Message
             }.ToString());
         }
         else
