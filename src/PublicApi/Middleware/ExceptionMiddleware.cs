@@ -41,6 +41,23 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionException subscriptionException)
+        {
+            // Caller-safe messages only; provider details are logged by the service, never returned.
+            context.Response.StatusCode = subscriptionException.Failure switch
+            {
+                SubscriptionFailure.InvalidPlan => (int)HttpStatusCode.BadRequest,
+                SubscriptionFailure.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                SubscriptionFailure.Unconfirmed => (int)HttpStatusCode.ServiceUnavailable,
+                SubscriptionFailure.Timeout => (int)HttpStatusCode.GatewayTimeout,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = subscriptionException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
