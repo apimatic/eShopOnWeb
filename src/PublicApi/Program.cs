@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.BillingEndpoints;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,11 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
+
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<MaxioClientProvider>();
+builder.Services.AddScoped<BillingService>();
 
 builder.Services.AddMemoryCache();
 
