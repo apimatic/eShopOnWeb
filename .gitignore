@@ -260,3 +260,6 @@ pub/
 .devcontainer
 
 .azure
+
+# [provision] task-7 content arm docs: on disk for the agent, never committed
+/sdk/maxio/
