@@ -51,6 +51,10 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Maxio billing: settings come from the "Maxio:" configuration section (user-secrets / environment).
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Billing.MaxioBillingService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
