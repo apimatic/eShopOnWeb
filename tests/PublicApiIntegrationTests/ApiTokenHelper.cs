@@ -18,6 +18,8 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        public static string GetUserToken(string userName) => CreateToken(userName, new string[] { });
+
         public static string GetNormalUserToken()
         {
             string userName = "demouser@microsoft.com";
