@@ -18,6 +18,8 @@ public class CatalogContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<BasketItem> BasketItems { get; set; }
+    public DbSet<MaxioCustomerLink> MaxioCustomerLinks { get; set; }
+    public DbSet<MaxioSubscriptionClaim> MaxioSubscriptionClaims { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
