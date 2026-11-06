@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.PublicApi.Billing;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -50,6 +51,12 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Subscription billing (Maxio). Settings come from the "Maxio:" section; the client is built lazily.
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<MaxioClientFactory>();
+builder.Services.AddScoped<MaxioBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
