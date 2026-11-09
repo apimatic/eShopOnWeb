@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +85,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
+builder.Services.AddPayments(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -140,6 +143,8 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        await scopedProvider.GetRequiredService<PaymentsContext>().InitializePaymentsAsync();
     }
     catch (Exception ex)
     {
