@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Stax;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,9 @@ public static class Dependencies
          
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseInMemoryDatabase("Identity"));
+
+            services.AddDbContext<StaxContext>(options =>
+                options.UseInMemoryDatabase("Stax"));
         }
         else
         {
@@ -35,6 +39,11 @@ public static class Dependencies
             // Add Identity DbContext
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
+
+            // Stax payment data lives next to the catalog data, with its own migrations history table
+            services.AddDbContext<StaxContext>(options =>
+                options.UseSqlServer(configuration.GetConnectionString("CatalogConnection"),
+                    sql => sql.MigrationsHistoryTable("__StaxMigrationsHistory")));
         }
     }
 }
