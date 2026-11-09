@@ -1,4 +1,4 @@
-﻿using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -24,6 +24,11 @@ namespace PublicApiIntegrationTests
             string[] roles = { };
 
             return CreateToken(userName, roles);
+        }
+
+        public static string GetUserToken(string userName)
+        {
+            return CreateToken(userName, new string[] { });
         }
 
         private static string CreateToken(string userName, string[] roles)
