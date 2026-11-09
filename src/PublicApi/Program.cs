@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -12,6 +12,10 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.eShopWeb.PublicApi.Stax;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -50,6 +54,24 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Stax payments. Settings come from the "Stax:" section (user-secrets, environment, ...).
+// STAX_API_KEY / STAX_PLATFORM_API_KEY are accepted when the section keys are not set.
+builder.Configuration.AddEnvironmentVariables();
+builder.Services.Configure<StaxSettings>(builder.Configuration.GetSection(StaxSettings.SectionName));
+builder.Services.PostConfigure<StaxSettings>(s =>
+{
+    if (string.IsNullOrWhiteSpace(s.ApiKey)) s.ApiKey = Environment.GetEnvironmentVariable("STAX_API_KEY");
+    if (string.IsNullOrWhiteSpace(s.PlatformApiKey)) s.PlatformApiKey = Environment.GetEnvironmentVariable("STAX_PLATFORM_API_KEY");
+});
+builder.Services.AddHttpClient<StaxClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<ShopperService>();
+builder.Services.AddScoped<PaymentMethodService>();
+builder.Services.AddScoped<OrderPaymentService>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<InvoiceScheduleService>();
+builder.Services.AddScoped<SellerService>();
+builder.Services.AddHostedService<PaymentReconciliationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -140,6 +162,10 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        var staxContext = scopedProvider.GetRequiredService<StaxContext>();
+        if (staxContext.Database.IsSqlServer()) staxContext.Database.Migrate();
+        else staxContext.Database.EnsureCreated();
     }
     catch (Exception ex)
     {
