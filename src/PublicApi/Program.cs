@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.eShopWeb.PublicApi.Stax;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,15 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<StaxSettings>(builder.Configuration.GetSection(StaxSettings.SECTION));
+builder.Services.AddHttpClient<StaxClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<ShopperContext>();
+builder.Services.AddScoped<PaymentMethodService>();
+builder.Services.AddScoped<OrderPaymentService>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<BackOfficeService>();
+builder.Services.AddHostedService<PaymentReconciliationService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
