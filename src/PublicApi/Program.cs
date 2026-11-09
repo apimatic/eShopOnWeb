@@ -5,6 +5,7 @@ using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -85,6 +87,22 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// Stax payments: settings come from the "Stax:" section (user-secrets in development).
+builder.Services.Configure<StaxSettings>(builder.Configuration.GetSection(StaxSettings.SECTION));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<StaxService>();
+if (builder.Configuration["UseOnlyInMemoryDatabase"] is { } inMemory && bool.Parse(inMemory))
+{
+    builder.Services.AddDbContext<PaymentsContext>(o => o.UseInMemoryDatabase("Payments"));
+}
+else
+{
+    builder.Services.AddDbContext<PaymentsContext>(o =>
+        o.UseSqlServer(builder.Configuration.GetConnectionString("PaymentsConnection")));
+}
+builder.Services.AddScoped<PaymentsService>();
+builder.Services.AddHostedService<StaxSyncService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -140,6 +158,9 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        var paymentsContext = scopedProvider.GetRequiredService<PaymentsContext>();
+        await paymentsContext.Database.EnsureCreatedAsync();
     }
     catch (Exception ex)
     {
