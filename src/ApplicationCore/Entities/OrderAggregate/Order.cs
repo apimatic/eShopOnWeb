@@ -35,6 +35,16 @@ public class Order : BaseEntity, IAggregateRoot
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
+    /// <summary>
+    /// Removes the buyer's personal data from the order (used when a shopper closes their account).
+    /// </summary>
+    public void Anonymize(string anonymousBuyerId)
+    {
+        Guard.Against.NullOrEmpty(anonymousBuyerId, nameof(anonymousBuyerId));
+        BuyerId = anonymousBuyerId;
+        ShipToAddress = new Address(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+    }
+
     public decimal Total()
     {
         var total = 0m;

@@ -51,6 +51,20 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Stax payments (plain HTTP, no SDK). Settings come from the "Stax:" section (user-secrets / environment).
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Stax.StaxOptions>(builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Stax.StaxOptions.SECTION));
+builder.Services.PostConfigure<Microsoft.eShopWeb.PublicApi.Stax.StaxOptions>(o =>
+{
+    o.ApiKey ??= Environment.GetEnvironmentVariable("STAX_API_KEY");
+    o.PlatformApiKey ??= Environment.GetEnvironmentVariable("STAX_PLATFORM_API_KEY");
+});
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Stax.StaxClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Stax.ShopperPayments>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Stax.OrderPayments>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Stax.BackOffice>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Stax.AccountCloser>();
+builder.Services.AddHostedService<Microsoft.eShopWeb.PublicApi.Stax.PaymentReconciler>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
