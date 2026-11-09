@@ -14,6 +14,9 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +29,9 @@ using MinimalApi.Endpoint.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpoints();
+
+// The Stax credentials come from user-secrets (Stax:ApiKey, Stax:PlatformApiKey) or the environment; never from files in the repo.
+builder.Configuration.AddUserSecrets<Program>(optional: true);
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
@@ -50,6 +56,25 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<StaxOptions>(builder.Configuration.GetSection(StaxOptions.SECTION));
+builder.Services.AddHttpClient<StaxClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+if (builder.Configuration.GetValue<bool>("UseOnlyInMemoryDatabase"))
+{
+    builder.Services.AddDbContext<PaymentsDbContext>(o => o.UseInMemoryDatabase("StaxPayments"));
+}
+else
+{
+    builder.Services.AddDbContext<PaymentsDbContext>(o =>
+        o.UseSqlServer(builder.Configuration.GetConnectionString("PaymentsConnection")));
+}
+builder.Services.AddScoped<ShopperService>();
+builder.Services.AddScoped<PaymentMethodService>();
+builder.Services.AddScoped<ShopOrderService>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<InvoiceScheduleService>();
+builder.Services.AddScoped<SellerService>();
+builder.Services.AddHostedService<PaymentSyncService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -133,6 +158,8 @@ using (var scope = app.Services.CreateScope())
     var scopedProvider = scope.ServiceProvider;
     try
     {
+        await scopedProvider.GetRequiredService<PaymentsDbContext>().Database.EnsureCreatedAsync();
+
         var catalogContext = scopedProvider.GetRequiredService<CatalogContext>();
         await CatalogContextSeed.SeedAsync(catalogContext, app.Logger);
 
