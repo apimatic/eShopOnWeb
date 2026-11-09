@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Stax;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,24 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is PaymentRequestException requestException)
+        {
+            context.Response.StatusCode = (int)requestException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = requestException.Message
+            }.ToString());
+        }
+        else if (exception is StaxApiException staxException)
+        {
+            context.Response.StatusCode = (int)staxException.ResponseStatus;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = staxException.Message
             }.ToString());
         }
         else
