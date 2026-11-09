@@ -14,6 +14,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.eShopWeb.PublicApi.Stax;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,18 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Stax payments. Settings come from the "Stax:" section (user-secrets, environment, ...).
+builder.Services.Configure<StaxOptions>(builder.Configuration.GetSection(StaxOptions.SectionName));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<StaxGateway>();
+builder.Services.AddSingleton<KeyedLock>();
+builder.Services.AddScoped<ShopperResolver>();
+builder.Services.AddScoped<PaymentMethodService>();
+builder.Services.AddScoped<PaymentProcessor>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<BillingService>();
+builder.Services.AddHostedService<PaymentReconciler>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
