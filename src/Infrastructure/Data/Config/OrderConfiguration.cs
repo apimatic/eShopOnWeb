@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -41,5 +41,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Ignore(o => o.IsPaid);
+        builder.Property(o => o.PaymentState).HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.RefundStatus).HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.PaymentMethodId).HasMaxLength(64);
+        builder.Property(o => o.PaymentMethodKind).HasMaxLength(16);
+        builder.Property(o => o.StaxTransactionId).HasMaxLength(64);
+        builder.Property(o => o.Fee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.AmountCharged).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.PaymentNote).HasMaxLength(500);
+        builder.Property(o => o.RefundNote).HasMaxLength(500);
     }
 }

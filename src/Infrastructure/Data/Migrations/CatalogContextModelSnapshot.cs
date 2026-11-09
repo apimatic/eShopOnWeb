@@ -17,10 +17,10 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.0")
+                .HasAnnotation("ProductVersion", "8.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.HasSequence("catalog_brand_hilo")
                 .IncrementsBy(10);
@@ -37,7 +37,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BuyerId")
                         .IsRequired()
@@ -55,7 +55,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("BasketId")
                         .HasColumnType("int");
@@ -109,6 +109,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
@@ -155,15 +156,63 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountCharged")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("BuyerId")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<decimal>("Fee")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTimeOffset>("OrderDate")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("PaymentAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentMethodId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("PaymentMethodKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("PaymentNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PaymentState")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("RefundNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("RefundRequestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RefundStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset?>("RefundedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("StaxTransactionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 
@@ -176,7 +225,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("OrderId")
                         .HasColumnType("int");
@@ -192,6 +241,32 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.ShopperStaxCustomer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("StaxCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("ShopperStaxCustomers");
                 });
 
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.BasketItem", b =>
@@ -240,6 +315,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasColumnType("nvarchar(90)");
 
                             b1.Property<string>("State")
+                                .IsRequired()
                                 .HasMaxLength(60)
                                 .HasColumnType("nvarchar(60)");
 
@@ -280,6 +356,7 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasColumnType("int");
 
                             b1.Property<string>("PictureUri")
+                                .IsRequired()
                                 .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("ProductName")
@@ -295,7 +372,8 @@ namespace Microsoft.eShopWeb.Infrastructure.Data.Migrations
                                 .HasForeignKey("OrderItemId");
                         });
 
-                    b.Navigation("ItemOrdered");
+                    b.Navigation("ItemOrdered")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate.Basket", b =>
