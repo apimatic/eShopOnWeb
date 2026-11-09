@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\brcalrafay2-br-stax-http-sonnet55medium-007\\repo\\.claude\\hooks\\maxio-process-guard.ps1\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\claude-runs\\brcalrafay2-br-stax-http-sonnet55medium-007\\repo\\.claude\\hooks\\app-repo-guard.ps1\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|PowerShell|WebFetch|WebSearch"
+      }
+    ]
+  }
+}
