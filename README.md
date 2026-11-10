@@ -171,3 +171,24 @@ We have some great contributions from the community, and while these aren't main
 [eShopOnWeb VB.NET](https://github.com/VBAndCs/eShopOnWeb_VB.NET) by Mohammad Hamdy Ghanem
 
 [FShopOnWeb](https://github.com/NitroDevs/FShopOnWeb) An F# take on eShopOnWeb by Sean G. Wright and Kyle McMaster
+
+## Pay by bank (Plaid)
+
+`src/PublicApi` exposes pay-by-bank endpoints (bank picker, connect/disconnect, checkout, cancel, support
+activity, portfolio) built on the Plaid SDK in `sdk/plaid`.
+
+Plaid settings are read from the `Plaid:` configuration section: `Plaid:ClientId`, `Plaid:Secret`,
+`Plaid:Environment` (`sandbox` or `production`) and the optional `Plaid:BaseUrl`, which, when set, is used verbatim as
+the API's base address. Keep the credentials out of the repository, in user-secrets:
+
+```
+cd src/PublicApi
+dotnet user-secrets set "Plaid:ClientId" "<value of PLAID_CLIENT_ID>"
+dotnet user-secrets set "Plaid:Secret" "<value of PLAID_SECRET>"
+dotnet user-secrets set "Plaid:Environment" "<value of PLAID_ENV>"
+```
+
+Shop-side options (express fee, same-day limit and cutoff) live in the `BankPayment:` section of `appsettings.json`.
+The `PlaidConnection` connection string holds the pay-by-bank tables (created on start-up).
+`tests/PublicApiIntegrationTests/PlaidEndpoints` runs against the real Plaid sandbox when `PLAID_CLIENT_ID` and
+`PLAID_SECRET` are set.
