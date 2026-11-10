@@ -23,6 +23,13 @@ public class Order : BaseEntity, IAggregateRoot
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
 
+    /// <summary>When the order left the warehouse; an order that has shipped can no longer be cancelled.</summary>
+    public DateTimeOffset? ShippedOn { get; private set; }
+    public DateTimeOffset? CancelledOn { get; private set; }
+
+    public void MarkShipped() => ShippedOn = DateTimeOffset.UtcNow;
+    public void MarkCancelled() => CancelledOn = DateTimeOffset.UtcNow;
+
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
     // so OrderItems cannot be added from "outside the AggregateRoot" directly to the collection,
