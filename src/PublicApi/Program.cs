@@ -51,6 +51,19 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Pay by bank with Plaid (HTTP API, no SDK)
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions>(builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions.SectionName));
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Plaid.PlaidClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankPickerService>();
+builder.Services.AddHostedService<Microsoft.eShopWeb.PublicApi.Plaid.BankListWarmer>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.ConnectionService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.CheckoutService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.TransferReverser>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankOrderService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankActivityService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.PortfolioService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
