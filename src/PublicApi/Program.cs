@@ -13,11 +13,13 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Mindbody;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -50,6 +52,16 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Mindbody studio integration (plain HTTP, no SDK). Settings come from the "Mindbody:" section.
+builder.Services.Configure<MindbodyOptions>(builder.Configuration.GetSection(MindbodyOptions.SECTION));
+builder.Services.AddHttpClient(MindbodyClient.HTTP_CLIENT_NAME, (sp, client) =>
+{
+    client.BaseAddress = MindbodyClient.ResolveBaseAddress(sp.GetRequiredService<IOptions<MindbodyOptions>>().Value);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<MindbodyClient>();
+builder.Services.AddSingleton<StudioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
