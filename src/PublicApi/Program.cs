@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Mindbody;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,11 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<MindbodySettings>(builder.Configuration.GetSection(MindbodySettings.CONFIG_NAME));
+builder.Services.AddHttpClient(MindbodyClient.HTTP_CLIENT_NAME, client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddSingleton<MindbodyClient>();
+builder.Services.AddScoped<StudioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
