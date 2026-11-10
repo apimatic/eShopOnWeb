@@ -13,6 +13,8 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Banking;
+using Microsoft.eShopWeb.PublicApi.Banking.Plaid;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,27 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Plaid (called over plain HTTP) and pay-by-bank
+builder.Services.Configure<PlaidOptions>(builder.Configuration.GetSection(PlaidOptions.SectionName));
+builder.Services.PostConfigure<PlaidOptions>(o =>
+{
+    // The sandbox credentials are provided to the process through these variables when not configured otherwise.
+    o.ClientId ??= Environment.GetEnvironmentVariable("PLAID_CLIENT_ID");
+    o.Secret ??= Environment.GetEnvironmentVariable("PLAID_SECRET");
+    o.Environment ??= Environment.GetEnvironmentVariable("PLAID_ENV");
+});
+builder.Services.Configure<BankPaymentOptions>(builder.Configuration.GetSection(BankPaymentOptions.SectionName));
+builder.Services.AddHttpClient<PlaidClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<KeyedLocks>();
+builder.Services.AddSingleton<AccessTokenProtector>();
+builder.Services.AddSingleton<BankDirectoryService>();
+builder.Services.AddHostedService<BankDirectoryWarmup>();
+builder.Services.AddScoped<BankConnectionService>();
+builder.Services.AddScoped<BankPaymentService>();
+builder.Services.AddScoped<BankActivityService>();
+builder.Services.AddScoped<PortfolioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
