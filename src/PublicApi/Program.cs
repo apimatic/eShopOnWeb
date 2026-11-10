@@ -51,6 +51,13 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Studio bookings (Mindbody)
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Studio.MindbodySettings>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Studio.MindbodySettings.SECTION));
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Studio.MindbodyGateway>();
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Studio.KeyedLocks>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Studio.StudioService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
