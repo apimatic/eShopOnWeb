@@ -21,7 +21,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
+using Microsoft.eShopWeb.PublicApi.StudioEndpoints;
 using MinimalApi.Endpoint.Extensions;
+using MindbodyPublicApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +52,22 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Studio bookings: Mindbody settings come from the "Mindbody:" configuration section (user-secrets / environment).
+builder.Services.Configure<MindbodyOptions>(builder.Configuration.GetSection(MindbodyOptions.SECTION_NAME));
+builder.Services.AddMindbodyPublicApiClient(options =>
+{
+    var mindbody = builder.Configuration.GetSection(MindbodyOptions.SECTION_NAME).Get<MindbodyOptions>() ?? new MindbodyOptions();
+    options.ApiKey = mindbody.ApiKey;
+    if (!string.IsNullOrWhiteSpace(mindbody.BaseUrl))
+    {
+        // An explicit override is used verbatim as the API's base address.
+        options.Server.Default.Production.BaseUrl = mindbody.BaseUrl;
+    }
+    options.Retry = options.Retry with { Timeout = TimeSpan.FromSeconds(20), MaxRetries = 2 };
+});
+builder.Services.AddSingleton<MindbodyGateway>();
+builder.Services.AddScoped<StudioService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
