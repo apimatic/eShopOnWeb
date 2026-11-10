@@ -16,6 +16,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.PaymentTransferId).HasMaxLength(64);
+        builder.Property(b => b.AmountPaid).HasColumnType("decimal(18,2)");
+        builder.Property(b => b.PaymentFee).HasColumnType("decimal(18,2)");
+        builder.Property(b => b.ShippingCost).HasColumnType("decimal(18,2)");
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();

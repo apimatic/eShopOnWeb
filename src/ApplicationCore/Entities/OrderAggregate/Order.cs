@@ -22,6 +22,23 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Submitted;
+
+    // Set when the order is paid by bank
+    public string? PaymentTransferId { get; private set; }
+    public decimal? AmountPaid { get; private set; }
+    public decimal? PaymentFee { get; private set; }
+    public decimal? ShippingCost { get; private set; }
+
+    public void RecordBankPayment(string transferId, decimal amountPaid, decimal fee, decimal shippingCost)
+    {
+        PaymentTransferId = transferId;
+        AmountPaid = amountPaid;
+        PaymentFee = fee;
+        ShippingCost = shippingCost;
+    }
+
+    public void MarkCancelled() => Status = OrderStatus.Cancelled;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation

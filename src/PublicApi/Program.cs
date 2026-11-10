@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Plaid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,23 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Plaid: settings come from the "Plaid" configuration section (user-secrets / environment).
+builder.Services.Configure<PlaidSettings>(builder.Configuration.GetSection(PlaidSettings.SectionName));
+// Fall back to the PLAID_* environment variables when the section is not set.
+builder.Services.PostConfigure<PlaidSettings>(o =>
+{
+    o.ClientId = string.IsNullOrWhiteSpace(o.ClientId) ? Environment.GetEnvironmentVariable("PLAID_CLIENT_ID") : o.ClientId;
+    o.Secret = string.IsNullOrWhiteSpace(o.Secret) ? Environment.GetEnvironmentVariable("PLAID_SECRET") : o.Secret;
+    o.Environment = string.IsNullOrWhiteSpace(o.Environment) ? Environment.GetEnvironmentVariable("PLAID_ENV") : o.Environment;
+});
+builder.Services.AddHttpClient<PlaidClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<AccessTokenProtector>();
+builder.Services.AddScoped<BankConnectionService>();
+builder.Services.AddScoped<BankPaymentService>();
+builder.Services.AddScoped<BankDataService>();
+builder.Services.AddScoped<BankDirectoryService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
