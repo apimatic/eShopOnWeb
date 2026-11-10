@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Plaid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,13 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+builder.Services.AddHttpClient<PlaidClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddSingleton<BankDirectory>();
+builder.Services.AddScoped<ConnectionService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<ActivityService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -174,6 +182,14 @@ app.UseSwaggerUI(c =>
 
 app.MapControllers();
 app.MapEndpoints();
+
+// Every checkout opens the bank picker: have the bank list ready before the first shopper asks.
+if (!string.IsNullOrWhiteSpace(app.Configuration["Plaid:ClientId"]))
+{
+    _ = app.Services.GetRequiredService<BankDirectory>().Warm().ContinueWith(t =>
+        app.Logger.LogWarning("Could not preload the Plaid bank list: {Message}", t.Exception?.GetBaseException().Message),
+        System.Threading.Tasks.TaskContinuationOptions.OnlyOnFaulted);
+}
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
