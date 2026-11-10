@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Studio;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,13 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Studio bookings: classes, sessions, clients and bookings live in Mindbody.
+builder.Services.Configure<MindbodySettings>(builder.Configuration.GetSection(MindbodySettings.SECTION_NAME));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<MindbodyConnection>();
+builder.Services.AddSingleton<StudioService>();
+builder.Services.AddScoped<StudioApi>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>

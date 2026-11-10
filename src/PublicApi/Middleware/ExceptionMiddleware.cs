@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
+using Microsoft.eShopWeb.PublicApi.Studio;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
 
@@ -39,6 +40,29 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequest)
+        {
+            context.Response.StatusCode = badRequest.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "The request is not valid: " + badRequest.Message
+            }.ToString());
+        }
+        else if (exception is StudioException studioException)
+        {
+            context.Response.StatusCode = studioException.StatusCode;
+            if (studioException.RetryAfterSeconds is { } retryAfter)
+            {
+                context.Response.Headers["Retry-After"] = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = studioException.Message
             }.ToString());
         }
         else
