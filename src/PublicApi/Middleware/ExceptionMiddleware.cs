@@ -41,6 +41,17 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is BankingException bankingException)
+        {
+            // The app can't carry out the request: answer with its status and the reason.
+            context.Response.StatusCode = bankingException.StatusCode;
+            await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                statusCode = bankingException.StatusCode,
+                message = bankingException.Message,
+                reason = bankingException.Message,
+            }));
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
