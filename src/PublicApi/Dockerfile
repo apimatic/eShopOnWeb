@@ -5,7 +5,8 @@ WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# The Plaid SDK (sdk/plaid) is C# 14, which needs the .NET 10 SDK to build; PublicApi itself still targets net8.0.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 COPY . .
 #COPY ["src/PublicApi/PublicApi.csproj", "./PublicApi/"]
