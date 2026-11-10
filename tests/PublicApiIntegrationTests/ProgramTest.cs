@@ -20,6 +20,12 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
+        // Map the sandbox credentials from the environment onto the Mindbody: section.
+        foreach (var key in new[] { "ApiKey", "SiteId", "Username", "Password" })
+        {
+            var value = System.Environment.GetEnvironmentVariable("MINDBODY_" + key.ToUpperInvariant());
+            if (value != null) System.Environment.SetEnvironmentVariable("Mindbody__" + key, value);
+        }
         _application = new WebApplicationFactory<Program>();
 
     }
