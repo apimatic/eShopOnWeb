@@ -51,6 +51,16 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Plaid (pay by bank, bank activity, portfolio), called over plain HTTP
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions>(
+    builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions.SectionName));
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Plaid.PlaidClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankDirectory>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankConnectionService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankPaymentService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.BankActivityService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Plaid.PortfolioService>();
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
