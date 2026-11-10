@@ -4,6 +4,7 @@ using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -13,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Banking;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,17 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddDataProtection().SetApplicationName("eShopOnWeb");
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<PlaidClientProvider>();
+builder.Services.AddSingleton<PlaidApi>();
+builder.Services.AddScoped<BankDirectoryService>();
+builder.Services.AddScoped<BankConnectionService>();
+builder.Services.AddScoped<BankActivityService>();
+builder.Services.AddScoped<PortfolioService>();
+builder.Services.AddScoped<BankCheckoutService>();
+builder.Services.AddScoped<BankPaymentService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>

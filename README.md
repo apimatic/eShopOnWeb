@@ -171,3 +171,18 @@ We have some great contributions from the community, and while these aren't main
 [eShopOnWeb VB.NET](https://github.com/VBAndCs/eShopOnWeb_VB.NET) by Mohammad Hamdy Ghanem
 
 [FShopOnWeb](https://github.com/NitroDevs/FShopOnWeb) An F# take on eShopOnWeb by Sean G. Wright and Kyle McMaster
+
+## Pay by bank (Plaid) in `src/PublicApi`
+
+Endpoints under `/api/`: `banks`, `bank/link-token`, `bank/connections` (POST/GET/DELETE), `checkout/bank-payment` (+ `/shipping`, `/confirm`), `orders/{id}/cancel`, `orders/{id}/ship` (admin), `support/shoppers/{email}/bank-activity` and `/transactions` (admin), `portfolio`.
+
+Plaid is called through the SDK in `sdk/plaid`. Settings come from the `Plaid:` configuration section: `ClientId`, `Secret`, `Environment` (`sandbox` or `production`) and an optional `BaseUrl` that overrides the address derived from the environment. Never put their values in a file in this repository; load them into user-secrets:
+
+```
+cd src/PublicApi
+dotnet user-secrets set "Plaid:ClientId" "$PLAID_CLIENT_ID"
+dotnet user-secrets set "Plaid:Secret" "$PLAID_SECRET"
+dotnet user-secrets set "Plaid:Environment" "$PLAID_ENV"
+```
+
+The express fee is `BankPayment:ExpressFee` (default 5.00). The sandbox tests are in `tests/PublicApiIntegrationTests/BankEndpoints`. The SDK needs the .NET 10 SDK to build (`global.json`).
