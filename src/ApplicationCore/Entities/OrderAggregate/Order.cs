@@ -35,6 +35,13 @@ public class Order : BaseEntity, IAggregateRoot
     //https://msdn.microsoft.com/en-us/library/e78dcd75(v=vs.110).aspx 
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
+    public DateTimeOffset? ShippedOn { get; private set; }
+    public DateTimeOffset? CancelledOn { get; private set; }
+
+    public void MarkShipped() => ShippedOn ??= DateTimeOffset.UtcNow;
+
+    public void MarkCancelled() => CancelledOn ??= DateTimeOffset.UtcNow;
+
     public decimal Total()
     {
         var total = 0m;
