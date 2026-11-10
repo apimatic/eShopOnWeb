@@ -4,6 +4,7 @@ using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -50,6 +51,29 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Plaid, called directly over HTTP. Settings come from the "Plaid:" section (user-secrets / environment).
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions>(builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions.SectionName));
+builder.Services.PostConfigure<Microsoft.eShopWeb.PublicApi.Plaid.PlaidOptions>(o =>
+{
+    o.ClientId = string.IsNullOrWhiteSpace(o.ClientId) ? Environment.GetEnvironmentVariable("PLAID_CLIENT_ID") : o.ClientId;
+    o.Secret = string.IsNullOrWhiteSpace(o.Secret) ? Environment.GetEnvironmentVariable("PLAID_SECRET") : o.Secret;
+    o.Environment = string.IsNullOrWhiteSpace(o.Environment) ? Environment.GetEnvironmentVariable("PLAID_ENV") : o.Environment;
+});
+builder.Services.Configure<Microsoft.eShopWeb.PublicApi.Banking.BankPaymentOptions>(builder.Configuration.GetSection(Microsoft.eShopWeb.PublicApi.Banking.BankPaymentOptions.SectionName));
+builder.Services.AddHttpClient<Microsoft.eShopWeb.PublicApi.Plaid.PlaidClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("eShopOnWeb.PublicApi");
+if (!string.IsNullOrWhiteSpace(builder.Configuration["DataProtection:KeysPath"]))
+{
+    dataProtection.PersistKeysToFileSystem(new System.IO.DirectoryInfo(builder.Configuration["DataProtection:KeysPath"]!));
+}
+builder.Services.AddSingleton<Microsoft.eShopWeb.PublicApi.Banking.TokenProtector>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.InstitutionService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.ConnectionService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.TransactionService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.PortfolioService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.CheckoutService>();
+builder.Services.AddScoped<Microsoft.eShopWeb.PublicApi.Banking.ShopperResolver>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
