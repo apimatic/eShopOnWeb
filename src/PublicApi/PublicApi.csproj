@@ -6,6 +6,7 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
     <Nullable>enable</Nullable>
+    <MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\claude-home\plugins\cache\maxio-br-plugin-arms\maxio\0.2.2\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +35,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <!-- Maxio Advanced Billing SDK source shipped with the maxio plugin; pass -p:MaxioSdkProject=... where the plugin is installed elsewhere. -->
+    <ProjectReference Include="$(MaxioSdkProject)" />
   </ItemGroup>
 
 
