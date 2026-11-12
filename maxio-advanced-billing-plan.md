@@ -74,19 +74,19 @@ Hazard row: a body that does not match its declared type — a drifted or malfor
 **DUPLICATE CLAIMS**
 | Write | Where the claim is stored | What rejects the second one | Where that rejection is caught | Where in the code |
 | --- | --- | --- | --- | --- |
-| Subscribe | YOUR CALL: this codebase has no durable claim store for PublicApi (catalog DB has no billing table); an in-process `ConcurrentDictionary` claim keyed by customer+plan is used, plus Maxio-side check of live subscriptions. Limitation: not cross-process. | `TryAdd` refusing | the subscribe handler returns 409 | TBD |
+| Subscribe | DECIDED: PublicApi has no durable store for billing claims, so a static per-shopper `SemaphoreSlim` in `MaxioBillingService.SubscribeClaims` serialises subscribes (not cross-process). | the second caller waits, then `LiveSubscriptionsOfAsync` sees the first subscription and `SubscribeAsync` answers 409 | `MaxioBillingService.SubscribeAsync` (`BillingException.Conflict`) -> `ExceptionMiddleware` | `MaxioBillingService.SubscribeClaims.GetOrAdd(...).WaitAsync`, then `_client.Subscriptions.CreateSubscription` |
 
 **PAGED READS**
 | Read | What caps it | How the caller learns the answer was cut short | Where in the code |
 | --- | --- | --- | --- |
-| list products | 50-page cap × 200 | exceeding the cap throws → 502 (never silently truncated) | TBD |
-| list usages | 50-page cap × 200 | same | TBD |
+| list products | 50-page cap x 200 | exceeding the cap throws 502 (never silently truncated) | `MaxioBillingService.ListAllProductsAsync` |
+| list usages | 50-page cap x 200 | same | `MaxioBillingService.UsageForDayAsync` |
 
 **UNKNOWN OUTCOMES**
 | Write | The operation you re-read with | The reference you search by | Where in the code | The test that fails the connection |
 | --- | --- | --- | --- | --- |
-| Subscribe | `Subscriptions.ListSubscriptions` / `Customers.ListCustomerSubscriptions` | customer id + product handle | TBD | TBD |
-| other writes | `ReadSubscription` | subscription id | TBD | TBD |
+| Subscribe | `Customers.ListCustomerSubscriptions` | customer id + product handle | `SubscribeAsync` catch `BillingException` when `OutcomeUnknown` | not automated (needs a connection fault against the real sandbox) |
+| other writes | `Subscriptions.ReadSubscription` | subscription id | `MaxioBillingService.WriteAsync` catch when `OutcomeUnknown` (checks the `achieved` predicate) | not automated |
 
 ## 6. Assumptions & Blockers
 - Brand ↔ Maxio product family: family named `"{Brand} plans"` (matches the existing sandbox convention); created on demand by staff plan creation.
@@ -95,4 +95,16 @@ Hazard row: a body that does not match its declared type — a drifted or malfor
 - No blockers.
 
 ## 7. Source labels
-Rows above cite their map page; behaviours that need live traffic (cancelled-subscription migration, currency price units, remittance without card) are `UNVERIFIED` and will be settled against the sandbox.
+Rows above cite their map page. Settled against the sandbox:
+- Remittance subscription without a card works; `balance_in_cents` > 0 until paid, so `paid` = balance <= 0 (`ToSubscription`).
+- `MigrateSubscriptionProduct` and next-billing changes are refused for a cancelled subscription; `UpdateSubscription{ProductHandle}` re-points a cancelled one (stays cancelled until restarted) - `SwitchAsync`.
+- Pause state on the wire is `on_hold`.
+- Currency prices: the sandbox site defines no extra currency, so Maxio answers 422 "must be defined on the site level" and the endpoint relays it as 422; the success path could not be exercised live. The SDK types `Price` as `int`, so whole units only (non-integers are refused with 400).
+
+## 8. YOUR CALLs settled in code
+- Brand to plan: Maxio family `"{Brand} plans"` (`MaxioBillingService.BrandOf`, `EnsureFamilyAsync`).
+- Identity: Maxio customer reference = JWT user name (`ReferenceOf`, `EnsureCustomerAsync`); a subscription of another customer answers 404 (`OwnedAsync`).
+- Same plan twice for one shopper -> 409; different plans allowed.
+- Credential fail-fast: `MaxioServiceCollectionExtensions.AddMaxioBilling` (`ValidateOnStart`); blank `Maxio:` sandbox keys fall back to `MAXIO_API_KEY`/`MAXIO_SITE_SUBDOMAIN`/`MAXIO_ENVIRONMENT`.
+- Next billing date keeps Maxio's time-of-day and site offset; past dates refused (`SetNextBillingDateAsync`).
+- Usage day: window +-1 day requested, entries filtered on the day of `CreatedAt` in the site's offset (`UsageForDayAsync`).
