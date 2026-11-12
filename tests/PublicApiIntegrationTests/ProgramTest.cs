@@ -9,6 +9,8 @@ public class ProgramTest
 {
     private static WebApplicationFactory<Program> _application = new();
 
+    public static System.IServiceProvider Services => _application.Services;
+
     public static HttpClient NewClient
     {
         get

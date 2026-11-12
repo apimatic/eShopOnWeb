@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.eShopWeb.PublicApi.Maxio;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
@@ -39,6 +40,24 @@ public class ExceptionMiddleware
             {
                 StatusCode = context.Response.StatusCode,
                 Message = duplicationException.Message
+            }.ToString());
+        }
+        else if (exception is MaxioProblemException problem)
+        {
+            context.Response.StatusCode = (int)problem.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = problem.Message
+            }.ToString());
+        }
+        else if (exception is BadHttpRequestException badRequest)
+        {
+            context.Response.StatusCode = badRequest.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = badRequest.Message
             }.ToString());
         }
         else
