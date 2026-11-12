@@ -13,6 +13,11 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Billing;
+using MaxioAdvancedBilling;
+using MaxioAdvancedBilling.Core.Authentication.Basic;
+using MaxioAdvancedBilling.Core.Configuration;
+using MaxioAdvancedBilling.Servers;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +55,40 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio billing: settings come only from the "Maxio:" configuration section (user-secrets / environment).
+var maxioSettings = builder.Configuration.GetSection(MaxioSettings.SECTION).Get<MaxioSettings>() ?? new MaxioSettings();
+maxioSettings.Validate(); // refuse to start when a setting is missing or invalid
+builder.Services.AddSingleton(sp =>
+{
+    var options = new MaxioAdvancedBillingClientOptions
+    {
+        // the password of Maxio's API-key basic auth is the fixed value "x"
+        BasicAuth = new BasicAuthCredentials { Username = maxioSettings.ApiKey!.Trim(), Password = "x" },
+        Environment = maxioSettings.IsEu ? ServerEnvironment.Eu : ServerEnvironment.Us,
+        // per attempt; the whole call is bounded by the billing service's own budget.
+        // Only GET is resent automatically: a write must never be sent twice by the SDK.
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+            MaxRetries = 2,
+            HttpMethodsToRetry = new[] { System.Net.Http.HttpMethod.Get },
+        },
+        Logging = new LoggingOptions { LoggerFactory = sp.GetRequiredService<ILoggerFactory>(), LogRequestBody = false },
+    };
+    if (maxioSettings.IsEu) options.Server.Production.Eu.Site = maxioSettings.Subdomain?.Trim() ?? "";
+    else options.Server.Production.Us.Site = maxioSettings.Subdomain?.Trim() ?? "";
+    if (!string.IsNullOrWhiteSpace(maxioSettings.BaseUrl))
+    {
+        if (maxioSettings.IsEu) options.Server.Production.Eu.BaseUrl = maxioSettings.BaseUrl;
+        else options.Server.Production.Us.BaseUrl = maxioSettings.BaseUrl;
+    }
+    var http = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient("maxio");
+    return new MaxioAdvancedBillingClient(http, options);
+});
+builder.Services.AddHttpClient("maxio", c => c.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
+builder.Services.AddScoped<MaxioBillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
