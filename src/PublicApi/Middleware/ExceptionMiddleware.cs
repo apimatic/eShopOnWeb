@@ -41,6 +41,22 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is MaxioBillingException billing)
+        {
+            context.Response.StatusCode = billing.Failure switch
+            {
+                MaxioBillingFailure.InvalidRequest => (int)HttpStatusCode.BadRequest,
+                MaxioBillingFailure.UnknownPlan => (int)HttpStatusCode.UnprocessableEntity,
+                MaxioBillingFailure.InProgress => (int)HttpStatusCode.Conflict,
+                MaxioBillingFailure.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = billing.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
