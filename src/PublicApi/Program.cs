@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Billing;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,16 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio billing: settings come from the "Maxio:" configuration section (user-secrets / environment).
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.CONFIG_NAME));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<MaxioClientProvider>();
+builder.Services.AddSingleton<KeyedLock>();
+builder.Services.AddScoped<MaxioCall>();
+builder.Services.AddScoped<PlanCatalog>();
+builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<PlanAdminService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -125,6 +136,14 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var missingMaxioSettings = MaxioClientProvider.MissingSettings(
+    app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value);
+if (missingMaxioSettings.Count > 0)
+{
+    app.Logger.LogWarning("Maxio billing is not configured; billing endpoints will answer 503. Missing: {Missing}",
+        string.Join(", ", missingMaxioSettings));
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
