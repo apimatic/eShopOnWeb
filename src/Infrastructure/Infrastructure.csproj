@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>		
+		<MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">..\..\..\marketplace\plugins\maxio\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
 		<RootNamespace>Microsoft.eShopWeb.Infrastructure</RootNamespace>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
@@ -14,6 +15,11 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<!-- The Maxio SDK ships as source inside the maxio plugin (not on NuGet). This path is local to
+		     this machine; override with -p:MaxioSdkProject=<path to MaxioAdvancedBilling.csproj>. -->
+		<ProjectReference Include="$(MaxioSdkProject)" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />

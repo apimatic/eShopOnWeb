@@ -41,6 +41,18 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is SubscriptionPlanNotFoundException planNotFound)
+        {
+            await WriteAsync(context, (int)HttpStatusCode.BadRequest, planNotFound.Message);
+        }
+        else if (exception is BillingRejectedException rejected)
+        {
+            await WriteAsync(context, rejected.StatusCode, rejected.Message);
+        }
+        else if (exception is BillingUnavailableException unavailable)
+        {
+            await WriteAsync(context, unavailable.StatusCode, unavailable.Message);
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -50,5 +62,15 @@ public class ExceptionMiddleware
                 Message = exception.Message
             }.ToString());
         }
+    }
+
+    private static async Task WriteAsync(HttpContext context, int status, string message)
+    {
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsync(new ErrorDetails()
+        {
+            StatusCode = status,
+            Message = message
+        }.ToString());
     }
 }
