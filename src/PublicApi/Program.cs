@@ -51,6 +51,9 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
+// Maxio is the billing system of record (settings: the Maxio: configuration section).
+Microsoft.eShopWeb.PublicApi.Billing.MaxioServiceCollectionExtensions.AddMaxioBilling(builder.Services, builder.Configuration);
+
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
 {
