@@ -13,6 +13,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Billing;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +51,11 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+// Maxio billing: settings come from the "Maxio:" configuration section (user-secrets / environment).
+builder.Services.Configure<MaxioSettings>(builder.Configuration.GetSection(MaxioSettings.SectionName));
+builder.Services.AddSingleton<IMaxioClientProvider, MaxioClientProvider>();
+builder.Services.AddSingleton<IBillingService, BillingService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
@@ -125,6 +131,12 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+var maxioSettings = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<MaxioSettings>>().Value;
+if (string.IsNullOrWhiteSpace(maxioSettings.ApiKey) || string.IsNullOrWhiteSpace(maxioSettings.Subdomain) || string.IsNullOrWhiteSpace(maxioSettings.Environment))
+{
+    app.Logger.LogError("Maxio is not configured: set Maxio:ApiKey, Maxio:Subdomain and Maxio:Environment (user-secrets). Billing endpoints will answer 503.");
+}
 
 app.Logger.LogInformation("Seeding Database...");
 
