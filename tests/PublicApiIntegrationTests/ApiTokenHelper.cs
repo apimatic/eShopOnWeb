@@ -26,6 +26,8 @@ namespace PublicApiIntegrationTests
             return CreateToken(userName, roles);
         }
 
+        public static string GetUserToken(string userName) => CreateToken(userName, new string[] { });
+
         private static string CreateToken(string userName, string[] roles)
         {
             var claims = new List<Claim> { new Claim(ClaimTypes.Name, userName) };
