@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup> 
     <RootNamespace>Microsoft.eShopWeb.PublicApi</RootNamespace>
@@ -31,7 +31,18 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
 
+  <!--
+    Maxio Advanced Billing .NET SDK. It is not published to NuGet: it ships as source inside the
+    `maxio` Claude Code plugin. The default path below assumes the plugin's marketplace checkout sits
+    next to this repository; on any other machine (or CI) pass -p:MaxioSdkProject=<path to
+    MaxioAdvancedBilling.csproj>. Never copy the SDK source into this repository.
+  -->
+  <PropertyGroup>
+    <MaxioSdkProject Condition="'$(MaxioSdkProject)' == ''">$(MSBuildThisFileDirectory)..\..\..\marketplace\plugins\maxio\sdk\dotnet\src\MaxioAdvancedBilling\MaxioAdvancedBilling.csproj</MaxioSdkProject>
+  </PropertyGroup>
+
   <ItemGroup>
+    <ProjectReference Include="$(MaxioSdkProject)" />
     <ProjectReference Include="..\ApplicationCore\ApplicationCore.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
