@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading.Tasks;
 using BlazorShared.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.eShopWeb.ApplicationCore.Billing;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 
 namespace Microsoft.eShopWeb.PublicApi.Middleware;
@@ -32,7 +33,26 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is BillingException billingException)
+        {
+            context.Response.StatusCode = billingException.Kind switch
+            {
+                BillingErrorKind.InvalidRequest => (int)HttpStatusCode.BadRequest,
+                BillingErrorKind.Rejected => (int)HttpStatusCode.UnprocessableEntity,
+                BillingErrorKind.InProgress => (int)HttpStatusCode.Conflict,
+                BillingErrorKind.Unavailable => (int)HttpStatusCode.ServiceUnavailable,
+                _ => (int)HttpStatusCode.BadGateway
+            };
+            var message = billingException.Details.Count == 0
+                ? billingException.Message
+                : $"{billingException.Message} {string.Join(" ", billingException.Details)}";
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = message
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()

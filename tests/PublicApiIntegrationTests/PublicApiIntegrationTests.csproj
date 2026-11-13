@@ -30,6 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- In-memory Maxio API double, shared with UnitTests. -->
+    <Compile Include="..\UnitTests\Infrastructure\Billing\FakeMaxio.cs" Link="SubscriptionEndpoints\FakeMaxio.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\PublicApi\PublicApi.csproj" />
     <ProjectReference Include="..\..\src\Web\Web.csproj" />
   </ItemGroup>
