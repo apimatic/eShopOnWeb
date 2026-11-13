@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
@@ -16,6 +18,16 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+
+        // Placeholder (non-secret) Maxio settings so the host passes its startup validation; the reserved
+        // .invalid host guarantees these tests never reach a real billing site.
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Maxio:ApiKey"] = "test-api-key",
+            ["Maxio:Subdomain"] = "test-site",
+            ["Maxio:ProductFamilyHandle"] = "test-family",
+            ["Maxio:BaseUrl"] = "https://maxio.test.invalid"
+        }));
 
         // Add mock/test services to the builder here
         builder.ConfigureServices(services =>
