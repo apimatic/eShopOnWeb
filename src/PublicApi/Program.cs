@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,23 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var finixEnvironmentSettings = new Dictionary<string, string?>();
+void AddFinixEnvironmentSetting(string configurationKey, string environmentVariable)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixEnvironmentSettings[configurationKey] = value;
+    }
+}
+
+AddFinixEnvironmentSetting("Finix:Username", "FINIX_USERNAME");
+AddFinixEnvironmentSetting("Finix:Password", "FINIX_PASSWORD");
+AddFinixEnvironmentSetting("Finix:MerchantId", "FINIX_MERCHANT_ID");
+AddFinixEnvironmentSetting("Finix:Environment", "FINIX_ENVIRONMENT");
+AddFinixEnvironmentSetting("Finix:Currency", "FINIX_CURRENCY");
+builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +62,10 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<FinixClient>();
+builder.Services.AddScoped<PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +182,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
