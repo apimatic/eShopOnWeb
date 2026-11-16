@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,10 +9,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +27,11 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load Finix credentials from .NET user-secrets and, when present, from the documented
+// FINIX_* environment variables. Values are never written into the repository.
+builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+AddFinixEnvironmentConfiguration(builder.Configuration);
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +52,19 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+var finixOptions = builder.Configuration.GetSection(FinixOptions.SectionName).Get<FinixOptions>() ?? new FinixOptions();
+builder.Services.AddSingleton(finixOptions);
+builder.Services.AddHttpClient<IFinixGateway, FinixApiClient>((serviceProvider, httpClient) =>
+{
+    var options = serviceProvider.GetRequiredService<FinixOptions>();
+    httpClient.BaseAddress = new Uri(options.ResolveBaseUrl().TrimEnd('/') + "/");
+    var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.Password}"));
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Finix-Version", "2022-02-01");
+});
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -178,4 +199,32 @@ app.MapEndpoints();
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
+static void AddFinixEnvironmentConfiguration(IConfigurationBuilder configuration)
+{
+    var values = new Dictionary<string, string?>();
+
+    void Add(string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            values[configurationKey] = value;
+        }
+    }
+
+    Add("FINIX_USERNAME", "Finix:Username");
+    Add("FINIX_PASSWORD", "Finix:Password");
+    Add("FINIX_MERCHANT_ID", "Finix:MerchantId");
+    Add("FINIX_ENVIRONMENT", "Finix:Environment");
+    Add("FINIX_CURRENCY", "Finix:Currency");
+    Add("FINIX_BASEURL", "Finix:BaseUrl");
+    Add("FINIX_BASE_URL", "Finix:BaseUrl");
+
+    if (values.Count > 0)
+    {
+        configuration.AddInMemoryCollection(values);
+    }
+}
+
 public partial class Program { }
+
