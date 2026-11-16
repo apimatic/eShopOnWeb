@@ -10,10 +10,7 @@ public class AccountControllerSignIn : IClassFixture<TestApplication>
 {
     public AccountControllerSignIn(TestApplication factory)
     {
-        Client = factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false
-        });
+        Client = TestApplication.CreateHttpsClient(factory, false);
     }
 
     public HttpClient Client { get; }

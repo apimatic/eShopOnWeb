@@ -8,7 +8,7 @@ public class HomePageOnGet : IClassFixture<TestApplication>
 {
     public HomePageOnGet(TestApplication factory)
     {
-        Client = factory.CreateClient();
+        Client = TestApplication.CreateHttpsClient(factory);
     }
 
     public HttpClient Client { get; }

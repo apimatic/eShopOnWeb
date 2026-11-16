@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -15,6 +16,15 @@ namespace Microsoft.eShopWeb.FunctionalTests.Web;
 public class TestApplication : WebApplicationFactory<IBasketViewModelService>
 {
     private readonly string _environment = "Development";
+
+    public static HttpClient CreateHttpsClient(TestApplication factory, bool allowAutoRedirect = false)
+    {
+        return factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = allowAutoRedirect
+        });
+    }
 
     protected override IHost CreateHost(IHostBuilder builder)
     {

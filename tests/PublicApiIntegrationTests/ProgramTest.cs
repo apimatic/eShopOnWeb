@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Net.Http;
 
 namespace PublicApiIntegrationTests;
@@ -13,7 +14,10 @@ public class ProgramTest
     {
         get
         {
-            return _application.CreateClient();
+            return _application.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                BaseAddress = new Uri("https://localhost")
+            });
         }
     }
 

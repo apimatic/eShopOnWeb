@@ -11,10 +11,7 @@ public class OrderIndexOnGet : IClassFixture<TestApplication>
 {
     public OrderIndexOnGet(TestApplication factory)
     {
-        Client = factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false
-        });
+        Client = TestApplication.CreateHttpsClient(factory, false);
     }
 
     public HttpClient Client { get; }

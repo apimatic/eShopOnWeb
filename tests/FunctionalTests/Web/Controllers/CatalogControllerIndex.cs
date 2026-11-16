@@ -9,7 +9,7 @@ public class CatalogControllerIndex : IClassFixture<TestApplication>
 {
     public CatalogControllerIndex(TestApplication factory)
     {
-        Client = factory.CreateClient();
+        Client = TestApplication.CreateHttpsClient(factory);
     }
 
     public HttpClient Client { get; }
