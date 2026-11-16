@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
 
 namespace Microsoft.eShopWeb.Infrastructure.Data.Config;
 
@@ -15,6 +16,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.HasOne(o => o.Payment)
+            .WithOne()
+            .HasForeignKey<Payment>(p => p.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
