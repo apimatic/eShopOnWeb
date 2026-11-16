@@ -1,7 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Hooks;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +20,8 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +52,91 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddSingleton<KeyedLock>();
+builder.Services.AddScoped<IFinixPaymentService, FinixPaymentService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton(sp =>
+{
+    var finixOptions = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FinixOptions>>().Value;
+    var environment = (finixOptions.Environment ?? string.Empty).Trim();
+    var baseUrl = !string.IsNullOrWhiteSpace(finixOptions.BaseUrl)
+        ? finixOptions.BaseUrl!
+        : string.Equals(environment, "live", StringComparison.OrdinalIgnoreCase)
+            ? "https://finix.live-payments-api.com"
+            : "https://finix.sandbox-payments-api.com";
+
+    var clientOptions = new FinixApiReferenceClientOptions
+    {
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = finixOptions.Username,
+            Password = finixOptions.Password
+        },
+        Server = new ServerOptions
+        {
+            Default = new DefaultOptions
+            {
+                Production = new DefaultOptions.ProductionOptions { BaseUrl = baseUrl }
+            }
+        },
+        Hooks = new[]
+        {
+            SdkHook.OnRequest((request, _) =>
+            {
+                if (request.RequestUri is null || string.IsNullOrEmpty(request.RequestUri.Query))
+                {
+                    return;
+                }
+
+                var parts = request.RequestUri.Query.TrimStart('?')
+                    .Split('&', StringSplitOptions.RemoveEmptyEntries);
+                var changed = false;
+
+                for (var i = 0; i < parts.Length; i++)
+                {
+                    var separator = parts[i].IndexOf('=');
+                    if (separator <= 0)
+                    {
+                        continue;
+                    }
+
+                    var key = Uri.UnescapeDataString(parts[i][..separator]);
+                    if (key is not ("created_at.gte" or "created_at.lte" or "updated_at.gte" or
+                        "updated_at.lte" or "ready_to_settle_at.gte" or "ready_to_settle_at.lte"))
+                    {
+                        continue;
+                    }
+
+                    var rawValue = Uri.UnescapeDataString(parts[i][(separator + 1)..]);
+                    if (!DateTimeOffset.TryParse(rawValue, CultureInfo.InvariantCulture,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+                    {
+                        continue;
+                    }
+
+                    parts[i] = parts[i][..(separator + 1)] +
+                               Uri.EscapeDataString(parsed.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    var builder = new UriBuilder(request.RequestUri)
+                    {
+                        Query = string.Join("&", parts)
+                    };
+                    request.RequestUri = builder.Uri;
+                }
+            })
+        }
+    };
+
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    return new FinixApiReferenceClient(httpClientFactory.CreateClient(), clientOptions);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
