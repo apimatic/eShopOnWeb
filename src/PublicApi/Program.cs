@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,7 +33,27 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+var finixEnvironmentSettings = new Dictionary<string, string?>
+{
+    ["Finix:Username"] = Environment.GetEnvironmentVariable("FINIX_USERNAME"),
+    ["Finix:Password"] = Environment.GetEnvironmentVariable("FINIX_PASSWORD"),
+    ["Finix:MerchantId"] = Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID"),
+    ["Finix:Environment"] = Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT"),
+    ["Finix:Currency"] = Environment.GetEnvironmentVariable("FINIX_CURRENCY")
+};
+
+foreach (var finixKey in finixEnvironmentSettings
+             .Where(pair => string.IsNullOrWhiteSpace(pair.Value))
+             .Select(pair => pair.Key)
+             .ToList())
+{
+    finixEnvironmentSettings.Remove(finixKey);
+}
+
+builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+builder.Services.AddFinixPayments(builder.Configuration);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Entities.PaymentAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
@@ -22,6 +23,7 @@ public class Order : BaseEntity, IAggregateRoot
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+    public OrderPaymentState PaymentState { get; private set; } = OrderPaymentState.AwaitingPayment;
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -44,4 +46,17 @@ public class Order : BaseEntity, IAggregateRoot
         }
         return total;
     }
+
+    public void MarkAuthorized() => PaymentState = OrderPaymentState.Authorized;
+
+    public void MarkCaptured() => PaymentState = OrderPaymentState.Captured;
+
+    public void MarkCancelled() => PaymentState = OrderPaymentState.Cancelled;
+
+    public void MarkPaymentFailed() => PaymentState = OrderPaymentState.Failed;
+
+    public void MarkRefunded(bool fullyRefunded) =>
+        PaymentState = fullyRefunded ? OrderPaymentState.Refunded : OrderPaymentState.PartiallyRefunded;
+
+    public void MarkOutcomeUnknown() => PaymentState = OrderPaymentState.OutcomeUnknown;
 }
