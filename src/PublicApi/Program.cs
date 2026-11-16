@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -11,9 +11,11 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +33,14 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Bind the Finix section from configuration. The environment-variable names are only
+// used as a fallback; credential values are never written into the repository.
+builder.Configuration["Finix:Username"] = Environment.GetEnvironmentVariable("FINIX_USERNAME") ?? builder.Configuration["Finix:Username"];
+builder.Configuration["Finix:Password"] = Environment.GetEnvironmentVariable("FINIX_PASSWORD") ?? builder.Configuration["Finix:Password"];
+builder.Configuration["Finix:MerchantId"] = Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID") ?? builder.Configuration["Finix:MerchantId"];
+builder.Configuration["Finix:Environment"] = Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT") ?? builder.Configuration["Finix:Environment"];
+builder.Configuration["Finix:Currency"] = Environment.GetEnvironmentVariable("FINIX_CURRENCY") ?? builder.Configuration["Finix:Currency"];
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -44,6 +54,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<IFinixClient, FinixClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(90);
+});
+builder.Services.AddSingleton<OrderLockProvider>();
+builder.Services.AddScoped<PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -15,6 +15,37 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(o => o.Status)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PaymentStatus)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(o => o.Currency)
+            .IsRequired()
+            .HasMaxLength(16);
+
+        builder.Property(o => o.PaymentAttemptKey)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PaymentReference)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(o => o.FinixAuthorizationId).HasMaxLength(128);
+        builder.Property(o => o.FinixAuthorizationState).HasMaxLength(64);
+        builder.Property(o => o.FinixPaymentInstrumentId).HasMaxLength(128);
+        builder.Property(o => o.FinixCaptureTransferId).HasMaxLength(128);
+        builder.Property(o => o.FinixCaptureState).HasMaxLength(64);
+        builder.Property(o => o.PaymentFailureMessage).HasMaxLength(2048);
+
+        builder.HasIndex(o => o.BuyerId);
+        builder.HasIndex(o => o.FinixAuthorizationId);
+        builder.HasIndex(o => o.FinixCaptureTransferId);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
