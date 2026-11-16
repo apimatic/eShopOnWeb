@@ -16,6 +16,23 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(b => b.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(b => b.Currency).HasMaxLength(3);
+        builder.Property(b => b.AuthorizationState).HasMaxLength(32);
+        builder.Property(b => b.CaptureState).HasMaxLength(32);
+        builder.Property(b => b.FinixAuthorizationId).HasMaxLength(64);
+        builder.Property(b => b.CaptureTransferId).HasMaxLength(64);
+        builder.Property(b => b.PaymentFailureCode).HasMaxLength(64);
+        builder.Property(b => b.PaymentFailureMessage).HasMaxLength(500);
+
+        builder.Ignore(b => b.RemainingRefundableCents);
+        builder.Ignore(b => b.IsAwaitingPayment);
+        builder.Ignore(b => b.IsAuthorized);
+        builder.Ignore(b => b.IsFulfilled);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();

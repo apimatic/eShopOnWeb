@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +89,63 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// The credentials arrive as FINIX_* environment variables. Map them onto the exact
+// Finix:* keys this app binds; values that are already configured (user-secrets or
+// appsettings) win, and no value is ever written to the repository.
+var finixEnvMap = new Dictionary<string, string?>
+{
+    ["Finix:Username"] = Environment.GetEnvironmentVariable("FINIX_USERNAME"),
+    ["Finix:Password"] = Environment.GetEnvironmentVariable("FINIX_PASSWORD"),
+    ["Finix:MerchantId"] = Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID"),
+    ["Finix:Environment"] = Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT"),
+    ["Finix:Currency"] = Environment.GetEnvironmentVariable("FINIX_CURRENCY")
+};
+var finixBridge = new Dictionary<string, string?>();
+foreach (var (finixKey, value) in finixEnvMap)
+{
+    if (!string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(builder.Configuration[finixKey]))
+        finixBridge[finixKey] = value;
+}
+if (finixBridge.Count > 0)
+    builder.Configuration.AddInMemoryCollection(finixBridge);
+
+var finixOptions = builder.Configuration.GetSection("Finix").Get<FinixOptions>() ?? new FinixOptions();
+finixOptions.Validate();
+builder.Services.AddSingleton(finixOptions);
+
+builder.Services.AddFinixApiReferenceClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = finixOptions.Username,
+        Password = finixOptions.Password
+    };
+    // The SDK's only declared environment hosts the sandbox. A live deployment must
+    // supply Finix:BaseUrl, which is used verbatim below.
+    options.Environment = ServerEnvironment.Production;
+    if (!string.IsNullOrWhiteSpace(finixOptions.BaseUrl))
+        options.Server.Default.Production.BaseUrl = finixOptions.BaseUrl;
+
+    options.Retry = RetryOptions.Default() with
+    {
+        Timeout = TimeSpan.FromSeconds(20),
+        MaxRetries = 2
+    };
+    options.Logging = new LoggingOptions
+    {
+        LogRequestBody = false,
+        RedactedKeys =
+        [
+            "sig", "signature", "access_token", "apikey", "api_key", "client_secret",
+            "password", "refresh_token", "code", "assertion", "client_assertion",
+            "number", "security_code", "cvv", "card_number"
+        ]
+    };
+});
+
+builder.Services.AddScoped<FinixPaymentService>();
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
