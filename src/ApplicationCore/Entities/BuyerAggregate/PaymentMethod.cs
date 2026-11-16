@@ -1,8 +1,54 @@
-﻿namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+﻿using System;
+using Ardalis.GuardClauses;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
-public class PaymentMethod : BaseEntity
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.BuyerAggregate;
+
+/// <summary>
+/// A card saved in Finix and linked to the shopper who owns it. Only safe display
+/// attributes are persisted; the card number and security code never are.
+/// </summary>
+public class PaymentMethod : BaseEntity, IAggregateRoot
 {
+#pragma warning disable CS8618 // Required by Entity Framework
+    private PaymentMethod() { }
+#pragma warning restore CS8618
+
+    public PaymentMethod(
+        string buyerId,
+        string finixPaymentInstrumentId,
+        string? brand,
+        string? last4,
+        int? expirationMonth,
+        int? expirationYear,
+        string? alias)
+    {
+        Guard.Against.NullOrEmpty(buyerId, nameof(buyerId));
+        Guard.Against.NullOrEmpty(finixPaymentInstrumentId, nameof(finixPaymentInstrumentId));
+
+        BuyerId = buyerId;
+        FinixPaymentInstrumentId = finixPaymentInstrumentId;
+        Brand = brand;
+        Last4 = last4;
+        ExpirationMonth = expirationMonth;
+        ExpirationYear = expirationYear;
+        Alias = alias;
+        CreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public string BuyerId { get; private set; }
     public string? Alias { get; private set; }
-    public string? CardId { get; private set; } // actual card data must be stored in a PCI compliant system, like Stripe
+    public string? CardId { get; private set; }
+    public string? FinixPaymentInstrumentId { get; private set; }
+    public string? Brand { get; private set; }
     public string? Last4 { get; private set; }
+    public int? ExpirationMonth { get; private set; }
+    public int? ExpirationYear { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+
+    public void MarkDeleted()
+    {
+        IsDeleted = true;
+    }
 }
