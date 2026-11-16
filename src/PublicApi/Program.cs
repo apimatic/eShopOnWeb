@@ -7,13 +7,16 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Finix;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.PaymentEndpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +27,15 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+AddFinixEnvironmentConfiguration(builder.Configuration);
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<IFinixClient, FinixClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(100);
+});
+builder.Services.AddSingleton<PaymentOperationLock>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 builder.Services.AddEndpoints();
 
@@ -177,5 +189,31 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddFinixEnvironmentConfiguration(IConfigurationBuilder configuration)
+{
+    var values = new Dictionary<string, string?>();
+
+    static void Add(Dictionary<string, string?> target, string environmentVariable, string configurationKey)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            target[configurationKey] = value;
+        }
+    }
+
+    Add(values, "FINIX_USERNAME", "Finix:Username");
+    Add(values, "FINIX_PASSWORD", "Finix:Password");
+    Add(values, "FINIX_MERCHANT_ID", "Finix:MerchantId");
+    Add(values, "FINIX_ENVIRONMENT", "Finix:Environment");
+    Add(values, "FINIX_CURRENCY", "Finix:Currency");
+    Add(values, "FINIX_BASE_URL", "Finix:BaseUrl");
+
+    if (values.Count > 0)
+    {
+        configuration.AddInMemoryCollection(values);
+    }
+}
 
 public partial class Program { }
