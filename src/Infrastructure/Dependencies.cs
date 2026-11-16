@@ -1,8 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.eShopWeb.Infrastructure;
 
@@ -36,5 +42,19 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        services.Configure<FinixSettings>(configuration.GetSection(FinixSettings.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<FinixSettings>>().Value);
+
+        services.AddHttpClient<IFinixClient, FinixClient>((sp, httpClient) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<FinixSettings>>().Value;
+            httpClient.BaseAddress = new Uri(settings.ResolveBaseUrl());
+            httpClient.Timeout = TimeSpan.FromSeconds(90);
+        });
+
+        services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+        services.AddScoped<ISavedPaymentMethodService, SavedPaymentMethodService>();
+        services.AddScoped<IReconciliationService, ReconciliationService>();
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
@@ -30,6 +31,10 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+// Credentials are normally supplied through .NET user-secrets (Finix:*). As a deployment
+// convenience, map the documented FINIX_* environment variables when a key is not already set.
+BindFinixEnvironmentFallbacks(builder.Configuration);
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -160,6 +165,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +183,29 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindFinixEnvironmentFallbacks(IConfigurationManager configuration)
+{
+    void SetIfMissing(string configurationKey, string environmentVariable)
+    {
+        if (!string.IsNullOrWhiteSpace(configuration[configurationKey]))
+        {
+            return;
+        }
+
+        var value = Environment.GetEnvironmentVariable(environmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[configurationKey] = value;
+        }
+    }
+
+    SetIfMissing("Finix:Username", "FINIX_USERNAME");
+    SetIfMissing("Finix:Password", "FINIX_PASSWORD");
+    SetIfMissing("Finix:MerchantId", "FINIX_MERCHANT_ID");
+    SetIfMissing("Finix:Environment", "FINIX_ENVIRONMENT");
+    SetIfMissing("Finix:Currency", "FINIX_CURRENCY");
+    SetIfMissing("Finix:BaseUrl", "FINIX_BASE_URL");
+}
 
 public partial class Program { }

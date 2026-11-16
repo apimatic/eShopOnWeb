@@ -1,0 +1,14 @@
+namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+
+/// <summary>
+/// The fulfilment/payment lifecycle of an order.
+/// </summary>
+public enum OrderStatus
+{
+    AwaitingPayment = 0,
+    Authorized = 1,
+    Fulfilled = 2,
+    Cancelled = 3,
+    PartiallyRefunded = 4,
+    Refunded = 5
+}
