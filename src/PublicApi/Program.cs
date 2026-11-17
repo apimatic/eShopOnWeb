@@ -10,8 +10,10 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+AddFinixEnvironmentConfiguration(builder.Configuration);
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<IFinixClient, FinixClient>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -177,5 +184,32 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddFinixEnvironmentConfiguration(IConfigurationBuilder configuration)
+{
+    var values = new Dictionary<string, string?>();
+
+    void Add(string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            values[key] = value;
+        }
+    }
+
+    Add("Finix:Username", Environment.GetEnvironmentVariable("FINIX_USERNAME"));
+    Add("Finix:Password", Environment.GetEnvironmentVariable("FINIX_PASSWORD"));
+    Add("Finix:MerchantId", Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID"));
+    Add("Finix:Environment", Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT"));
+    Add("Finix:Currency", Environment.GetEnvironmentVariable("FINIX_CURRENCY"));
+    Add("Finix:BaseUrl",
+        Environment.GetEnvironmentVariable("FINIX_BASE_URL")
+        ?? Environment.GetEnvironmentVariable("FINIX_BASEURL"));
+
+    if (values.Count > 0)
+    {
+        configuration.AddInMemoryCollection(values);
+    }
+}
 
 public partial class Program { }

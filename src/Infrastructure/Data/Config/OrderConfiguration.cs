@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -15,6 +15,24 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(o => o.PaymentReference)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PaymentStatus)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.Currency)
+            .HasMaxLength(8);
+
+        builder.Property(o => o.PaymentAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.PaymentAuthorizationState).HasMaxLength(32);
+        builder.Property(o => o.PaymentCaptureTransferId).HasMaxLength(64);
+        builder.Property(o => o.PaymentCaptureState).HasMaxLength(32);
+        builder.Property(o => o.PaymentInstrumentId).HasMaxLength(64);
+        builder.Property(o => o.PaymentFailureMessage).HasMaxLength(1024);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
