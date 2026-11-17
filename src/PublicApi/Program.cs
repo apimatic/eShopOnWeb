@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,9 +8,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
+using Microsoft.eShopWeb.ApplicationCore.Finix;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
@@ -24,6 +27,19 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+
+// The Finix settings are read from the Finix configuration section. When a
+// value has not been supplied through user-secrets (or another configuration
+// provider), fall back to the deployment environment variable of the same name.
+// Only variable names are referenced here; credentials never enter the repo.
+SetFinixSettingFromEnvironment(builder.Configuration, "Username", "FINIX_USERNAME");
+SetFinixSettingFromEnvironment(builder.Configuration, "Password", "FINIX_PASSWORD");
+SetFinixSettingFromEnvironment(builder.Configuration, "MerchantId", "FINIX_MERCHANT_ID");
+SetFinixSettingFromEnvironment(builder.Configuration, "Environment", "FINIX_ENVIRONMENT");
+SetFinixSettingFromEnvironment(builder.Configuration, "Currency", "FINIX_CURRENCY");
+SetFinixSettingFromEnvironment(builder.Configuration, "BaseUrl", "FINIX_BASE_URL");
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +60,15 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddHttpContextAccessor();
+
+var finixSettings = builder.Configuration.GetSection("Finix").Get<FinixSettings>() ?? new FinixSettings();
+builder.Services.AddSingleton(finixSettings);
+builder.Services.AddSingleton<IFinixGateway>(_ => new FinixGateway(
+    new HttpClient { Timeout = TimeSpan.FromSeconds(90) },
+    finixSettings));
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddSingleton<OrderOperationLock>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -177,5 +202,20 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void SetFinixSettingFromEnvironment(IConfiguration configuration, string settingName, string environmentVariableName)
+{
+    var configurationKey = $"Finix:{settingName}";
+    if (!string.IsNullOrWhiteSpace(configuration[configurationKey]))
+    {
+        return;
+    }
+
+    var environmentValue = Environment.GetEnvironmentVariable(environmentVariableName);
+    if (!string.IsNullOrWhiteSpace(environmentValue))
+    {
+        configuration[configurationKey] = environmentValue;
+    }
+}
 
 public partial class Program { }
