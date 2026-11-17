@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +31,32 @@ builder.Services.AddEndpoints();
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
+
+// Bridge the Finix environment variables into the Finix configuration section. The
+// values are never written to a repository file; user-secrets are loaded by the host
+// and can provide the same keys when the environment is not populated.
+var finixFromEnvironment = new Dictionary<string, string?>();
+void MapFinix(string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixFromEnvironment[configurationKey] = value;
+    }
+}
+
+MapFinix("FINIX_USERNAME", "Finix:Username");
+MapFinix("FINIX_PASSWORD", "Finix:Password");
+MapFinix("FINIX_MERCHANT_ID", "Finix:MerchantId");
+MapFinix("FINIX_ENVIRONMENT", "Finix:Environment");
+MapFinix("FINIX_CURRENCY", "Finix:Currency");
+MapFinix("FINIX_BASEURL", "Finix:BaseUrl");
+MapFinix("FINIX_BASE_URL", "Finix:BaseUrl");
+
+if (finixFromEnvironment.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixFromEnvironment);
+}
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
@@ -50,6 +77,8 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddFinixPayments(builder.Configuration);
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
