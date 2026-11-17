@@ -1,9 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
@@ -14,6 +22,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -85,6 +94,47 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+var finixOptions = builder.Configuration.GetSection(FinixOptions.SectionName).Get<FinixOptions>() ?? new FinixOptions();
+var finixConfigurationErrors = finixOptions.Validate();
+if (finixConfigurationErrors.Count > 0)
+{
+    throw new InvalidOperationException(
+        "Finix configuration is invalid. " + string.Join(" ", finixConfigurationErrors));
+}
+
+builder.Services.AddSingleton(finixOptions);
+builder.Services.AddFinixApiReferenceClient(options =>
+{
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = finixOptions.Username,
+        Password = finixOptions.Password
+    };
+    options.Environment = ServerEnvironment.Production;
+    options.Retry = RetryOptions.Default() with
+    {
+        HttpMethodsToRetry = [HttpMethod.Get, HttpMethod.Head],
+        MaxRetries = 2,
+        Timeout = TimeSpan.FromSeconds(20)
+    };
+    options.Logging = options.Logging with
+    {
+        LogRequestHeaders = false,
+        LogResponseHeaders = false,
+        LogRequestBody = false
+    };
+
+    var baseUrl = ResolveFinixBaseUrl(finixOptions);
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        options.Server.Default.Production.BaseUrl = baseUrl;
+});
+builder.Services.AddHttpClient(string.Empty, client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddTransient<FinixDateQueryHandler>();
+builder.Services.AddHttpClient(string.Empty).AddHttpMessageHandler<FinixDateQueryHandler>();
+builder.Services.AddScoped<PaymentStore>();
+builder.Services.AddScoped<FinixPaymentGateway>();
+builder.Services.AddScoped<PaymentService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -126,6 +176,8 @@ var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
 
+await VerifyFinixMerchantAsync(app, finixOptions);
+
 app.Logger.LogInformation("Seeding Database...");
 
 using (var scope = app.Services.CreateScope())
@@ -160,6 +212,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +230,43 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static string? ResolveFinixBaseUrl(FinixOptions options)
+{
+    if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+        return options.BaseUrl!.Trim();
+
+    return options.IsLive ? "https://finix.live-payments-api.com" : null;
+}
+
+static async System.Threading.Tasks.Task VerifyFinixMerchantAsync(
+    WebApplication app,
+    FinixOptions options)
+{
+    using var scope = app.Services.CreateScope();
+    var gateway = scope.ServiceProvider.GetRequiredService<FinixPaymentGateway>();
+
+    try
+    {
+        var merchant = await gateway.GetMerchantAsync(System.Threading.CancellationToken.None);
+        if (merchant.Currencies.Count > 0 &&
+            !merchant.Currencies.Any(c => string.Equals(c, options.NormalizedCurrency, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Finix merchant {options.MerchantId} does not accept the configured currency {options.NormalizedCurrency}.");
+        }
+    }
+    catch (PaymentException ex) when (
+        ex.ProviderStatusCode is 401 or 403 or 404 ||
+        (ex.ProviderStatusCode is null && !ex.UnknownOutcome))
+    {
+        throw new InvalidOperationException($"Finix configuration check failed: {ex.Message}", ex);
+    }
+    catch (PaymentException ex) when (ex.UnknownOutcome)
+    {
+        app.Logger.LogWarning(ex,
+            "Finix merchant check could not reach the provider; starting anyway. Payments will fail until Finix is reachable.");
+    }
+}
 
 public partial class Program { }
