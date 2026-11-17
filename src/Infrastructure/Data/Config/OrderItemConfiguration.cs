@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -15,7 +15,12 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
             io.Property(cio => cio.ProductName)
                 .HasMaxLength(50)
                 .IsRequired();
+
+            io.Property(cio => cio.PictureUri)
+                .IsRequired(false);
         });
+
+        builder.Navigation(i => i.ItemOrdered).IsRequired(false);
 
         builder.Property(oi => oi.UnitPrice)
             .IsRequired(true)

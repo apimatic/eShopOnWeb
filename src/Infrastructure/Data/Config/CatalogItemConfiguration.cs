@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 
@@ -21,6 +21,9 @@ public class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
         builder.Property(ci => ci.Price)
             .IsRequired(true)
             .HasColumnType("decimal(18,2)");
+
+        builder.Property(ci => ci.Description)
+            .IsRequired(false);
 
         builder.Property(ci => ci.PictureUri)
             .IsRequired(false);
