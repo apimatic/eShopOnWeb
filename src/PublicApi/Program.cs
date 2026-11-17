@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
@@ -13,7 +13,9 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Finix;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -85,6 +87,29 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+// The sandbox credentials arrive as FINIX_* environment variables. Map them onto the
+// exact Finix: configuration keys without ever writing their values into the repository.
+var finixOverrides = new Dictionary<string, string?>();
+var finixUsername = Environment.GetEnvironmentVariable("FINIX_USERNAME");
+if (!string.IsNullOrWhiteSpace(finixUsername)) finixOverrides["Finix:Username"] = finixUsername;
+var finixPassword = Environment.GetEnvironmentVariable("FINIX_PASSWORD");
+if (!string.IsNullOrWhiteSpace(finixPassword)) finixOverrides["Finix:Password"] = finixPassword;
+var finixMerchantId = Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID");
+if (!string.IsNullOrWhiteSpace(finixMerchantId)) finixOverrides["Finix:MerchantId"] = finixMerchantId;
+var finixEnvironment = Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT");
+if (!string.IsNullOrWhiteSpace(finixEnvironment)) finixOverrides["Finix:Environment"] = finixEnvironment;
+var finixCurrency = Environment.GetEnvironmentVariable("FINIX_CURRENCY");
+if (!string.IsNullOrWhiteSpace(finixCurrency)) finixOverrides["Finix:Currency"] = finixCurrency;
+if (finixOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixOverrides);
+}
+
+builder.Services.Configure<FinixSettings>(builder.Configuration.GetSection("Finix"));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<IFinixClient, FinixClient>();
+builder.Services.AddScoped<OrderPaymentService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -123,6 +148,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
 
 app.Logger.LogInformation("PublicApi App created...");
 
