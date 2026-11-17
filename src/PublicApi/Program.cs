@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +19,12 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -29,6 +36,7 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+builder.Configuration.AddFinixEnvironmentVariables();
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -84,6 +92,69 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var finixSection = builder.Configuration.GetSection(FinixOptions.SectionName);
+var finixOptions = finixSection.Get<FinixOptions>() ?? new FinixOptions();
+FinixOptionsValidator.ValidateOrThrow(finixOptions);
+
+builder.Services.AddOptions<FinixOptions>()
+    .Bind(finixSection)
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<FinixOptions>, FinixOptionsValidator>();
+builder.Services.AddSingleton(finixOptions);
+builder.Services.AddSingleton<PaymentStore>();
+builder.Services.AddSingleton<FinixMerchantContext>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton(sp =>
+{
+    var options = new FinixApiReferenceClientOptions
+    {
+        TimeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System
+    };
+
+    options.BasicAuth = new BasicAuthCredentials
+    {
+        Username = finixOptions.Username,
+        Password = finixOptions.Password
+    };
+    options.Environment = ServerEnvironment.Production;
+
+    if (!string.IsNullOrWhiteSpace(finixOptions.BaseUrl))
+    {
+        options.Server.Default.Production.BaseUrl = finixOptions.BaseUrl;
+    }
+    else if (finixOptions.IsLive)
+    {
+        options.Server.Default.Production.BaseUrl = "https://finix.live-payments-api.com";
+    }
+
+    options.Retry = RetryOptions.Default() with
+    {
+        HttpMethodsToRetry = [HttpMethod.Get, HttpMethod.Head],
+        MaxRetries = 2,
+        Timeout = TimeSpan.FromSeconds(15)
+    };
+
+    options.Logging = options.Logging with
+    {
+        LoggerFactory = sp.GetService<ILoggerFactory>(),
+        LogRequestBody = false,
+        LogRequestHeaders = false,
+        LogResponseHeaders = false,
+        RedactedKeys =
+        [
+            "sig", "signature", "access_token", "apikey", "api_key",
+            "client_secret", "password", "refresh_token", "code", "assertion",
+            "client_assertion", "number", "security_code", "cvc", "cvv"
+        ]
+    };
+
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+    return new FinixApiReferenceClient(httpClient, options);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
