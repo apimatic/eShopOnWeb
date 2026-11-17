@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +85,24 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+var finixEnvironmentOverrides = new Dictionary<string, string?>();
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_USERNAME", "Username");
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_PASSWORD", "Password");
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_MERCHANT_ID", "MerchantId");
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_ENVIRONMENT", "Environment");
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_CURRENCY", "Currency");
+AddFinixOverride(finixEnvironmentOverrides, "FINIX_BASE_URL", "BaseUrl");
+if (finixEnvironmentOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentOverrides);
+}
+
+builder.Services.Configure<FinixSettings>(builder.Configuration.GetSection("Finix"));
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IFinixGateway, FinixGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +179,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +197,14 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void AddFinixOverride(Dictionary<string, string?> overrides, string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        overrides[$"Finix:{configurationKey}"] = value;
+    }
+}
 
 public partial class Program { }
