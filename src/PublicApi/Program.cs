@@ -8,10 +8,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,29 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Map the Finix environment variables onto the Finix configuration section. This keeps
+// credentials out of source control while still allowing user-secrets/appsettings overrides
+// for the optional Finix:BaseUrl setting.
+var finixEnvironmentValues = new Dictionary<string, string?>();
+AddFinixEnvironmentValue(finixEnvironmentValues, "Finix:Username", "FINIX_USERNAME");
+AddFinixEnvironmentValue(finixEnvironmentValues, "Finix:Password", "FINIX_PASSWORD");
+AddFinixEnvironmentValue(finixEnvironmentValues, "Finix:MerchantId", "FINIX_MERCHANT_ID");
+AddFinixEnvironmentValue(finixEnvironmentValues, "Finix:Environment", "FINIX_ENVIRONMENT");
+AddFinixEnvironmentValue(finixEnvironmentValues, "Finix:Currency", "FINIX_CURRENCY");
+if (finixEnvironmentValues.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentValues);
+}
+
+static void AddFinixEnvironmentValue(IDictionary<string, string?> values, string key, string variable)
+{
+    var value = Environment.GetEnvironmentVariable(variable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        values[key] = value;
+    }
+}
 
 builder.Services.AddEndpoints();
 
@@ -44,6 +69,20 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var finixSection = builder.Configuration.GetSection("Finix");
+var finixOptions = new FinixOptions
+{
+    Username = finixSection["Username"] ?? string.Empty,
+    Password = finixSection["Password"] ?? string.Empty,
+    MerchantId = finixSection["MerchantId"] ?? string.Empty,
+    Environment = finixSection["Environment"] ?? "sandbox",
+    Currency = (finixSection["Currency"] ?? "USD").ToUpperInvariant(),
+    BaseUrl = finixSection["BaseUrl"]
+};
+builder.Services.AddSingleton(finixOptions);
+builder.Services.AddSingleton<IFinixPaymentGateway>(new FinixPaymentGateway(finixOptions));
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +199,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
