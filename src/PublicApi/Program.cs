@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Finix;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +50,54 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+
+var finixOptions = FinixOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(finixOptions);
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddScoped<FinixPaymentService>();
+
+builder.Services.AddHttpClient("Finix", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("Finix");
+    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+    var options = new FinixApiReferenceClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = finixOptions.Username,
+            Password = finixOptions.Password
+        },
+        Retry = RetryOptions.Default() with
+        {
+            MaxRetries = 0,
+            Timeout = TimeSpan.FromSeconds(20)
+        },
+        Hooks = [FinixRequestHooks.NormalizeDateFilters()],
+        Logging = new LoggingOptions
+        {
+            LoggerFactory = loggerFactory,
+            LogRequestBody = false,
+            RedactedKeys =
+            [
+                "sig", "signature", "access_token", "apikey", "api_key", "client_secret", "password",
+                "refresh_token", "code", "assertion", "client_assertion", "number", "security_code",
+                "cvv", "pan"
+            ]
+        }
+    };
+    options.Server.Default.Production.BaseUrl = finixOptions.ResolveBaseUrl();
+    return new FinixApiReferenceClient(httpClient, options);
+});
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -160,6 +214,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
