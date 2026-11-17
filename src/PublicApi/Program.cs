@@ -12,6 +12,7 @@ using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +85,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var finixEnvironmentSettings = new Dictionary<string, string?>();
+void MapFinixEnvironmentVariable(string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixEnvironmentSettings[configurationKey] = value;
+    }
+}
+
+MapFinixEnvironmentVariable("FINIX_USERNAME", "Finix:Username");
+MapFinixEnvironmentVariable("FINIX_PASSWORD", "Finix:Password");
+MapFinixEnvironmentVariable("FINIX_MERCHANT_ID", "Finix:MerchantId");
+MapFinixEnvironmentVariable("FINIX_ENVIRONMENT", "Finix:Environment");
+MapFinixEnvironmentVariable("FINIX_CURRENCY", "Finix:Currency");
+builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
+
+builder.Services.AddFinixPayments(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

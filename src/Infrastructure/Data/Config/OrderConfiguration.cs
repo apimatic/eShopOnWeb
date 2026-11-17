@@ -12,9 +12,31 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         navigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
 
+        var refundsNavigation = builder.Metadata.FindNavigation(nameof(Order.Refunds));
+        refundsNavigation?.SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(b => b.BuyerId)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(o => o.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.PaymentAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.PaymentAuthorizationState).HasMaxLength(32);
+        builder.Property(o => o.PaymentVoidState).HasMaxLength(32);
+        builder.Property(o => o.PaymentCaptureTransferId).HasMaxLength(64);
+        builder.Property(o => o.PaymentCaptureState).HasMaxLength(32);
+        builder.Property(o => o.PaymentCurrency).HasMaxLength(3);
+        builder.Property(o => o.PaymentInstrumentId).HasMaxLength(64);
+        builder.Property(o => o.PaymentFailureMessage).HasMaxLength(1024);
+        builder.Property(o => o.PaymentIdempotencyKey).HasMaxLength(64);
+
+        builder.HasMany(o => o.Refunds)
+            .WithOne()
+            .HasForeignKey(r => r.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
