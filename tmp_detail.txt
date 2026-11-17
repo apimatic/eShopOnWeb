@@ -1,0 +1,1342 @@
+
+
+##### schemas createPaymentInstrumentCard #####
+{
+ "title": "Payment Instrument - Card",
+ "type": "object",
+ "properties": {
+  "address": {
+   "description": "The address of the card owner.\n\n**Note**: Including a postal or zip code when creating a `Payment Instrument` can lower the interchange on credit card transactions.\n",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/address"
+    }
+   ]
+  },
+  "expiration_month": {
+   "type": "integer",
+   "description": "The expiration month of the card (e.g. 12 for December)."
+  },
+  "expiration_year": {
+   "type": "integer",
+   "description": "The 4-digit expiration year of the card."
+  },
+  "identity": {
+   "type": "string",
+   "description": "The ID of the `Identity` used to create the `Payment Instrument` resource."
+  },
+  "name": {
+   "type": "string",
+   "description": "The name of the card owner. This value can get truncated to comply with processor requirements."
+  },
+  "number": {
+   "type": "string",
+   "description": "The card or bank account number (no dashes in between numbers)."
+  },
+  "security_code": {
+   "$ref": "#/components/schemas/security_code"
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  },
+  "third_party_token": {
+   "type": "string",
+   "description": "Stringified token provided by Apple or Google. Required if using Apple or Google Pay."
+  },
+  "type": {
+   "type": "string",
+   "description": "Type of `Payment Instrument`.",
+   "enum": [
+    "PAYMENT_CARD"
+   ]
+  }
+ },
+ "required": [
+  "expiration_month",
+  "expiration_year",
+  "identity",
+  "name",
+  "number",
+  "type"
+ ]
+}
+
+
+##### schemas payment_instrument_card #####
+{
+ "type": "object",
+ "title": "Payment Instrument - Card",
+ "properties": {
+  "id": {
+   "$ref": "#/components/schemas/id"
+  },
+  "created_at": {
+   "$ref": "#/components/schemas/created_at"
+  },
+  "updated_at": {
+   "$ref": "#/components/schemas/updated_at"
+  },
+  "created_via": {
+   "$ref": "#/components/schemas/created_via"
+  },
+  "account_updater_enabled": {
+   "$ref": "#/components/schemas/account_updater_enabled_card"
+  },
+  "address": {
+   "description": "The address of the card owner. Including a postal or zip code when creating a `Payment Instrument` can lower the interchange on credit card transactions.",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/address"
+    }
+   ]
+  },
+  "address_verification": {
+   "type": "string",
+   "enum": [
+    "POSTAL_CODE_AND_STREET_MATCH",
+    "STREET_MATCH",
+    "POSTAL_CODE_MATCH",
+    "NO_ADDRESS",
+    "NO_MATCH",
+    "NOT_SUPPORTED",
+    "UNKNOWN"
+   ],
+   "description": "- Details the results of verifying `address` with the issuing bank.\n- Set to **UNKNOWN** when `address` gets updated."
+  },
+  "application": {
+   "$ref": "#/components/schemas/application_id"
+  },
+  "bin": {
+   "type": "string",
+   "description": "Bank Identification number for the `Payment Instrument`."
+  },
+  "brand": {
+   "type": "string",
+   "enum": [
+    "UNKNOWN",
+    "DINERS_CLUB_INTERNATIONAL",
+    "DANKORT",
+    "MIR",
+    "TROY",
+    "UATP",
+    "CHINA_T_UNION",
+    "CHINA_UNION_PAY",
+    "AMERICAN_EXPRESS",
+    "VERVE",
+    "RUPAY",
+    "DISCOVER",
+    "JCB",
+    "MASTERCARD",
+    "INTERPAYMENT",
+    "INSTAPAYMENT",
+    "MAESTRO",
+    "VISA",
+    "LANKAPAY",
+    "DINERS_CLUB",
+    "INTERAC"
+   ],
+   "description": "The `brand` of the card saved in the `Payment Instrument`."
+  },
+  "card_type": {
+   "type": "string",
+   "enum": [
+    "CREDIT",
+    "DEBIT",
+    "HSA_FSA",
+    "NON_RELOADABLE_PREPAID",
+    "RELOADABLE_PREPAID",
+    "UNKNOWN"
+   ],
+   "description": "The type of payment card saved in the `Payment Instrument`."
+  },
+  "country": {
+   "$ref": "#/components/schemas/country"
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "disabled_code": {
+   "type": "string",
+   "description": "A code indicating why the `Payment Instrument` was disabled. This field is set when:\n\n- The system automatically disables the `Payment Instrument`.\n- A user manually disables it (returns `USER_INITIATED`).\n\nSee `disabled_message` for all possible codes and their descriptions.\n",
+   "enum": [
+    "CARD_ACCOUNT_CLOSED",
+    "INVALID_ACCOUNT_NUMBER",
+    "LOST_OR_STOLEN_CARD",
+    "NON_RELOADABLE_INSUFFICIENT_FUNDS",
+    "PICK_UP_CARD",
+    "RESTRICTED_CARD",
+    "USER_INITIATED"
+   ],
+   "nullable": true
+  },
+  "disabled_message": {
+   "type": "string",
+   "description": "A human-readable message explaining why the `Payment Instrument` was disabled. This field provides additional context for the `disabled_code`.\n\nThe possible error codes/messages are:\n- `CARD_ACCOUNT_CLOSED`: \"The card account has been closed. The card has been disabled to prevent further use.\"\n- `INVALID_ACCOUNT_NUMBER`: \"The card number is not valid. The card has been disabled to prevent further use.\"\n- `LOST_OR_STOLEN_CARD`: \"The card is reported lost or stolen. The card has been disabled to prevent further use.\"\n- `NON_RELOADABLE_INSUFFICIENT_FUNDS`: \"The card has insufficient funds for the transaction and is non-reloadable. The card has been disabled to prevent further use.\"\n- `PICK_UP_CARD`: \"The card is reported lost or stolen. The card has been disabled to prevent further use.\"\n- `RESTRICTED_CARD`: \"The card has a restriction preventing approval for this transaction. The card has been disabled to prevent further use.\"\n- `USER_INITIATED`: \"The card has been disabled by a user.\"\n",
+   "nullable": true
+  },
+  "enabled": {
+   "type": "boolean",
+   "description": "Indicates whether the `Payment Instrument` resource is enabled. The default value is `true`; set it to `false` to disable the `Payment Instrument`. The user or the system can update this field to enable or disable the payment instrument."
+  },
+  "expiration_month": {
+   "type": "integer",
+   "maximum": 12,
+   "minimum": 1,
+   "description": "Expiration month (e.g. 12 for December)."
+  },
+  "expiration_year": {
+   "type": "integer",
+   "minimum": 1,
+   "description": "4-digit expiration year."
+  },
+  "fast_funds_indicator": {
+   "type": "string",
+   "description": "Details if Fast Funds is enabled for the card."
+  },
+  "fingerprint": {
+   "type": "string",
+   "example": "FPRxxxxxxxxxxxxxxxxx",
+   "description": "Unique ID that represents the tokenized card data."
+  },
+  "identity": {
+   "$ref": "#/components/schemas/identity_id"
+  },
+  "instrument_type": {
+   "type": "string",
+   "enum": [
+    "APPLE_PAY",
+    "GOOGLE_PAY",
+    "PAYMENT_CARD",
+    "PAYMENT_CARD_PRESENT",
+    "TOKEN"
+   ],
+   "description": "The type of `Payment Instrument`."
+  },
+  "issuer_country": {
+   "type": "string",
+   "description": "The Alpha-3 Code of the country the card was issued in.\n\nIn addition, the following values are possible:\n\n- `NON_USA` - The card was issued outside of the United States.\n- `UNKNOWN` - The processor did not return an issuer country for this particular BIN.\n",
+   "enum": [
+    "ABW",
+    "AFG",
+    "AGO",
+    "AIA",
+    "ALA",
+    "ALB",
+    "AND",
+    "ARE",
+    "ARG",
+    "ARM",
+    "ASM",
+    "ATA",
+    "ATF",
+    "ATG",
+    "AUS",
+    "AUT",
+    "AZE",
+    "BDI",
+    "BEL",
+    "BEN",
+    "BES",
+    "BFA",
+    "BGD",
+    "BGR",
+    "BHR",
+    "BHS",
+    "BIH",
+    "BLM",
+    "BLR",
+    "BLZ",
+    "BMU",
+    "BOL",
+    "BRA",
+    "BRB",
+    "BRN",
+    "BTN",
+    "BVT",
+    "BWA",
+    "CAF",
+    "CAN",
+    "CCK",
+    "CHE",
+    "CHL",
+    "CHN",
+    "CIV",
+    "CMR",
+    "COD",
+    "COG",
+    "COK",
+    "COL",
+    "COM",
+    "CPV",
+    "CRI",
+    "CUB",
+    "CUW",
+    "CXR",
+    "CYM",
+    "CYP",
+    "CZE",
+    "DEU",
+    "DJI",
+    "DMA",
+    "DNK",
+    "DOM",
+    "DZA",
+    "ECU",
+    "EGY",
+    "ERI",
+    "ESH",
+    "ESP",
+    "EST",
+    "ETH",
+    "FIN",
+    "FJI",
+    "FLK",
+    "FRA",
+    "FRO",
+    "FSM",
+    "GAB",
+    "GBR",
+    "GEO",
+    "GGY",
+    "GHA",
+    "GIB",
+    "GIN",
+    "GLP",
+    "GMB",
+    "GNB",
+    "GNQ",
+    "GRC",
+    "GRD",
+    "GRL",
+    "GTM",
+    "GUF",
+    "GUM",
+    "GUY",
+    "HKG",
+    "HMD",
+    "HND",
+    "HRV",
+    "HTI",
+    "HUN",
+    "IDN",
+    "IMN",
+    "IND",
+    "IOT",
+    "IRL",
+    "IRN",
+    "IRQ",
+    "ISL",
+    "ISR",
+    "ITA",
+    "JAM",
+    "JEY",
+    "JOR",
+    "JPN",
+    "KAZ",
+    "KEN",
+    "KGZ",
+    "KHM",
+    "KIR",
+    "KNA",
+    "KOR",
+    "KWT",
+    "LAO",
+    "LBN",
+    "LBR",
+    "LBY",
+    "LCA",
+    "LIE",
+    "LKA",
+    "LSO",
+    "LTU",
+    "LUX",
+    "LVA",
+    "MAC",
+    "MAF",
+    "MAR",
+    "MCO",
+    "MDA",
+    "MDG",
+    "MDV",
+    "MEX",
+    "MHL",
+    "MKD",
+    "MLI",
+    "MLT",
+    "MMR",
+    "MNE",
+    "MNG",
+    "MNP",
+    "MOZ",
+    "MRT",
+    "MSR",
+    "MTQ",
+    "MUS",
+    "MWI",
+    "MYS",
+    "MYT",
+    "NAM",
+    "NCL",
+    "NER",
+    "NFK",
+    "NGA",
+    "NIC",
+    "NIU",
+    "NLD",
+    "NON_USA",
+    "NOR",
+    "NPL",
+    "NRU",
+    "NZL",
+    "OMN",
+    "PAK",
+    "PAN",
+    "PCN",
+    "PER",
+    "PHL",
+    "PLW",
+    "PNG",
+    "POL",
+    "PRI",
+    "PRK",
+    "PRT",
+    "PRY",
+    "PSE",
+    "PYF",
+    "QAT",
+    "REU",
+    "ROU",
+    "RUS",
+    "RWA",
+    "SAU",
+    "SDN",
+    "SEN",
+    "SGP",
+    "SGS",
+    "SHN",
+    "SJM",
+    "SLB",
+    "SLE",
+    "SLV",
+    "SMR",
+    "SOM",
+    "SPM",
+    "SRB",
+    "SSD",
+    "STP",
+    "SUR",
+    "SVK",
+    "SVN",
+    "SWE",
+    "SWZ",
+    "SXM",
+    "SYC",
+    "SYR",
+    "TCA",
+    "TCD",
+    "TGO",
+    "THA",
+    "TJK",
+    "TKL",
+    "TKM",
+    "TLS",
+    "TON",
+    "TTO",
+    "TUN",
+    "TUR",
+    "TUV",
+    "TWN",
+    "TZA",
+    "UGA",
+    "UKR",
+    "UMI",
+    "UNKNOWN",
+    "URY",
+    "USA",
+    "UZB",
+    "VAT",
+    "VCT",
+    "VEN",
+    "VGB",
+    "VIR",
+    "VNM",
+    "VUT",
+    "WLF",
+    "WSM",
+    "YEM",
+    "ZAF",
+    "ZMB",
+    "ZWE"
+   ]
+  },
+  "last_four": {
+   "type": "string",
+   "description": "Last four digits of the card."
+  },
+  "name": {
+   "type": "string",
+   "description": "The name of the card owner.",
+   "nullable": true
+  },
+  "network_token_enabled": {
+   "$ref": "#/components/schemas/network_token_enabled_card"
+  },
+  "network_token_state": {
+   "type": "string",
+   "description": "The state of the network token. The possible enum values are as follows:\n\n- `NOT_ENABLED`: The `network_token_state` is `NOT_ENABLED` when the value of `network_token_enabled` on the `Payment Instrument` is `false`.\n- `PENDING`: Immediately after Finix enables network tokens for a specific card, `network_token_state` is initially set to `PENDING`.\n- `ACTIVE`: After Finix receives the network token successfully from the card network, `network_token_state` updates to `ACTIVE`.\n- `FAILED`: In the event that there is an issue with the card network such as service becomes unavailable, `FAILED` is returned.\n- `SUSPENDED`: When the issuing bank does not allow the network token to be used in transactions, `SUSPENDED` is returned.\n- `CLOSED`: In the event that the issuing bank has closed the card permanently, `CLOSED` is returned.\n",
+   "enum": [
+    "ACTIVE",
+    "CLOSED",
+    "ENABLED",
+    "FAILED",
+    "NOT_ENABLED",
+    "SUSPENDED",
+    "PENDING"
+   ]
+  },
+  "payload_type": {
+   "type": "string",
+   "enum": [
+    "SOURCE",
+    "DESTINATION"
+   ]
+  },
+  "online_gambing_block_indicator": {
+   "type": "string",
+   "description": "Indicates whether the card is blocked from online gambling transactions.",
+   "nullable": true
+  },
+  "push_funds_block_indicator": {
+   "type": "string",
+   "description": "Details if the card is enabled to receive push-to-card disbursements."
+  },
+  "name_verification_results": {
+   "description": "Details the results of verifying the cardholder's name with the issuing bank. Returns `null` if `name_verification_details` was not included in the request.",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/name_verification_results"
+    }
+   ]
+  },
+  "security_code_verification": {
+   "type": "string",
+   "enum": [
+    "MATCHED",
+    "UNKNOWN",
+    "UNMATCHED"
+   ],
+   "description": "Details the results of the Card Verification Code check."
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  },
+  "third_party": {
+   "type": "string",
+   "description": "This field is not applicable to payment cards.",
+   "nullable": true
+  },
+  "third_party_token": {
+   "type": "string",
+   "description": "This field is not applicable to payment cards.",
+   "nullable": true
+  },
+  "type": {
+   "type": "string",
+   "enum": [
+    "PAYMENT_CARD",
+    "TOKEN",
+    "GOOGLE_PAY",
+    "APPLE_PAY"
+   ],
+   "description": "Type of `Payment Instrument`."
+  },
+  "_links": {
+   "type": "object",
+   "description": "For your convenience, every response includes several URLs which link to resources relevant to the request. You can use these `_links` to make your follow-up requests and quickly access relevant IDs.",
+   "properties": {
+    "application": {
+     "type": "object",
+     "description": "Link to the `Application` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "authorizations": {
+     "type": "object",
+     "description": "Link to the `Authorizations` created under the resource.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "identity": {
+     "type": "object",
+     "description": "Link to the `Identity` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "self": {
+     "type": "object",
+     "description": "Link to the resource that was used in the request.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "transfers": {
+     "type": "object",
+     "description": "Link to the `Transfers` created under the resource.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "updates": {
+     "type": "object",
+     "description": "Link to the `Updates` created under the resource.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "verifications": {
+     "type": "object",
+     "description": "Link to the `Verification` that was used to verify the `Merchant` that the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+
+
+##### schemas createAuthorizationMinimalFields #####
+{
+ "title": "Authorization - Minimal Fields",
+ "type": "object",
+ "properties": {
+  "amount": {
+   "$ref": "#/components/schemas/amount"
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "merchant": {
+   "type": "string",
+   "description": "The ID of the `Merchant` that the `Authorization` was created under."
+  },
+  "source": {
+   "$ref": "#/components/schemas/source"
+  }
+ },
+ "required": [
+  "amount",
+  "currency",
+  "merchant",
+  "source"
+ ]
+}
+
+
+##### schemas captureAuthorization #####
+{
+ "title": "Capture Authorization",
+ "type": "object",
+ "properties": {
+  "capture_amount": {
+   "$ref": "#/components/schemas/capture_amount"
+  },
+  "fee": {
+   "type": "integer",
+   "format": "int64",
+   "description": "The minimum amount of the `Authorization` you'd like to collect as your fee in cents. Defaults to zero (must be less than or equal to the `amount`).\n- If the fees applied by the 'Fee Profile' are ***higher*** than the value passed in 'fee', 'fee' will not be applied and have no effect.\n- If the fees applied by the 'Fee Profile' are ***lower*** than the value passed in 'fee', an additional fee is be applied, in addition to the fees generated by the `Fee Profile`.\n- The additional fee is equal to the difference between the value passed in 'fee' and the fees generated by the `Fee Profile`."
+  },
+  "split_transfers": {
+   "description": "- An array used to detail how funds for the created `Transfer` will split and the amount `Merchants` receive.\n- The combined `amounts` under `split_transfers` must be equal to or less than the `amount` submitted in the `Authorization`.\n- For more information, see [Split Transactions](../../../../guides/online-payments/payment-features/split-transactions).",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/split_transfers"
+    }
+   ]
+  }
+ },
+ "required": [
+  "capture_amount"
+ ]
+}
+
+
+##### schemas voidAuthorization #####
+{
+ "title": "Void an Authorization",
+ "type": "object",
+ "properties": {
+  "void_me": {
+   "type": "boolean",
+   "description": "Set to **True** to void the `Authorization`."
+  }
+ }
+}
+
+
+##### schemas createTransferReversal #####
+{
+ "title": "Refund Transfer",
+ "properties": {
+  "refund_amount": {
+   "type": "integer",
+   "description": "The amount of the refund in cents. It must be equal to or less than the amount of the original `Transfer`."
+  }
+ },
+ "required": [
+  "refund_amount"
+ ]
+}
+
+
+##### schemas createTransferReversalReferencedRefund #####
+{
+ "title": "Refund Card Present Transfer - Referenced",
+ "description": "Request fields to perform a [referenced refund](/guides/after-the-payment/refunds#referenced-refunds).",
+ "type": "object",
+ "properties": {
+  "device": {
+   "type": "string",
+   "description": "The ID of the `Device` the `Transfer` was created under."
+  },
+  "refund_amount": {
+   "type": "integer",
+   "description": "The amount of the refund in cents. It must be equal to or less than the amount of the original `Transfer`."
+  }
+ },
+ "required": [
+  "refund_amount"
+ ]
+}
+
+
+##### schemas idempotency_id #####
+{
+ "type": "string",
+ "description": "Pass any randomly generated or internal ID to [idempotently](/api/section/idempotent-requests) identify `Transfers`, `Authorizations`, or refund requests.",
+ "nullable": true
+}
+
+
+##### schemas source #####
+{
+ "type": "string",
+ "example": "PIxxxxxxxxxxxxxxxxxx",
+ "description": "ID of the `Payment Instrument` where funds get debited."
+}
+
+
+##### schemas amount #####
+{
+ "type": "integer",
+ "description": "The total amount that will be debited in cents (e.g. 100 cents to debit $1.00).",
+ "example": 5000,
+ "format": "int64"
+}
+
+
+##### schemas currency #####
+{
+ "type": "string",
+ "description": "ISO 4217 3-letter currency code.",
+ "enum": [
+  "CAD",
+  "USD"
+ ]
+}
+
+
+##### schemas tags #####
+{
+ "type": "object",
+ "title": "tags",
+ "additionalProperties": true,
+ "description": "Include up to 50 `key: value` pairs to annotate requests with custom metadata.\n- Maximum character length for individual `keys` is 40.\n- Maximum character length for individual `values` is 500.\n(For example, `order_number: 25`, `item_type: produce`, `department: sales`)",
+ "nullable": true
+}
+
+
+##### parameters Finix-Version #####
+{
+ "name": "Finix-Version",
+ "description": "Specify the API version of your request. For more details, see [Versioning](../../../../additional-resources/developers/authentication-and-api-basics/versioning).",
+ "in": "header",
+ "schema": {
+  "type": "string",
+  "default": "2022-02-01",
+  "example": "2022-02-01"
+ }
+}
+
+
+##### parameters Content-Type #####
+{
+ "name": "Content-Type",
+ "description": "The data type being sent in the request body must be `application/json`.",
+ "in": "header",
+ "schema": {
+  "type": "string",
+  "example": "application/json"
+ }
+}
+
+
+##### parameters created_at.gte #####
+{
+ "description": "Filter where `created_at` is after the given date.",
+ "in": "query",
+ "name": "created_at.gte",
+ "required": false,
+ "schema": {
+  "type": "string",
+  "example": "2022-09-27T11:21:23",
+  "format": "date-time"
+ }
+}
+
+
+##### parameters created_at.lte #####
+{
+ "description": "Filter where `created_at` is before the given date.",
+ "in": "query",
+ "name": "created_at.lte",
+ "required": false,
+ "schema": {
+  "type": "string",
+  "example": "2026-09-27T11:21:23",
+  "format": "date-time"
+ }
+}
+
+
+##### parameters limit #####
+{
+ "description": "The numbers of items to return.",
+ "in": "query",
+ "name": "limit",
+ "required": false,
+ "schema": {
+  "type": "integer",
+  "example": 10,
+  "maximum": 100
+ }
+}
+
+
+##### parameters after_cursor #####
+{
+ "description": "Return every resource created after the cursor value.",
+ "in": "query",
+ "name": "after_cursor",
+ "required": false,
+ "schema": {
+  "type": "string"
+ }
+}
+
+
+##### parameters before_cursor #####
+{
+ "description": "Return every resource created before the cursor value.",
+ "in": "query",
+ "name": "before_cursor",
+ "required": false,
+ "schema": {
+  "type": "string"
+ }
+}
+
+
+##### parameters idempotency_id #####
+{
+ "description": "Filter by Idempotency ID.",
+ "in": "query",
+ "name": "idempotency_id",
+ "schema": {
+  "type": "string",
+  "example": "15d32948-c766-4033-8d87-dfbdcabcbc5c"
+ }
+}
+
+
+##### parameters currency #####
+{
+ "name": "currency",
+ "description": "Filter by the currency of the resource.",
+ "in": "query",
+ "required": false,
+ "schema": {
+  "type": "string",
+  "example": "USD"
+ }
+}
+
+
+##### parameters tags.key #####
+{
+ "description": "Filter by the tag's key. For more information, see [Tags](/api/section/tags).",
+ "in": "query",
+ "name": "tags.key",
+ "required": false,
+ "schema": {
+  "type": "string",
+  "example": "card_type"
+ }
+}
+
+
+##### parameters tags.value #####
+{
+ "description": "Filter by the tag's value. For more information, see [Tags](/api/section/tags).",
+ "in": "query",
+ "name": "tags.value",
+ "required": false,
+ "schema": {
+  "type": "string",
+  "example": "business_card"
+ }
+}
+
+
+##### parameters id #####
+{
+ "description": "Filter by `id`.",
+ "in": "query",
+ "name": "id",
+ "schema": {
+  "type": "string"
+ }
+}
+
+
+##### parameters merchant_id #####
+{
+ "description": "Filter by `Merchant` ID.",
+ "in": "query",
+ "name": "merchant_id",
+ "schema": {
+  "type": "string",
+  "example": "MUeDVrf2ahuKc9Eg5TeZugvs"
+ }
+}
+
+
+##### responses createPaymentInstrument #####
+{
+ "description": "A single Payment Instrument",
+ "content": {
+  "application/json": {
+   "schema": {
+    "oneOf": [
+     {
+      "title": "Payment Instrument - Card",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Card - Enable Account Updater",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Card - Enable Network Tokens",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Bank Account",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_bank"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Plaid Bank Account",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_bank"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Canadian Bank Account",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_bank"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Token - Enable Account Updater",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Token - Bank Account",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_bank"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Token - Card",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Token - Enable Network Tokens",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Apple Pay",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Google Pay",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Apple Pay - Passthrough",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     },
+     {
+      "title": "Payment Instrument - Google Pay - Passthrough",
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/payment_instrument_card"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses createAuthorization #####
+{
+ "description": "Response schema to a request to create a single `Authorization` object.",
+ "content": {
+  "application/json": {
+   "schema": {
+    "$ref": "#/components/schemas/authorization"
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses createTransfer #####
+{
+ "description": "A single `Transfer` object.",
+ "content": {
+  "application/json": {
+   "schema": {
+    "$ref": "#/components/schemas/transfer"
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses listTransfers #####
+{
+ "description": "List of `Transfer` objects.",
+ "content": {
+  "application/json": {
+   "schema": {
+    "type": "object",
+    "properties": {
+     "_embedded": {
+      "type": "object",
+      "properties": {
+       "transfers": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+         "$ref": "#/components/schemas/transfer"
+        }
+       }
+      }
+     },
+     "_links": {
+      "type": "object",
+      "properties": {
+       "self": {
+        "$ref": "#/components/schemas/self"
+       },
+       "next": {
+        "$ref": "#/components/schemas/next"
+       }
+      }
+     },
+     "page": {
+      "$ref": "#/components/schemas/page"
+     }
+    }
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses listAuthorizations #####
+{
+ "description": "List of Authorization objects",
+ "content": {
+  "application/json": {
+   "schema": {
+    "type": "object",
+    "properties": {
+     "page": {
+      "$ref": "#/components/schemas/page"
+     },
+     "_embedded": {
+      "type": "object",
+      "description": "List of `Authorization` objects.",
+      "properties": {
+       "authorizations": {
+        "type": "array",
+        "minItems": 0,
+        "uniqueItems": true,
+        "description": "`Authorization` objects.",
+        "items": {
+         "$ref": "#/components/schemas/authorization"
+        }
+       }
+      }
+     },
+     "_links": {
+      "type": "object",
+      "properties": {
+       "self": {
+        "$ref": "#/components/schemas/self"
+       },
+       "next": {
+        "$ref": "#/components/schemas/next"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "headers": {
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses listPaymentInstruments #####
+{
+ "description": "List of `Payment Instrument` resources",
+ "content": {
+  "application/json": {
+   "schema": {
+    "type": "object",
+    "properties": {
+     "page": {
+      "$ref": "#/components/schemas/page"
+     },
+     "_embedded": {
+      "type": "object",
+      "properties": {
+       "payment_instruments": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+         "oneOf": [
+          {
+           "$ref": "#/components/schemas/payment_instrument_card"
+          },
+          {
+           "$ref": "#/components/schemas/payment_instrument_bank"
+          }
+         ]
+        }
+       }
+      }
+     },
+     "_links": {
+      "type": "object",
+      "properties": {
+       "self": {
+        "$ref": "#/components/schemas/self"
+       },
+       "next": {
+        "$ref": "#/components/schemas/next"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}
+
+
+##### responses listFees #####
+{
+ "description": "List of `Fee` resources",
+ "content": {
+  "application/json": {
+   "schema": {
+    "type": "object",
+    "properties": {
+     "page": {
+      "$ref": "#/components/schemas/page"
+     },
+     "_embedded": {
+      "type": "object",
+      "properties": {
+       "fees": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+         "$ref": "#/components/schemas/fee"
+        }
+       }
+      }
+     },
+     "_links": {
+      "type": "object",
+      "properties": {
+       "self": {
+        "$ref": "#/components/schemas/self"
+       },
+       "next": {
+        "$ref": "#/components/schemas/next"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "headers": {
+  "date": {
+   "$ref": "#/components/headers/date"
+  },
+  "finix-apiuser-role": {
+   "$ref": "#/components/headers/finix-apiuser-role"
+  },
+  "x-request-id": {
+   "$ref": "#/components/headers/x-request-id"
+  }
+ }
+}

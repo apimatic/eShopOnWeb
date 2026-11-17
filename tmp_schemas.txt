@@ -1,0 +1,1383 @@
+SERVERS [
+ {
+  "url": "https://finix.sandbox-payments-api.com",
+  "description": "Sandbox server"
+ }
+]
+SEC [
+ {
+  "BasicAuth": []
+ }
+]
+SECSCHEMES {
+ "BasicAuth": {
+  "type": "http",
+  "scheme": "basic",
+  "description": ""
+ }
+}
+
+
+##### SCHEMA createPaymentInstrument #####
+MISSING
+
+
+##### SCHEMA payment_instrument #####
+MISSING
+
+
+##### SCHEMA createAuthorization #####
+{
+ "title": "Authorization - All Fields",
+ "type": "object",
+ "properties": {
+  "3d_secure_authentication": {
+   "description": "The 3D secure information required to create a 3D secure `Authorization.`",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/3d_secure_authentication"
+    }
+   ]
+  },
+  "additional_buyer_charges": {
+   "description": "Details about any [Buyer Charges](/guides/online-payments/payment-features/buyer-charges) included in the `Authorization`. The buyer charges are mutually exclusive.\n",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_buyer_charges"
+    }
+   ]
+  },
+  "additional_healthcare_data": {
+   "description": "Object detailing any additional healthcare amounts included in the `Authorization`. Only available for USA merchants. Only non-healthcare merchant category codes (MCCs) are required to pass in additional healthcare data and have the necessary SIGIS certification.\n",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_healthcare_data"
+    }
+   ]
+  },
+  "additional_purchase_data": {
+   "$ref": "#/components/schemas/additional_purchase_data"
+  },
+  "amount": {
+   "$ref": "#/components/schemas/amount"
+  },
+  "credential_on_file": {
+   "description": "An object that contains information about the credential on file transfer.\n\n- `type`: The type of credential on file transfer. Must be one of the following values:\n  - `RECURRING`: A transfer that is part of a series of transfers scheduled at regular intervals. Interchange benefits for `RECURRING` transactions are available only to approved bill payment merchants in the telecommunications and cable industries (MCC 4814 and 4899).\n  - `UNSCHEDULED`: A merchant-initiated, one-time transaction using stored credentials, triggered when specific conditions in a cardholder agreement are met\u2014not on a fixed schedule.\n",
+   "type": "object",
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "RECURRING",
+      "UNSCHEDULED"
+     ]
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "device": {
+   "type": "string",
+   "description": "The ID of the `Device` that the `Authorization` was created under."
+  },
+  "idempotency_id": {
+   "$ref": "#/components/schemas/idempotency_id"
+  },
+  "identity": {
+   "type": "string",
+   "description": "The ID of the buyer `Identity` to run the card present authorization. Finix tokenizes the card associated with the provided `Identity` and processes the authorization, removing the need to create a blank buyer `Identity`."
+  },
+  "ip_address_v4": {
+   "$ref": "#/components/schemas/ip_address_v4"
+  },
+  "merchant": {
+   "type": "string",
+   "description": "The ID of the `Merchant` that the `Authorization` was created under."
+  },
+  "operation_key": {
+   "type": "string",
+   "description": "Details the operation that's performed in the authorization.",
+   "enum": [
+    "AUTHORIZATION",
+    "CARD_PRESENT_AUTHORIZATION"
+   ]
+  },
+  "partial_authorization": {
+   "type": "boolean",
+   "description": "Partial authorizations let you collect part of the amount if the cardholder lacks funds for the full amount. Set to `true` to enable partial authorizations for a transaction. If `partial_authorization` is enabled, the `Merchant` value for `default_partial_authorization_enabled` is ignored."
+  },
+  "receipt_options": {
+   "type": "object",
+   "description": "If provided the information will be used to generate a receipt if transaction is successful.",
+   "nullable": true,
+   "properties": {
+    "additional_details": {
+     "type": "array",
+     "nullable": true,
+     "description": "An array of key-value pairs for including metadata or custom information related to the receipt. Each entry must contain a `name` and a corresponding `value` as strings.\n\nThese fields are currently supported for device-generated receipts only.\n",
+     "items": {
+      "type": "object",
+      "properties": {
+       "name": {
+        "type": "string",
+        "description": "The label or title for the additional detail. This should be a short, human-readable identifier such as \"Invoice Number\", \"VIN\", \"Service Date\", or \"Technician\".",
+        "maxLength": 25,
+        "example": "Invoice Number"
+       },
+       "value": {
+        "type": "string",
+        "description": "The corresponding value for the detail. This can be any string that provides relevant context or information, such as an invoice number, vehicle identification number, or date.",
+        "maxLength": 25,
+        "example": "4FEBVZP0-0002"
+       }
+      },
+      "required": [
+       "name",
+       "value"
+      ]
+     }
+    },
+    "amount_breakdown": {
+     "$ref": "#/components/schemas/amount_breakdown"
+    },
+    "items": {
+     "$ref": "#/components/schemas/items"
+    },
+    "requested_delivery_methods": {
+     "$ref": "#/components/schemas/requested_delivery_methods"
+    }
+   }
+  },
+  "security_code": {
+   "type": "string",
+   "description": "The 3-4 digit security code for the card (i.e. CVV code). Include the CVV code of the card to include [Card Verification Checks](/guides/online-payments/fraud-and-risk/risk-rules-card-checks) with the created `Authorization`."
+  },
+  "source": {
+   "$ref": "#/components/schemas/source"
+  },
+  "statement_descriptor": {
+   "type": "string",
+   "maxLength": 20,
+   "nullable": true,
+   "description": "The description of the `Merchant` that appears on the card statement."
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  }
+ },
+ "required": [
+  "amount",
+  "currency",
+  "merchant",
+  "source"
+ ]
+}
+
+
+##### SCHEMA authorization #####
+{
+ "type": "object",
+ "title": "Authorization",
+ "description": "A charge authorization",
+ "properties": {
+  "id": {
+   "type": "string",
+   "example": "AUxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of the `Authorization` resource."
+  },
+  "created_at": {
+   "$ref": "#/components/schemas/created_at"
+  },
+  "updated_at": {
+   "$ref": "#/components/schemas/updated_at"
+  },
+  "3d_secure_session": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the `3D Secure Session` that authenticated the buyer. This field is `null` when the payment was not authenticated with a `3D Secure Session`.",
+   "example": "3d_secure_session_f3fG3Zj8K958MTP5vpXAXX"
+  },
+  "3ds_redirect_url": {
+   "type": "string",
+   "description": "The redirect URL used for 3DS transactions (if supported by the processor).",
+   "nullable": true
+  },
+  "additional_lodging_data": {
+   "description": "Object detailing any additional lodging amounts included in the `Authorization`.",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_lodging_data"
+    }
+   ]
+  },
+  "additional_motor_vehicle_rental_data": {
+   "description": "Object detailing any additional motor vehicle rental amounts included in the `Authorization`.",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_motor_vehicle_rental_data"
+    }
+   ]
+  },
+  "additional_buyer_charges": {
+   "description": "Details about any [Buyer Charges](/guides/online-payments/payment-features/buyer-charges) included in the `Authorization`. The buyer charges are mutually exclusive.\n",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_buyer_charges"
+    }
+   ]
+  },
+  "additional_healthcare_data": {
+   "description": "Object detailing any additional healthcare amounts included in the `Authorization`.",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_healthcare_data"
+    }
+   ]
+  },
+  "additional_purchase_data": {
+   "$ref": "#/components/schemas/additional_purchase_data"
+  },
+  "address_verification": {
+   "type": "string",
+   "description": "Details the results of the Address Verification checks.",
+   "nullable": true
+  },
+  "amount": {
+   "$ref": "#/components/schemas/amount"
+  },
+  "amount_requested": {
+   "type": "integer",
+   "description": "When `default_partial_authorization_enabled` is set to **true**, `amount_requested` indicates the amount the cardholder attempted to authorize."
+  },
+  "application": {
+   "type": "string",
+   "description": "The ID of the `Application` resource the `Authorization` was created under."
+  },
+  "card_present_details": {
+   "$ref": "#/components/schemas/card_present_details"
+  },
+  "credential_on_file": {
+   "description": "An object that contains information about the credential on file authorization.\n",
+   "type": "object",
+   "nullable": true,
+   "properties": {
+    "initial_transfer_id": {
+     "type": "string",
+     "description": "The ID of the initial transfer in the series."
+    },
+    "type": {
+     "type": "string",
+     "enum": [
+      "RECURRING",
+      "UNSCHEDULED"
+     ],
+     "description": "The type of credential on file authorization."
+    }
+   }
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "created_via": {
+   "$ref": "#/components/schemas/created_via_transfers_authorizations"
+  },
+  "device": {
+   "type": "string",
+   "example": "DVxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of the activated device.",
+   "nullable": true
+  },
+  "expires_at": {
+   "type": "string",
+   "description": "`Authorization` expiration time.",
+   "format": "date-time"
+  },
+  "failure_code": {
+   "$ref": "#/components/schemas/failure_code"
+  },
+  "failure_message": {
+   "$ref": "#/components/schemas/failure_message"
+  },
+  "identity": {
+   "type": "string",
+   "description": "ID of the buyer 'Identity' to run the card present authorization. Finix tokenizes the card associated with the provided 'Identity' and processes the authorization, removing the need to create a blank buyer `Identity`.",
+   "default": null
+  },
+  "idempotency_id": {
+   "$ref": "#/components/schemas/idempotency_id"
+  },
+  "ip_address_details": {
+   "$ref": "#/components/schemas/ip_address_details"
+  },
+  "is_void": {
+   "type": "boolean",
+   "description": "Whether the `Authorization` has been voided."
+  },
+  "merchant": {
+   "type": "string",
+   "example": "MUxxxxxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of the `Merchant` resource the `Authorization` was created under."
+  },
+  "merchant_identity": {
+   "type": "string",
+   "example": "IDxxxxxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of the `Identity` resource used by the `Merchant` the `Authorization` was processed under."
+  },
+  "messages": {
+   "type": "array",
+   "description": "Message field that provides additional details. This field is typically **null**.",
+   "nullable": true,
+   "items": {
+    "type": "string"
+   }
+  },
+  "network_details": {
+   "type": "object",
+   "description": "Contains network-specific fields used by issuers to identify transactions.",
+   "nullable": true,
+   "properties": {
+    "brand": {
+     "type": "string",
+     "description": "Card brand associated with the saved payment instrument.",
+     "example": "VISA"
+    },
+    "authorization_code": {
+     "type": "string",
+     "description": "Code returned by the issuing bank when a transaction is authorized.",
+     "example": 82533
+    }
+   }
+  },
+  "raw": {
+   "$ref": "#/components/schemas/raw"
+  },
+  "receipt_last_printed_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "Timestamp when the receipt was last printed.",
+   "nullable": true
+  },
+  "security_code_verification": {
+   "type": "string",
+   "description": "Details the results of the Security Code Verification che",
+   "nullable": true
+  },
+  "source": {
+   "$ref": "#/components/schemas/source"
+  },
+  "state": {
+   "type": "string",
+   "enum": [
+    "CANCELED",
+    "PENDING",
+    "FAILED",
+    "SUCCEEDED",
+    "UNKNOWN"
+   ],
+   "description": "The state of the `Authorization`."
+  },
+  "supplemental_fee": {
+   "type": "integer",
+   "format": "int64",
+   "description": "Amount in cents for which an additional fee will be created in addition to any fees created from the assigned fee profile.",
+   "nullable": true
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  },
+  "trace_id": {
+   "type": "string",
+   "description": "Trace ID of the `Authorization`. The processor sends back the `trace_id` so you can track the authorization end-to-end."
+  },
+  "transfer": {
+   "type": "string",
+   "example": "TRxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of the `transfer` resource that gets created when the `Authorization` moves to **SUCCEEDED**.",
+   "nullable": true
+  },
+  "void_state": {
+   "type": "string",
+   "description": "The state of the void attempt for the `Authorization`.",
+   "enum": [
+    "UNATTEMPTED",
+    "PENDING",
+    "SUCCEEDED"
+   ]
+  },
+  "_links": {
+   "type": "object",
+   "properties": {
+    "self": {
+     "$ref": "#/components/schemas/self"
+    },
+    "application": {
+     "$ref": "#/components/schemas/application_link"
+    },
+    "device": {
+     "type": "object",
+     "description": "Link to the `Device` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "merchant_identity": {
+     "$ref": "#/components/schemas/merchant_identity"
+    },
+    "transfer": {
+     "type": "object",
+     "description": "Link to the `Transfer` created when the `Authorization` moves to **SUCCEEDED**.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "transfers": {
+     "$ref": "#/components/schemas/transfers"
+    }
+   }
+  }
+ }
+}
+
+
+##### SCHEMA captureAuthorization #####
+{
+ "title": "Capture Authorization",
+ "type": "object",
+ "properties": {
+  "capture_amount": {
+   "$ref": "#/components/schemas/capture_amount"
+  },
+  "fee": {
+   "type": "integer",
+   "format": "int64",
+   "description": "The minimum amount of the `Authorization` you'd like to collect as your fee in cents. Defaults to zero (must be less than or equal to the `amount`).\n- If the fees applied by the 'Fee Profile' are ***higher*** than the value passed in 'fee', 'fee' will not be applied and have no effect.\n- If the fees applied by the 'Fee Profile' are ***lower*** than the value passed in 'fee', an additional fee is be applied, in addition to the fees generated by the `Fee Profile`.\n- The additional fee is equal to the difference between the value passed in 'fee' and the fees generated by the `Fee Profile`."
+  },
+  "split_transfers": {
+   "description": "- An array used to detail how funds for the created `Transfer` will split and the amount `Merchants` receive.\n- The combined `amounts` under `split_transfers` must be equal to or less than the `amount` submitted in the `Authorization`.\n- For more information, see [Split Transactions](../../../../guides/online-payments/payment-features/split-transactions).",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/split_transfers"
+    }
+   ]
+  }
+ },
+ "required": [
+  "capture_amount"
+ ]
+}
+
+
+##### SCHEMA voidAuthorization #####
+{
+ "title": "Void an Authorization",
+ "type": "object",
+ "properties": {
+  "void_me": {
+   "type": "boolean",
+   "description": "Set to **True** to void the `Authorization`."
+  }
+ }
+}
+
+
+##### SCHEMA createTransferReversal #####
+{
+ "title": "Refund Transfer",
+ "properties": {
+  "refund_amount": {
+   "type": "integer",
+   "description": "The amount of the refund in cents. It must be equal to or less than the amount of the original `Transfer`."
+  }
+ },
+ "required": [
+  "refund_amount"
+ ]
+}
+
+
+##### SCHEMA transfer #####
+{
+ "type": "object",
+ "properties": {
+  "id": {
+   "$ref": "#/components/schemas/id"
+  },
+  "created_at": {
+   "$ref": "#/components/schemas/created_at"
+  },
+  "updated_at": {
+   "$ref": "#/components/schemas/updated_at"
+  },
+  "3d_secure_session": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the `3D Secure Session` that authenticated the buyer. This field is `null` when the payment was not authenticated with a `3D Secure Session`.",
+   "example": "3d_secure_session_f3fG3Zj8K958MTP5vpXAXX"
+  },
+  "additional_buyer_charges": {
+   "description": "Details about any [Buyer Charges](../../../../guides/online-payments/payment-features/buyer-charges) included in the `Transfer`. The buyer charges are mutually exclusive.\n",
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/additional_buyer_charges"
+    }
+   ]
+  },
+  "additional_healthcare_data": {
+   "$ref": "#/components/schemas/additional_healthcare_data"
+  },
+  "additional_lodging_data": {
+   "$ref": "#/components/schemas/additional_lodging_data"
+  },
+  "additional_motor_vehicle_rental_data": {
+   "$ref": "#/components/schemas/additional_motor_vehicle_rental_data"
+  },
+  "additional_purchase_data": {
+   "$ref": "#/components/schemas/additional_purchase_data"
+  },
+  "address_verification": {
+   "type": "string",
+   "description": "Details the results of the address verification checks.",
+   "nullable": true,
+   "enum": [
+    "POSTAL_CODE_AND_STREET_MATCH",
+    "STREET_MATCH",
+    "POSTAL_CODE_MATCH",
+    "NO_ADDRESS",
+    "NO_MATCH",
+    "NOT_SUPPORTED",
+    "UNKNOWN"
+   ]
+  },
+  "amount": {
+   "$ref": "#/components/schemas/amount"
+  },
+  "amount_requested": {
+   "type": "integer",
+   "format": "int64",
+   "description": "The `amount` that was requested to get debited from the `source` when the transaction was created, in cents (e.g., `100` = $1.00).",
+   "example": 100
+  },
+  "application": {
+   "type": "string",
+   "minLength": 1,
+   "description": "ID of the `Application` associated with the resource."
+  },
+  "bank_return_details": {
+   "type": "object",
+   "description": "Details about a transfer that was returned and was unable to be processed. Only present when `state` is `RETURNED`",
+   "nullable": true,
+   "properties": {
+    "reason_code": {
+     "type": "string",
+     "description": "Return response code from the bank."
+    },
+    "reason_message": {
+     "type": "string",
+     "description": "Detailed message explaining reason for the return."
+    },
+    "reason_title": {
+     "type": "string",
+     "description": "Short message categorizing reason for the return."
+    }
+   }
+  },
+  "card_present_details": {
+   "type": "object",
+   "description": "Details needed to process card present transactions.",
+   "nullable": true,
+   "properties": {
+    "approval_code": {
+     "type": "string",
+     "description": "Unique ID used to identify the approval of the `Transfer`.",
+     "nullable": true
+    },
+    "brand": {
+     "type": "string",
+     "description": "The brand of the card saved in the `Payment Instrument`.",
+     "nullable": true
+    },
+    "emv_data": {
+     "type": "object",
+     "description": "Encrypted card data used to process the transaction.",
+     "nullable": true,
+     "properties": {
+      "application_identifier": {
+       "type": "string",
+       "description": "ID of the application used in the transaction. Tag 9F06 from the EMVCo standard.",
+       "nullable": true
+      },
+      "application_label": {
+       "type": "string",
+       "description": "EMV application label. Tag 50 from the EMVCo standard.",
+       "nullable": true
+      },
+      "application_preferred_name": {
+       "type": "string",
+       "description": "EMV application label with formatting (if provided). Tag 9F12 from the EMVCo standard.",
+       "nullable": true
+      },
+      "application_transaction_counter": {
+       "type": "string",
+       "description": "Transaction number for the EMV application. Tag 9F36 from the EMVCo standard.",
+       "nullable": true
+      },
+      "cryptogram": {
+       "type": "string",
+       "description": "Cryptogram returned by the card. Tag 9F26 of the EMVCo standard.",
+       "nullable": true
+      },
+      "issuer_code_table_index": {
+       "type": "string",
+       "description": "The alphabet code table (according to ISO 8859) used by the EMV application (if provided). Tag 9F11.",
+       "nullable": true
+      },
+      "network_emv_response": {
+       "type": "string",
+       "description": "EMV response data returned by the card network.",
+       "nullable": true
+      },
+      "pin_verified": {
+       "type": "boolean",
+       "description": "Whether the cardholder's PIN number was verified."
+      },
+      "tags": {
+       "$ref": "#/components/schemas/tags"
+      }
+     }
+    },
+    "entry_mode": {
+     "type": "string",
+     "description": "Details of the card payment method used to process the transaction.\n\nThe possible enums are:\n\n- UNKNOWN - The method by which the payment card was used is unknown.\n- SWIPED - The card was swiped through a POS terminal.\n- CONTACTLESS - The payment was made by tapping a card on a POS terminal.\n- CHIP_ENTRY - The payment card was inserted into a card reader.\n",
+     "enum": [
+      "UNKNOWN",
+      "SWIPED",
+      "CONTACTLESS",
+      "CHIP_ENTRY"
+     ],
+     "nullable": true
+    },
+    "masked_account_number": {
+     "type": "string",
+     "description": "Last four digits of the bank account number.",
+     "nullable": true
+    },
+    "name": {
+     "type": "string",
+     "description": "The name of the bank account or card owner.",
+     "nullable": true
+    },
+    "digital_signature_file_id": {
+     "type": "string",
+     "description": "The ID of the file containing the digital signature captured during the transaction. If a signature was not collected, this field returns `null`.",
+     "nullable": true
+    },
+    "payment_type": {
+     "type": "string",
+     "description": "The type of `Payment Instrument` used in the transaction (or the original payment).",
+     "nullable": true
+    }
+   }
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "created_via": {
+   "$ref": "#/components/schemas/created_via_transfers_authorizations"
+  },
+  "destination": {
+   "type": "string",
+   "description": "ID of the `Payment Instrument` where funds will be sent.",
+   "nullable": true
+  },
+  "device": {
+   "type": "string",
+   "description": "The ID of the `Device` resource the `Transfer` was created under."
+  },
+  "externally_funded": {
+   "type": "string",
+   "description": "Details if the `Transfer` will be settled externally by card processors."
+  },
+  "expires_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "The timestamp indicating when a held refund expires. Only returned for reversals created with refund holds enabled. A refund that can't be covered by this time fails with `failure_code: REFUND_EXPIRED`. For more information, see [Pending refunds](/guides/after-the-payment/refunds/pending-refunds).",
+   "nullable": true
+  },
+  "failure_code": {
+   "$ref": "#/components/schemas/failure_code"
+  },
+  "failure_message": {
+   "$ref": "#/components/schemas/failure_message"
+  },
+  "fee": {
+   "$ref": "#/components/schemas/fee_transfer"
+  },
+  "fee_profile": {
+   "type": "string",
+   "description": "The ID of the `Fee Profile` that will be used for calculating fees for this transfer."
+  },
+  "funds_flow_type": {
+   "$ref": "#/components/schemas/funds_flow_type"
+  },
+  "idempotency_id": {
+   "$ref": "#/components/schemas/idempotency_id"
+  },
+  "ip_address_details": {
+   "type": "object",
+   "description": "Always returns `null`.",
+   "nullable": true
+  },
+  "merchant": {
+   "type": "string",
+   "description": "The ID of the `Merchant` resource the `Transfer` was created under.",
+   "example": "MUxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "merchant_identity": {
+   "type": "string",
+   "example": "IDxxxxxxxxxxxxxxxxxxxxxxxx",
+   "description": "The ID of `Identity` resource used by the `Merchant` the `Transfer` was created under."
+  },
+  "messages": {
+   "type": "array",
+   "description": "A list of messages that provides additional details.",
+   "nullable": true,
+   "items": {
+    "type": "string"
+   }
+  },
+  "network_details": {
+   "type": "object",
+   "nullable": true,
+   "description": "Contains network-specific fields used by issuers to identify transactions.",
+   "properties": {
+    "brand": {
+     "type": "string",
+     "description": "Card brand associated with the saved payment instrument.",
+     "example": "VISA"
+    },
+    "authorization_code": {
+     "type": "string",
+     "description": "Code returned by the issuing bank when a transaction is authorized.",
+     "example": 840735
+    },
+    "acquirer_reference_number": {
+     "type": "string",
+     "description": "Unique identifier banks use to trace chargebacks or refunds. Available only for Mastercard transactions; otherwise returns `null`.",
+     "nullable": true,
+     "example": 521600805857
+    }
+   }
+  },
+  "operation_key": {
+   "type": "string",
+   "enum": [
+    "CARD_NOT_PRESENT_CAPTURE",
+    "CARD_NOT_PRESENT_REFUND",
+    "CARD_NOT_PRESENT_SALE",
+    "CARD_NOT_PRESENT_UNREFERENCED_REFUND",
+    "CARD_PRESENT_AUTHORIZATION",
+    "CARD_PRESENT_DEBIT",
+    "CARD_PRESENT_SALE",
+    "CARD_PRESENT_UNREFERENCED_REFUND",
+    "INSTANT_APPLICATION_FUNDING_PULL_FROM_ACH",
+    "INSTANT_APPLICATION_FUNDING_PULL_FROM_CARD",
+    "INSTANT_APPLICATION_FUNDING_PULL_FROM_FED_NOW",
+    "INSTANT_APPLICATION_FUNDING_PULL_FROM_SAME_DAY_ACH",
+    "INSTANT_APPLICATION_FUNDING_PUSH_TO_ACH",
+    "INSTANT_APPLICATION_FUNDING_PUSH_TO_CARD",
+    "INSTANT_APPLICATION_FUNDING_PUSH_TO_FED_NOW",
+    "INSTANT_APPLICATION_FUNDING_PUSH_TO_SAME_DAY_ACH",
+    "INSTANT_MERCHANT_FUNDING_PULL_FROM_ACH",
+    "INSTANT_MERCHANT_FUNDING_PULL_FROM_FED_NOW",
+    "INSTANT_MERCHANT_FUNDING_PULL_FROM_SAME_DAY_ACH",
+    "INSTANT_MERCHANT_FUNDING_PUSH_TO_ACH",
+    "INSTANT_MERCHANT_FUNDING_PUSH_TO_CARD",
+    "INSTANT_MERCHANT_FUNDING_PUSH_TO_FED_NOW",
+    "INSTANT_MERCHANT_FUNDING_PUSH_TO_SAME_DAY_ACH",
+    "MERCHANT_CREDIT_ADJUSTMENT",
+    "MERCHANT_DEBIT_ADJUSTMENT",
+    "PULL_FROM_ACH",
+    "PULL_FROM_CARD",
+    "PULL_FROM_SAME_DAY_ACH",
+    "PUSH_TO_ACH",
+    "PUSH_TO_CARD",
+    "PUSH_TO_SAME_DAY_ACH",
+    "REFUND_MERCHANT_CREDIT_ADJUSTMENT",
+    "REFUND_MERCHANT_DEBIT_ADJUSTMENT",
+    "SALE",
+    "STANDARD_APPLICATION_FUNDING_PULL_FROM_ACH",
+    "STANDARD_APPLICATION_FUNDING_PULL_FROM_CARD",
+    "STANDARD_APPLICATION_FUNDING_PULL_FROM_SAME_DAY_ACH",
+    "STANDARD_APPLICATION_FUNDING_PUSH_TO_ACH",
+    "STANDARD_APPLICATION_FUNDING_PUSH_TO_CARD",
+    "STANDARD_APPLICATION_FUNDING_PUSH_TO_SAME_DAY_ACH",
+    "STANDARD_MERCHANT_FUNDING_PULL_FROM_ACH",
+    "STANDARD_MERCHANT_FUNDING_PULL_FROM_CARD",
+    "STANDARD_MERCHANT_FUNDING_PULL_FROM_SAME_DAY_ACH",
+    "STANDARD_MERCHANT_FUNDING_PUSH_TO_ACH",
+    "STANDARD_MERCHANT_FUNDING_PUSH_TO_CARD",
+    "STANDARD_MERCHANT_FUNDING_PUSH_TO_SAME_DAY_ACH",
+    "UNREFERENCED_REFUND"
+   ],
+   "description": "The operation performed in the transaction. `REFUND_MERCHANT_DEBIT_ADJUSTMENT` and `REFUND_MERCHANT_CREDIT_ADJUSTMENT` are created by Finix for [refund holds](/guides/after-the-payment/refunds/pending-refunds) and cannot be passed in requests.",
+   "nullable": true
+  },
+  "parent_transfer": {
+   "type": "string",
+   "description": "ID of the original parent `Transfer`. Only present when `type` is `REVERSAL`.",
+   "nullable": true
+  },
+  "parent_transfer_trace_id": {
+   "type": "string",
+   "description": "The `trace_id` of the original parent `Transfer`. Only present when `type` is `REVERSAL`.",
+   "nullable": true
+  },
+  "processed_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "The timestamp of when the `Transfer` was processed.",
+   "nullable": true
+  },
+  "pull_transfer_id": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the corresponding pull `Transfer` linked in a `ME_TO_ME` transaction."
+  },
+  "raw": {
+   "description": "Raw response from the processor.",
+   "anyOf": [
+    {
+     "type": "object",
+     "nullable": true
+    },
+    {
+     "type": "string",
+     "nullable": true
+    }
+   ]
+  },
+  "ready_to_settle_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "The timestamp indicating when the `Transfer` is ready to be settled.",
+   "nullable": true
+  },
+  "receipt_last_printed_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "Timestamp when the receipt was last printed.",
+   "nullable": true
+  },
+  "security_code_verification": {
+   "type": "string",
+   "nullable": true,
+   "description": "Details the results of the Card Verification Code check.",
+   "enum": [
+    "MATCHED",
+    "UNKNOWN",
+    "UNMATCHED"
+   ]
+  },
+  "source": {
+   "type": "string",
+   "description": "The ID of the `Payment Instrument` that will be debited and performing the `Transfer`.",
+   "nullable": true
+  },
+  "split_transfers": {
+   "type": "array",
+   "description": "Array containing the resource IDs of the `Split Transfers` generated from the `Transfer`.\n\nFor standard split transactions, this contains IDs of `Split Transfers` created from the parent `Transfer`.\n\nFor [dispute adjustment transfers](/api/disputes/listdisputesadjustments) on split transactions:\n- When a `MERCHANT_DEBIT` or `MERCHANT_CREDIT` adjustment `Transfer` is created for a [Dispute](/api/disputes) on a split transaction, this array contains the IDs of `Split Transfers` created for each participant.\n- The `Split Transfers` are created proportionally based on each merchant's share of the original sale.\n\nFor more information, see [Split Transactions - Disputes](../../../../guides/online-payments/payment-features/split-transactions#disputes).\n",
+   "default": [],
+   "items": {
+    "type": "string"
+   }
+  },
+  "state": {
+   "type": "string",
+   "enum": [
+    "CANCELED",
+    "PENDING",
+    "FAILED",
+    "SUCCEEDED",
+    "UNKNOWN",
+    "RETURNED"
+   ],
+   "description": "The status of the `Transfer`."
+  },
+  "statement_descriptor": {
+   "$ref": "#/components/schemas/statement_descriptor"
+  },
+  "subtype": {
+   "type": "string",
+   "description": "Additional information describing the `payment_type`.\n\nFor [dispute adjustment transfers](/api/disputes/listdisputesadjustments) (`type: DISPUTE`):\n- `MERCHANT_DEBIT`: Funds are pulled from the merchant(s) when a chargeback occurs. For split transactions, this creates `Split Transfers` with `type: DISPUTE_MERCHANT_DEBIT`.\n- `MERCHANT_CREDIT`: Funds are returned to the merchant(s) when a `Dispute` is ruled in their favor. For split transactions, this creates `Split Transfers` with `type: DISPUTE_MERCHANT_CREDIT`.\n\nFor [refund hold](/guides/after-the-payment/refunds/pending-refunds) adjustment transfers:\n- `REFUND_MERCHANT_DEBIT_ADJUSTMENT`: Funds are pulled from the merchant to cover a held refund.\n- `REFUND_MERCHANT_CREDIT_ADJUSTMENT`: Funds are returned to the merchant when the held refund is submitted or expires.\n",
+   "enum": [
+    "API",
+    "DISPUTE",
+    "MERCHANT_CREDIT",
+    "MERCHANT_CREDIT_ADJUSTMENT",
+    "MERCHANT_DEBIT",
+    "MERCHANT_DEBIT_ADJUSTMENT",
+    "PLATFORM_CREDIT",
+    "PLATFORM_CREDIT_ADJUSTMENT",
+    "PLATFORM_DEBIT",
+    "PLATFORM_DEBIT_ADJUSTMENT",
+    "REFUND_MERCHANT_CREDIT_ADJUSTMENT",
+    "REFUND_MERCHANT_DEBIT_ADJUSTMENT",
+    "SETTLEMENT_MERCHANT",
+    "SETTLEMENT_NOOP",
+    "SETTLEMENT_PARTNER",
+    "SETTLEMENT_PLATFORM",
+    "SPLIT_PAYOUT",
+    "SPLIT_PAYOUT_ADJUSTMENT",
+    "SYSTEM"
+   ]
+  },
+  "supplemental_fee": {
+   "type": "string",
+   "description": "Amount in cents for which an additional fee will be created in addition to any fees created from the assigned fee profile.",
+   "nullable": true
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  },
+  "tip_amount": {
+   "type": "integer",
+   "description": "The tip amount included in the total amount.",
+   "nullable": true
+  },
+  "trace_id": {
+   "type": "string",
+   "description": "Trace ID of the `Transfer`. The processor sends back the `trace_id` so you can track the `Transfer` end-to-end.",
+   "nullable": true
+  },
+  "type": {
+   "type": "string",
+   "description": "Type of `Transfer`.",
+   "enum": [
+    "DEBIT",
+    "CREDIT",
+    "REVERSAL",
+    "ADJUSTMENT",
+    "DISPUTE",
+    "RESERVE",
+    "SETTLEMENT",
+    "UNKNOWN"
+   ]
+  },
+  "third_party_details": {
+   "type": "object",
+   "description": "Details about the third-party processor associated with the `Transfer`.",
+   "nullable": true,
+   "properties": {
+    "external_trace_id": {
+     "type": "string",
+     "description": "The trace ID returned by the third-party processor used to identify the `Transfer`.",
+     "nullable": true
+    },
+    "type": {
+     "type": "string",
+     "description": "The name of the third-party processor associated with the `Transfer`.",
+     "nullable": true,
+     "enum": [
+      "CYBERSOURCE"
+     ]
+    }
+   }
+  },
+  "_links": {
+   "type": "object",
+   "properties": {
+    "application": {
+     "$ref": "#/components/schemas/application_link"
+    },
+    "destination": {
+     "type": "object",
+     "description": "Link to the `Payment Instrument` where funds are getting sent.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "device": {
+     "type": "object",
+     "description": "Link to the `Device` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "disputes": {
+     "type": "object",
+     "description": "Link to the `Dispute` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "fee_profile": {
+     "type": "object",
+     "description": "Link to the `fee_profile` the request was made under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "fees": {
+     "type": "object",
+     "description": "Link to the `fees` the request is associated with.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "merchant_identity": {
+     "type": "object",
+     "description": "Link to the `Identity` the `Merchant` was created under and the `Transfer` was submitted with.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "payment_instruments": {
+     "type": "object",
+     "description": "Link to the `Payment Instrument` associated with the Transfer.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "disputed_transfer": {
+     "type": "object",
+     "description": "Link to the `Transfer` the `Dispute` is about.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "parent": {
+     "type": "object",
+     "description": "Link to the original resource that was used in the request.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "reversals": {
+     "type": "object",
+     "description": "Link to the `reversals` associated with the `Transfer`.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "self": {
+     "$ref": "#/components/schemas/self"
+    },
+    "source": {
+     "type": "object",
+     "description": "Link to the `Payment Instrument` the `Transfer` was created under.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+
+
+##### SCHEMA fee #####
+{
+ "type": "object",
+ "description": "A charge levied against a `Merchant`.",
+ "properties": {
+  "id": {
+   "$ref": "#/components/schemas/id"
+  },
+  "created_at": {
+   "$ref": "#/components/schemas/created_at"
+  },
+  "updated_at": {
+   "$ref": "#/components/schemas/updated_at"
+  },
+  "amount": {
+   "type": "number",
+   "format": "double",
+   "description": "Represents the total amount. The value may be returned as either:\n\n- an **integer** (`int32`) in cents (e.g., `100` = $1.00), or\n- a **double** for fractional amounts (e.g., `2.393`).\n",
+   "example": 2.393
+  },
+  "application": {
+   "$ref": "#/components/schemas/application_id"
+  },
+  "category": {
+   "type": "string",
+   "description": "The `Fee` category.",
+   "enum": [
+    "PROCESSOR",
+    "INTERCHANGE",
+    "DUES_AND_ASSESSMENTS",
+    "THIRD_PARTY_SERVICE_PROVIDER"
+   ],
+   "nullable": true
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "display_name": {
+   "type": "string",
+   "description": "It is used for subscription fees and allows free-form text to be passed from the subscription fee product. Note that this product is mostly deprecated.",
+   "nullable": true
+  },
+  "fee_profile": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the `Fee Profile` used to calculate fees for the `Transfer` related to this `Fee`. The specific `Transfer` is identified by the `linked_to` field."
+  },
+  "fee_subtype": {
+   "type": "string",
+   "enum": [
+    "CUSTOM",
+    "APPLICATION_FEE",
+    "PLATFORM_FEE"
+   ],
+   "description": "The subtype of the `Fee`."
+  },
+  "fee_type": {
+   "type": "string",
+   "enum": [
+    "ACH_BASIS_POINTS",
+    "ACH_CREDIT_RETURN_FIXED_FEE",
+    "ACH_DEBIT_RETURN_FIXED_FEE",
+    "ACH_FIXED",
+    "ACH_MAX_FIXED",
+    "ACH_NOTICE_OF_CHANGE_CREDIT_FIXED",
+    "ACH_NOTICE_OF_CHANGE_DEBIT_FIXED",
+    "ACH_VALIDATION_PLAID_FIXED",
+    "AFTERPAY_BASIS_POINTS",
+    "AFTERPAY_FIXED",
+    "AMERICAN_EXPRESS_BASIS_POINTS",
+    "AMERICAN_EXPRESS_EXTERNALLY_FUNDED_BASIS_POINTS",
+    "AMERICAN_EXPRESS_EXTERNALLY_FUNDED_FIXED",
+    "AMERICAN_EXPRESS_FIXED",
+    "AMERICAN_EXPRESS_INTERCHANGE",
+    "ANCILLARY_FIXED_FEE_PRIMARY",
+    "ANCILLARY_FIXED_FEE_SECONDARY",
+    "APPLICATION_FEE",
+    "CARD_ACCOUNT_UPDATER_FIXED",
+    "CARD_BASIS_POINTS",
+    "CARD_CROSS_BORDER_BASIS_POINTS",
+    "CARD_CROSS_BORDER_FIXED_FEE",
+    "CARD_EXTERNALLY_FUNDED_BASIS_POINTS",
+    "CARD_EXTERNALLY_FUNDED_FIXED",
+    "CARD_FIXED",
+    "CARD_INTERCHANGE",
+    "CUSTOM",
+    "CARD_NAME_VERIFICATION_FIXED",
+    "CARD_NETWORK_TOKEN_FIXED",
+    "CASH_APP_PAY_BASIS_POINTS",
+    "CASH_APP_PAY_FIXED",
+    "COMPLIANCE_FORM_OVERDUE_FIXED",
+    "DINERS_CLUB_BASIS_POINTS",
+    "DINERS_CLUB_FIXED",
+    "DINERS_CLUB_INTERCHANGE",
+    "DISCOVER_BASIS_POINTS",
+    "DISCOVER_DATA_USAGE_FIXED",
+    "DISCOVER_EXTERNALLY_FUNDED_BASIS_POINTS",
+    "DISCOVER_EXTERNALLY_FUNDED_FIXED",
+    "DISCOVER_FIXED",
+    "DISCOVER_INTERCHANGE",
+    "DISCOVER_NETWORK_AUTHORIZATION_FIXED",
+    "DISPUTE_FIXED_FEE",
+    "DISPUTE_INQUIRY_FIXED_FEE",
+    "EFT_BASIS_POINTS",
+    "EFT_CREDIT_RETURN_FIXED_FEE",
+    "EFT_DEBIT_RETURN_FIXED_FEE",
+    "EFT_FIXED",
+    "EFT_MAX_FIXED",
+    "EFT_VALIDATION_PLAID_FIXED",
+    "GROSS_MONTHLY_FEES_ACH_BASIS_POINTS",
+    "GROSS_MONTHLY_FEES_ACH_FIXED",
+    "GROSS_MONTHLY_FEES_CARD_BASIS_POINTS",
+    "GROSS_MONTHLY_FEES_CARD_FIXED",
+    "GROSS_MONTHLY_FEES_EFT_BASIS_POINTS",
+    "GROSS_MONTHLY_FEES_EFT_FIXED",
+    "INTERAC_BASIS_POINTS",
+    "INTERAC_FIXED",
+    "INVOICE_ACH_BASIS_POINTS",
+    "INVOICE_ACH_FIXED",
+    "INVOICE_ACH_MAX_FIXED",
+    "INVOICE_CARD_BASIS_POINTS",
+    "INVOICE_CARD_FIXED",
+    "INVOICE_EFT_BASIS_POINTS",
+    "INVOICE_EFT_FIXED",
+    "INVOICE_EFT_MAX_FIXED",
+    "JCB_BASIS_POINTS",
+    "JCB_FIXED",
+    "JCB_INTERCHANGE",
+    "MASTERCARD_ACQUIRER_FEE_BASIS_POINTS",
+    "MASTERCARD_BASIS_POINTS",
+    "MASTERCARD_FIXED",
+    "MASTERCARD_INTERCHANGE",
+    "QUALIFIED_TIER_BASIS_POINTS_FEE",
+    "QUALIFIED_TIER_FIXED_FEE",
+    "PAYMENT_INSTRUMENT_TOKENIZATION_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_ACH_BASIS_POINTS",
+    "SETTLEMENT_FUNDING_TRANSFER_ACH_CREDIT_RETURN_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_ACH_DEBIT_RETURN_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_ACH_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_ACH_MAX_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_EFT_BASIS_POINTS",
+    "SETTLEMENT_FUNDING_TRANSFER_EFT_CREDIT_RETURN_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_EFT_DEBIT_RETURN_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_EFT_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_EFT_MAX_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_INSTANT_PAYOUT_CARD_BASIS_POINTS",
+    "SETTLEMENT_FUNDING_TRANSFER_INSTANT_PAYOUT_CARD_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_INSTANT_PAYOUT_CARD_MAX_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_NOC_CREDIT_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_NOC_DEBIT_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_SAME_DAY_ACH_BASIS_POINTS",
+    "SETTLEMENT_FUNDING_TRANSFER_SAME_DAY_ACH_FIXED",
+    "SETTLEMENT_FUNDING_TRANSFER_SAME_DAY_ACH_MAX_FIXED",
+    "SUBSCRIPTION_ACH_BASIS_POINTS",
+    "SUBSCRIPTION_ACH_FIXED",
+    "SUBSCRIPTION_ACH_MAX_FIXED",
+    "SUBSCRIPTION_CARD_BASIS_POINTS",
+    "SUBSCRIPTION_CARD_FIXED",
+    "SUBSCRIPTION_EFT_BASIS_POINTS",
+    "SUBSCRIPTION_EFT_FIXED",
+    "SUBSCRIPTION_EFT_MAX_FIXED",
+    "SUPPLEMENTAL_FEE_FIXED",
+    "THIRD_PARTY_GATEWAY_CYBERSOURCE_BASIS_POINTS",
+    "THIRD_PARTY_GATEWAY_CYBERSOURCE_FIXED",
+    "VISA_ACQUIRER_PROCESSING_FIXED",
+    "VISA_BASE_II_CREDIT_VOUCHER_FIXED",
+    "VISA_BASE_II_SYSTEM_FILE_TRANSMISSION_FIXED",
+    "VISA_BASIS_POINTS",
+    "VISA_CREDIT_VOUCHER_FIXED",
+    "VISA_FIXED",
+    "VISA_INTERCHANGE",
+    "VISA_KILOBYTE_ACCESS_FIXED"
+   ],
+   "description": "The type of `Fee`. Finix may return more enums than those provided. Ensure your code accepts additional enums returned by Finix."
+  },
+  "label": {
+   "type": "string",
+   "description": "It is used for subscription fees and allows free-form text to be passed from the subscription fee product. Note that this product is mostly deprecated.",
+   "nullable": true
+  },
+  "linked_id": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the linked resource. Note that this field will be deprecated soon, use `linked_to` instead."
+  },
+  "linked_to": {
+   "type": "string",
+   "nullable": true,
+   "description": "The ID of the linked resource."
+  },
+  "linked_type": {
+   "type": "string",
+   "nullable": true,
+   "enum": [
+    "TRANSFER",
+    "AUTHORIZATION",
+    "SPLIT_TRANSFER"
+   ],
+   "description": "The type of entity the `Fee` is linked to."
+  },
+  "merchant": {
+   "type": "string",
+   "description": "The ID of the `Merchant` resource that was charged the fee."
+  },
+  "ready_to_settle_at": {
+   "type": "string",
+   "format": "date-time",
+   "description": "The timestamp indicating when the `Transfer` related to this `Fee` is ready to be settled. The specific `Transfer` is identified by the `linked_to` field.",
+   "nullable": true
+  },
+  "tags": {
+   "$ref": "#/components/schemas/tags"
+  },
+  "_links": {
+   "type": "object",
+   "description": "For your convenience, every response includes several URLs which link to resources relevant to the request. You can use these `_links` to make your follow-up requests and quickly access relevant IDs.",
+   "properties": {
+    "self": {
+     "type": "object",
+     "description": "The path to the `Fee` resource.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "merchant": {
+     "type": "object",
+     "description": "A link to the `Merchant` that the fee was debited from.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    },
+    "transfer": {
+     "type": "object",
+     "description": "A link to the `Transfer` that generated the `Fee`.",
+     "properties": {
+      "href": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+
+
+##### SCHEMA createTransferMinimalFields #####
+{
+ "title": "Transfer - Minimal Fields",
+ "type": "object",
+ "properties": {
+  "amount": {
+   "$ref": "#/components/schemas/amount"
+  },
+  "currency": {
+   "$ref": "#/components/schemas/currency"
+  },
+  "merchant": {
+   "type": "string",
+   "description": "The ID of the `Merchant` under which to create the `Transfer`."
+  },
+  "source": {
+   "$ref": "#/components/schemas/source"
+  }
+ },
+ "required": [
+  "amount",
+  "currency",
+  "merchant",
+  "source"
+ ]
+}
