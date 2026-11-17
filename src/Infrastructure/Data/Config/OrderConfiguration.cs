@@ -16,6 +16,51 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.PaymentStatus)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.PaymentCurrency)
+            .IsRequired()
+            .HasMaxLength(3);
+
+        builder.Property(o => o.PaymentIdempotencyKey)
+            .HasMaxLength(128);
+
+        builder.Property(o => o.PaymentFailureMessage)
+            .HasMaxLength(1000);
+
+        builder.Property(o => o.FinixAuthorizationId)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.AuthorizationState)
+            .HasMaxLength(32);
+
+        builder.Property(o => o.FinixCaptureId)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.CaptureState)
+            .HasMaxLength(32);
+
+        builder.Property(o => o.AuthorizedAmount)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.CapturedAmount)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.FinixFee)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.NetProceeds)
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(o => o.RefundedAmount)
+            .HasColumnType("decimal(18,2)");
+
+        builder.HasIndex(o => o.BuyerId);
+        builder.HasIndex(o => o.FinixAuthorizationId);
+        builder.HasIndex(o => o.FinixCaptureId);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();

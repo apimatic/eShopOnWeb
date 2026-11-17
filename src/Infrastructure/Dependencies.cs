@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +38,18 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        var finixSection = configuration.GetSection(FinixOptions.SectionName);
+        services.Configure<FinixOptions>(options =>
+        {
+            options.Username = finixSection["Username"];
+            options.Password = finixSection["Password"];
+            options.MerchantId = finixSection["MerchantId"];
+            options.Environment = finixSection["Environment"];
+            options.Currency = finixSection["Currency"];
+            options.BaseUrl = finixSection["BaseUrl"];
+        });
+
+        services.AddScoped<IPaymentService, PaymentService>();
     }
 }
