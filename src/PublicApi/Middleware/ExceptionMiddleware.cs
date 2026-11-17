@@ -41,6 +41,26 @@ public class ExceptionMiddleware
                 Message = duplicationException.Message
             }.ToString());
         }
+        else if (exception is PaymentOperationException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message
+            }.ToString());
+        }
+        else if (exception is FinixApiException finixException)
+        {
+            context.Response.StatusCode = finixException.StatusCode is >= 400 and <= 599
+                ? finixException.StatusCode
+                : (int)HttpStatusCode.BadGateway;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = finixException.Message
+            }.ToString());
+        }
         else
         {
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
