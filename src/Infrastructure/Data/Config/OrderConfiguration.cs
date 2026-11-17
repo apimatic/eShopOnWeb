@@ -41,5 +41,26 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.PaymentCurrency)
+            .HasMaxLength(3);
+
+        builder.Property(o => o.FinixAuthorizationId)
+            .HasMaxLength(256);
+
+        builder.Property(o => o.FinixAuthorizationState)
+            .HasMaxLength(64);
+
+        builder.Property(o => o.PendingAuthorizationIdempotencyKey)
+            .HasMaxLength(128);
+
+        builder.Property(o => o.FinixPaymentInstrumentId)
+            .HasMaxLength(256);
+
+        builder.Property(o => o.FinixCaptureTransferId)
+            .HasMaxLength(256);
+
+        builder.Property(o => o.FinixCaptureState)
+            .HasMaxLength(64);
     }
 }
