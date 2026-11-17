@@ -1,7 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,10 +19,13 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -85,6 +93,110 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
+FinixConfiguration.AddEnvironmentFallbacks(builder.Configuration, builder.Configuration);
+
+builder.Services
+    .AddOptions<FinixSettings>()
+    .Bind(builder.Configuration.GetSection("Finix"))
+    .ValidateDataAnnotations()
+    .Validate(s => string.Equals(s.Environment, "sandbox", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(s.Environment, "live", StringComparison.OrdinalIgnoreCase),
+        "Finix:Environment must be 'sandbox' or 'live'.")
+    .Validate(s => string.IsNullOrWhiteSpace(s.Currency) || FinixApiReference.Models.Enums.Currency.TryGetKnownValue(s.Currency, out _),
+        "Finix:Currency must be a recognised ISO 4217 currency code.")
+    .ValidateOnStart();
+
+builder.Services.PostConfigure<FinixSettings>(settings =>
+{
+    if (string.IsNullOrWhiteSpace(settings.Environment))
+    {
+        settings.Environment = "sandbox";
+    }
+
+    if (string.IsNullOrWhiteSpace(settings.Currency))
+    {
+        settings.Currency = "USD";
+    }
+    else
+    {
+        settings.Currency = settings.Currency.Trim().ToUpperInvariant();
+    }
+});
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<FinixSettings>>().Value);
+
+var useOnlyInMemoryDatabase = false;
+if (builder.Configuration["UseOnlyInMemoryDatabase"] is not null)
+{
+    useOnlyInMemoryDatabase = bool.Parse(builder.Configuration["UseOnlyInMemoryDatabase"]!);
+}
+
+if (useOnlyInMemoryDatabase)
+{
+    builder.Services.AddDbContext<PaymentsDbContext>(options => options.UseInMemoryDatabase("Payments"));
+}
+else
+{
+    var paymentsConnection = builder.Configuration.GetConnectionString("PaymentsConnection")
+                             ?? builder.Configuration.GetConnectionString("CatalogConnection");
+    builder.Services.AddDbContext<PaymentsDbContext>(options => options.UseSqlServer(paymentsConnection));
+}
+
+const string FinixHttpClientName = "FinixApiReference";
+
+builder.Services
+    .AddHttpClient(FinixHttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
+    .AddHttpMessageHandler<FinixDateQueryHandler>()
+    .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    });
+
+builder.Services.AddTransient<FinixDateQueryHandler>();
+
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<FinixSettings>();
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(FinixHttpClientName);
+
+    var options = new FinixApiReferenceClientOptions
+    {
+        Environment = ServerEnvironment.Production,
+        BasicAuth = new BasicAuthCredentials
+        {
+            Username = settings.Username,
+            Password = settings.Password
+        },
+        Retry = RetryOptions.Default() with
+        {
+            Timeout = TimeSpan.FromSeconds(8),
+            MaxRetries = 2
+        },
+        Logging = new LoggingOptions
+        {
+            LoggerFactory = sp.GetRequiredService<ILoggerFactory>(),
+            LogRequestBody = false,
+            LogRequestHeaders = false,
+            LogResponseHeaders = false
+        }
+    };
+
+    if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+    {
+        options.Server.Default.Production.BaseUrl = settings.BaseUrl;
+    }
+    else if (string.Equals(settings.Environment, "live", StringComparison.OrdinalIgnoreCase))
+    {
+        options.Server.Default.Production.BaseUrl = "https://finix.live-payments-api.com";
+    }
+
+    return new FinixApiReferenceClient(httpClient, options);
+});
+
+builder.Services.AddSingleton<FinixGateway>();
+builder.Services.AddScoped<PaymentClaimStore>();
+builder.Services.AddScoped<PaymentService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -140,6 +252,9 @@ using (var scope = app.Services.CreateScope())
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var identityContext = scopedProvider.GetRequiredService<AppIdentityDbContext>();
         await AppIdentityDbContextSeed.SeedAsync(identityContext, userManager, roleManager);
+
+        var paymentsContext = scopedProvider.GetRequiredService<PaymentsDbContext>();
+        await paymentsContext.Database.EnsureCreatedAsync();
     }
     catch (Exception ex)
     {
@@ -171,6 +286,8 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
 });
+
+app.MapPaymentEndpoints();
 
 app.MapControllers();
 app.MapEndpoints();
