@@ -32,13 +32,24 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        if (exception is PaymentOperationException paymentException)
+        {
+            context.Response.StatusCode = paymentException.StatusCode;
+            await context.Response.WriteAsync(new ErrorDetails()
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = paymentException.Message,
+                Code = paymentException.Code
+            }.ToString());
+        }
+        else if (exception is DuplicateException duplicationException)
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
+                Message = duplicationException.Message,
+                Code = "DUPLICATE"
             }.ToString());
         }
         else
@@ -47,7 +58,8 @@ public class ExceptionMiddleware
             await context.Response.WriteAsync(new ErrorDetails()
             {
                 StatusCode = context.Response.StatusCode,
-                Message = exception.Message
+                Message = exception.Message,
+                Code = "INTERNAL_ERROR"
             }.ToString());
         }
     }

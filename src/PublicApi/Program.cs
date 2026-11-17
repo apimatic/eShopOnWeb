@@ -31,6 +31,32 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
+// Finix credentials arrive as FINIX_* environment variables. Map them onto the
+// documented Finix: configuration keys so the same build can run against a
+// different Finix account without any code change. Values are never stored in
+// the repository; they come from the environment or .NET user-secrets.
+var finixEnvironmentOverrides = new Dictionary<string, string?>();
+void MapFinixEnvironment(string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixEnvironmentOverrides[configurationKey] = value;
+    }
+}
+
+MapFinixEnvironment("FINIX_USERNAME", "Finix:Username");
+MapFinixEnvironment("FINIX_PASSWORD", "Finix:Password");
+MapFinixEnvironment("FINIX_MERCHANT_ID", "Finix:MerchantId");
+MapFinixEnvironment("FINIX_ENVIRONMENT", "Finix:Environment");
+MapFinixEnvironment("FINIX_CURRENCY", "Finix:Currency");
+MapFinixEnvironment("FINIX_BASE_URL", "Finix:BaseUrl");
+
+if (finixEnvironmentOverrides.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentOverrides);
+}
+
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()

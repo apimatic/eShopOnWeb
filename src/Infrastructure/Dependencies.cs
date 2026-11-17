@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,5 +39,10 @@ public static class Dependencies
             services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("IdentityConnection")));
         }
+
+        services.Configure<FinixSettings>(configuration.GetSection(FinixSettings.SectionName));
+        services.AddHttpClient<IFinixPaymentGateway, FinixApiClient>();
+        services.AddSingleton<OrderLock>();
+        services.AddScoped<IOrderPaymentService, OrderPaymentService>();
     }
 }
