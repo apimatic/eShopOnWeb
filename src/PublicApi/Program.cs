@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,14 +11,17 @@ using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +88,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+BindFinixEnvironmentOverrides(builder.Configuration);
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<IFinixClient, FinixClient>((serviceProvider, client) =>
+{
+    var finixOptions = serviceProvider.GetRequiredService<IOptions<FinixOptions>>().Value;
+    client.BaseAddress = new Uri(finixOptions.ResolveBaseUrl());
+    var credentials = Convert.ToBase64String(
+        Encoding.UTF8.GetBytes($"{finixOptions.Username}:{finixOptions.Password}"));
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+    client.DefaultRequestHeaders.Add("Finix-Version", "2022-02-01");
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<OrderLockProvider>();
+builder.Services.AddScoped<OrderPaymentService>();
+builder.Services.AddScoped<PaymentMethodService>();
+builder.Services.AddScoped<ReconciliationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -177,5 +200,38 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void BindFinixEnvironmentOverrides(ConfigurationManager configuration)
+{
+    var mappings = new (string EnvironmentVariable, string ConfigurationKey)[]
+    {
+        ("FINIX_USERNAME", "Finix:Username"),
+        ("FINIX_PASSWORD", "Finix:Password"),
+        ("FINIX_MERCHANT_ID", "Finix:MerchantId"),
+        ("FINIX_ENVIRONMENT", "Finix:Environment"),
+        ("FINIX_CURRENCY", "Finix:Currency"),
+        ("FINIX_BASE_URL", "Finix:BaseUrl")
+    };
+
+    var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+    foreach (var mapping in mappings)
+    {
+        if (!string.IsNullOrWhiteSpace(configuration[mapping.ConfigurationKey]))
+        {
+            continue;
+        }
+
+        var value = Environment.GetEnvironmentVariable(mapping.EnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            overrides[mapping.ConfigurationKey] = value;
+        }
+    }
+
+    if (overrides.Count > 0)
+    {
+        configuration.AddInMemoryCollection(overrides);
+    }
+}
 
 public partial class Program { }

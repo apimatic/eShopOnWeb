@@ -32,23 +32,30 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            DuplicateException duplicationException =>
+                ((int)HttpStatusCode.Conflict, duplicationException.Message),
+            PaymentValidationException paymentValidationException =>
+                ((int)HttpStatusCode.BadRequest, paymentValidationException.Message),
+            PaymentResourceNotFoundException paymentResourceNotFoundException =>
+                ((int)HttpStatusCode.NotFound, paymentResourceNotFoundException.Message),
+            PaymentConflictException paymentConflictException =>
+                ((int)HttpStatusCode.Conflict, paymentConflictException.Message),
+            FinixApiException finixApiException =>
+                ((int)HttpStatusCode.BadGateway,
+                    $"Finix request failed ({finixApiException.StatusCode}, {finixApiException.Code ?? "UNKNOWN"}): " +
+                    $"{finixApiException.Message}"),
+            UnauthorizedAccessException unauthorizedAccessException =>
+                ((int)HttpStatusCode.Unauthorized, unauthorizedAccessException.Message),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails()
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = context.Response.StatusCode,
+            Message = message
+        }.ToString());
     }
 }
