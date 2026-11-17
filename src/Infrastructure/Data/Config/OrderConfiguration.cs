@@ -16,6 +16,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(o => o.PaymentReference)
+            .IsRequired()
+            .HasMaxLength(64);
+
         builder.OwnsOne(o => o.ShipToAddress, a =>
         {
             a.WithOwner();
@@ -41,5 +45,23 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Navigation(x => x.ShipToAddress).IsRequired();
+
+        builder.Property(o => o.PaymentStatus)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.Property(o => o.Currency)
+            .HasMaxLength(3);
+
+        builder.Property(o => o.FinixAuthorizationId).HasMaxLength(64);
+        builder.Property(o => o.FinixAuthorizationState).HasMaxLength(32);
+        builder.Property(o => o.FinixPaymentInstrumentId).HasMaxLength(64);
+        builder.Property(o => o.FinixTransferId).HasMaxLength(64);
+        builder.Property(o => o.PaymentFailureMessage).HasMaxLength(1000);
+
+        builder.Property(o => o.CapturedAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.FeeAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.NetAmount).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.RefundedAmount).HasColumnType("decimal(18,2)");
     }
 }

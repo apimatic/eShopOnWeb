@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,10 +9,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +87,22 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var finixEnvironmentSettings = new Dictionary<string, string?>
+{
+    ["Finix:Username"] = Environment.GetEnvironmentVariable("FINIX_USERNAME"),
+    ["Finix:Password"] = Environment.GetEnvironmentVariable("FINIX_PASSWORD"),
+    ["Finix:MerchantId"] = Environment.GetEnvironmentVariable("FINIX_MERCHANT_ID"),
+    ["Finix:Environment"] = Environment.GetEnvironmentVariable("FINIX_ENVIRONMENT"),
+    ["Finix:Currency"] = Environment.GetEnvironmentVariable("FINIX_CURRENCY"),
+    ["Finix:BaseUrl"] = Environment.GetEnvironmentVariable("FINIX_BASEURL")
+};
+builder.Configuration.AddInMemoryCollection(
+    finixEnvironmentSettings.Where(setting => !string.IsNullOrWhiteSpace(setting.Value)));
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpClient<IFinixClient, FinixClient>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
