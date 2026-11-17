@@ -1,17 +1,22 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Configuration;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Services;
+using Microsoft.eShopWeb.ApplicationCore.Services.Payments;
 using Microsoft.eShopWeb.Infrastructure.Data;
+using Microsoft.eShopWeb.Infrastructure.Finix;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Services;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +89,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+// The Finix settings are bound from the "Finix" configuration section. In addition to
+// appsettings/user-secrets, allow the deployment environment to provide the documented
+// FINIX_* variables without requiring them to be rewritten into hierarchical keys.
+var finixEnvironmentSettings = new Dictionary<string, string?>();
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "Username", "FINIX_USERNAME");
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "Password", "FINIX_PASSWORD");
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "MerchantId", "FINIX_MERCHANT_ID");
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "Environment", "FINIX_ENVIRONMENT");
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "Currency", "FINIX_CURRENCY");
+AddFinixEnvironmentSetting(finixEnvironmentSettings, "BaseUrl", "FINIX_BASE_URL");
+if (finixEnvironmentSettings.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
+}
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IResourceLock, InMemoryResourceLock>();
+builder.Services.AddSingleton<IFinixPaymentGateway, FinixPaymentGateway>();
+builder.Services.AddScoped<IOrderPaymentService, OrderPaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -175,7 +201,17 @@ app.UseSwaggerUI(c =>
 app.MapControllers();
 app.MapEndpoints();
 
+static void AddFinixEnvironmentSetting(IDictionary<string, string?> settings, string key, string environmentVariable)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        settings[$"Finix:{key}"] = value;
+    }
+}
+
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
 
 public partial class Program { }
+

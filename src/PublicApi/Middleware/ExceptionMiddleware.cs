@@ -24,31 +24,43 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(httpContext, ex);        
+            await HandleExceptionAsync(httpContext, ex);
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        if (exception is DuplicateException duplicationException)
+        var (statusCode, message) = exception switch
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = duplicationException.Message
-            }.ToString());
-        }
-        else
+            PaymentValidationException validationException =>
+                ((int)HttpStatusCode.BadRequest, validationException.Message),
+            ResourceNotFoundException notFoundException =>
+                ((int)HttpStatusCode.NotFound, notFoundException.Message),
+            PaymentConflictException conflictException =>
+                ((int)HttpStatusCode.Conflict, conflictException.Message),
+            DuplicateException duplicateException =>
+                ((int)HttpStatusCode.Conflict, duplicateException.Message),
+            FinixApiException finixException =>
+                ((int)HttpStatusCode.BadGateway, BuildFinixMessage(finixException)),
+            _ => ((int)HttpStatusCode.InternalServerError, exception.Message)
+        };
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsync(new ErrorDetails
         {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsync(new ErrorDetails()
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = exception.Message
-            }.ToString());
-        }
+            StatusCode = statusCode,
+            Message = message
+        }.ToString());
+    }
+
+    private static string BuildFinixMessage(FinixApiException exception)
+    {
+        var prefix = string.IsNullOrWhiteSpace(exception.Code)
+            ? "Finix payment request failed"
+            : $"Finix payment request failed ({exception.Code})";
+
+        return $"{prefix}: {exception.Message}";
     }
 }
