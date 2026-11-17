@@ -1,0 +1,48 @@
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using BlazorShared.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using MinimalApi.Endpoint;
+
+using Microsoft.eShopWeb.PublicApi;
+using Microsoft.eShopWeb.PublicApi.Payments;
+
+namespace Microsoft.eShopWeb.PublicApi.OrderEndpoints;
+
+public class FulfilOrderEndpoint : IEndpoint<IResult, FulfilOrderRequest, PaymentService>
+{
+    public void AddRoute(IEndpointRouteBuilder app)
+    {
+        app.MapPost("api/orders/{orderId}/fulfil",
+                [Authorize(Roles = Constants.Roles.ADMINISTRATORS, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+                async (int orderId, HttpContext http, FulfilOrderRequest request, PaymentService payments) =>
+                {
+                    request.OrderId = orderId;
+                    request.RequestAborted = http.RequestAborted;
+                    return await HandleAsync(request, payments);
+                })
+            .Produces<FulfilOrderResponse>()
+            .WithTags("OrderEndpoints");
+    }
+
+    public async Task<IResult> HandleAsync(FulfilOrderRequest request, PaymentService payments)
+    {
+        var payment = await payments.FulfilAsync(request.OrderId, request.RequestAborted);
+        return Results.Ok(new FulfilOrderResponse { Payment = payment });
+    }
+}
+
+public class FulfilOrderRequest : PaymentRequestBase
+{
+    [JsonIgnore]
+    public int OrderId { get; set; }
+}
+
+public class FulfilOrderResponse : BaseResponse
+{
+    public OrderPaymentView Payment { get; set; } = null!;
+}
