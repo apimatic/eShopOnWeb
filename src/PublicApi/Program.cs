@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,16 +9,19 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
@@ -84,6 +88,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+MapFinixEnvironmentVariables(builder.Configuration);
+builder.Services.AddFinixPayments(builder.Configuration);
+builder.Services.AddHttpClient<IFinixClient, FinixClient>((serviceProvider, httpClient) =>
+{
+    var finixOptions = serviceProvider.GetRequiredService<IOptions<FinixOptions>>().Value;
+    if (string.IsNullOrWhiteSpace(finixOptions.Username)
+        || string.IsNullOrWhiteSpace(finixOptions.Password)
+        || string.IsNullOrWhiteSpace(finixOptions.MerchantId))
+    {
+        throw new InvalidOperationException(
+            "Finix credentials are not configured. Set Finix:Username, Finix:Password and Finix:MerchantId " +
+            "from FINIX_USERNAME, FINIX_PASSWORD and FINIX_MERCHANT_ID.");
+    }
+
+    httpClient.BaseAddress = new Uri(PaymentsDependencies.ResolveBaseUrl(finixOptions) + "/");
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+        "Basic",
+        Convert.ToBase64String(
+            Encoding.ASCII.GetBytes($"{finixOptions.Username}:{finixOptions.Password}")));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +185,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -177,5 +203,31 @@ app.MapEndpoints();
 
 app.Logger.LogInformation("LAUNCHING PublicApi");
 app.Run();
+
+static void MapFinixEnvironmentVariables(IConfiguration configuration)
+{
+    var mappings = new Dictionary<string, string>
+    {
+        ["FINIX_USERNAME"] = "Finix:Username",
+        ["FINIX_PASSWORD"] = "Finix:Password",
+        ["FINIX_MERCHANT_ID"] = "Finix:MerchantId",
+        ["FINIX_ENVIRONMENT"] = "Finix:Environment",
+        ["FINIX_CURRENCY"] = "Finix:Currency"
+    };
+
+    foreach (var mapping in mappings)
+    {
+        if (!string.IsNullOrWhiteSpace(configuration[mapping.Value]))
+        {
+            continue;
+        }
+
+        var value = Environment.GetEnvironmentVariable(mapping.Key);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            configuration[mapping.Value] = value;
+        }
+    }
+}
 
 public partial class Program { }
