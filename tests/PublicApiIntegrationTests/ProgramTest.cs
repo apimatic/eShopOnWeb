@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+﻿using System;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Net.Http;
 
@@ -13,7 +14,10 @@ public class ProgramTest
     {
         get
         {
-            return _application.CreateClient();
+            return _application.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                BaseAddress = new Uri("https://localhost")
+            });
         }
     }
 
