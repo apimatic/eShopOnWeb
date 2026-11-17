@@ -14,6 +14,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Payments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -44,6 +45,7 @@ var catalogSettings = builder.Configuration.Get<CatalogSettings>() ?? new Catalo
 builder.Services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 builder.Services.AddScoped(typeof(IAppLogger<>), typeof(LoggerAdapter<>));
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
+builder.Services.AddScoped<PaymentService>();
 
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
@@ -83,7 +85,31 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+});
 builder.Configuration.AddEnvironmentVariables();
+
+// The Finix credentials arrive as FINIX_* environment variables. Map them to the
+// Finix: configuration section without ever writing their values into the repository.
+var finixSettingsFromEnvironment = new Dictionary<string, string?>();
+void MapFinixSetting(string configurationKey, string environmentVariable)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixSettingsFromEnvironment[configurationKey] = value;
+    }
+}
+
+MapFinixSetting("Finix:Username", "FINIX_USERNAME");
+MapFinixSetting("Finix:Password", "FINIX_PASSWORD");
+MapFinixSetting("Finix:MerchantId", "FINIX_MERCHANT_ID");
+MapFinixSetting("Finix:Environment", "FINIX_ENVIRONMENT");
+MapFinixSetting("Finix:Currency", "FINIX_CURRENCY");
+MapFinixSetting("Finix:BaseUrl", "FINIX_BASE_URL");
+builder.Configuration.AddInMemoryCollection(finixSettingsFromEnvironment);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
