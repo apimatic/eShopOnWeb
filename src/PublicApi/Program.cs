@@ -8,10 +8,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 using Microsoft.eShopWeb.ApplicationCore.Services;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
+using Microsoft.eShopWeb.Infrastructure.Payments;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
 using Microsoft.Extensions.Configuration;
@@ -84,6 +86,31 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
+
+var finixEnvironmentSettings = new Dictionary<string, string?>();
+void AddFinixEnvironment(string environmentVariable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(environmentVariable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixEnvironmentSettings[configurationKey] = value;
+    }
+}
+
+AddFinixEnvironment("FINIX_USERNAME", "Finix:Username");
+AddFinixEnvironment("FINIX_PASSWORD", "Finix:Password");
+AddFinixEnvironment("FINIX_MERCHANT_ID", "Finix:MerchantId");
+AddFinixEnvironment("FINIX_ENVIRONMENT", "Finix:Environment");
+AddFinixEnvironment("FINIX_CURRENCY", "Finix:Currency");
+AddFinixEnvironment("FINIX_BASE_URL", "Finix:BaseUrl");
+if (finixEnvironmentSettings.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
+}
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection("Finix"));
+builder.Services.AddSingleton<IFinixGateway, FinixGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -160,6 +187,7 @@ app.UseRouting();
 
 app.UseCors(CORS_POLICY);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Enable middleware to serve generated Swagger as a JSON endpoint.

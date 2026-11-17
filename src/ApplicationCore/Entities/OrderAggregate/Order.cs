@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Ardalis.GuardClauses;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Microsoft.eShopWeb.ApplicationCore.Payments;
 
 namespace Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 
@@ -17,11 +18,32 @@ public class Order : BaseEntity, IAggregateRoot
         BuyerId = buyerId;
         ShipToAddress = shipToAddress;
         _orderItems = items;
+        AuthorizationIdempotencyKey = Guid.NewGuid().ToString("N");
     }
 
     public string BuyerId { get; private set; }
     public DateTimeOffset OrderDate { get; private set; } = DateTimeOffset.Now;
     public Address ShipToAddress { get; private set; }
+
+    public string Status { get; private set; } = OrderStatuses.AwaitingPayment;
+    public string AuthorizationIdempotencyKey { get; private set; }
+    public string? Currency { get; private set; }
+    public string? AuthorizationId { get; private set; }
+    public string? AuthorizationState { get; private set; }
+    public long? AuthorizedAmount { get; private set; }
+    public DateTimeOffset? AuthorizationExpiresAt { get; private set; }
+    public string? CaptureTransferId { get; private set; }
+    public string? CaptureState { get; private set; }
+    public long? CapturedAmount { get; private set; }
+    public long? FinixFee { get; private set; }
+    public long? NetAmount { get; private set; }
+    public string? PaymentInstrumentId { get; private set; }
+    public int? SavedPaymentMethodId { get; private set; }
+    public long RefundedAmount { get; private set; }
+    public DateTimeOffset? AuthorizedAt { get; private set; }
+    public DateTimeOffset? CapturedAt { get; private set; }
+    public DateTimeOffset? CancelledAt { get; private set; }
+    public string? CancellationReason { get; private set; }
 
     // DDD Patterns comment
     // Using a private collection field, better for DDD Aggregate's encapsulation
@@ -43,5 +65,75 @@ public class Order : BaseEntity, IAggregateRoot
             total += item.UnitPrice * item.Units;
         }
         return total;
+    }
+
+    public long TotalCents() => (long)Math.Round(Total() * 100m, MidpointRounding.AwayFromZero);
+
+    public long RefundableAmount() => Math.Max(0, (CapturedAmount ?? 0) - RefundedAmount);
+
+    public void SetCurrency(string currency)
+    {
+        if (string.IsNullOrWhiteSpace(Currency))
+        {
+            Currency = currency;
+        }
+    }
+
+    public void MarkAuthorized(string authorizationId,
+        string authorizationState,
+        long authorizedAmount,
+        string currency,
+        string paymentInstrumentId,
+        int? savedPaymentMethodId,
+        DateTimeOffset? expiresAt)
+    {
+        Status = OrderStatuses.Authorized;
+        AuthorizationId = authorizationId;
+        AuthorizationState = authorizationState;
+        AuthorizedAmount = authorizedAmount;
+        Currency = currency;
+        PaymentInstrumentId = paymentInstrumentId;
+        SavedPaymentMethodId = savedPaymentMethodId;
+        AuthorizationExpiresAt = expiresAt;
+        AuthorizedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpdateAuthorizationState(string authorizationState)
+    {
+        AuthorizationState = authorizationState;
+    }
+
+    public void MarkCaptured(string captureTransferId,
+        string captureState,
+        long capturedAmount,
+        long finixFee,
+        long netAmount)
+    {
+        Status = OrderStatuses.Fulfilled;
+        CaptureTransferId = captureTransferId;
+        CaptureState = captureState;
+        CapturedAmount = capturedAmount;
+        FinixFee = finixFee;
+        NetAmount = netAmount;
+        CapturedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void MarkCancelled(string reason)
+    {
+        Status = OrderStatuses.Cancelled;
+        CancelledAt = DateTimeOffset.UtcNow;
+        CancellationReason = reason;
+        if (AuthorizationId is not null && CaptureTransferId is null)
+        {
+            AuthorizationState = "VOIDED";
+        }
+    }
+
+    public void AddRefund(long amount)
+    {
+        RefundedAmount += amount;
+        Status = RefundedAmount >= (CapturedAmount ?? 0)
+            ? OrderStatuses.Refunded
+            : OrderStatuses.PartiallyRefunded;
     }
 }
