@@ -1,7 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using BlazorShared;
+using FinixApiReference;
+using FinixApiReference.Core.Authentication.Basic;
+using FinixApiReference.Core.Configuration;
+using FinixApiReference.Servers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +18,7 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Infrastructure.Logging;
 using Microsoft.eShopWeb.PublicApi;
 using Microsoft.eShopWeb.PublicApi.Middleware;
+using Microsoft.eShopWeb.PublicApi.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +34,32 @@ builder.Services.AddEndpoints();
 
 // Use to force loading of appsettings.json of test project
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
+
+// Bind the Finix credentials from the documented environment variables into the
+// Finix: configuration section. User-secrets / app configuration can supply the same
+// keys; no credential value is ever written into this repository.
+var finixEnvironmentSettings = new Dictionary<string, string?>();
+void MapFinixEnvironmentVariable(string variable, string configurationKey)
+{
+    var value = Environment.GetEnvironmentVariable(variable);
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+        finixEnvironmentSettings[configurationKey] = value;
+    }
+}
+
+MapFinixEnvironmentVariable("FINIX_USERNAME", "Finix:Username");
+MapFinixEnvironmentVariable("FINIX_PASSWORD", "Finix:Password");
+MapFinixEnvironmentVariable("FINIX_MERCHANT_ID", "Finix:MerchantId");
+MapFinixEnvironmentVariable("FINIX_ENVIRONMENT", "Finix:Environment");
+MapFinixEnvironmentVariable("FINIX_CURRENCY", "Finix:Currency");
+MapFinixEnvironmentVariable("FINIX_BASE_URL", "Finix:BaseUrl");
+
+if (finixEnvironmentSettings.Count > 0)
+{
+    builder.Configuration.AddInMemoryCollection(finixEnvironmentSettings);
+}
+
 builder.Logging.AddConsole();
 
 Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -50,6 +81,50 @@ builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<FinixOptions>(builder.Configuration.GetSection(FinixOptions.SectionName));
+var finixOptions = builder.Configuration.GetSection(FinixOptions.SectionName).Get<FinixOptions>() ?? new FinixOptions();
+var finixBaseUrl = !string.IsNullOrWhiteSpace(finixOptions.BaseUrl)
+    ? finixOptions.BaseUrl!.TrimEnd('/')
+    : string.Equals(finixOptions.Environment, "live", StringComparison.OrdinalIgnoreCase)
+        ? "https://finix.live-payments-api.com"
+        : new DefaultOptions().Production.BaseUrl.TrimEnd('/');
+
+builder.Services.AddFinixApiReferenceClient(options =>
+{
+    if (!string.IsNullOrWhiteSpace(finixOptions.Username)
+        && !string.IsNullOrWhiteSpace(finixOptions.Password))
+    {
+        options.BasicAuth = new BasicAuthCredentials
+        {
+            Username = finixOptions.Username!,
+            Password = finixOptions.Password!
+        };
+    }
+
+    options.Server = new ServerOptions
+    {
+        Default = new DefaultOptions
+        {
+            Production = new DefaultOptions.ProductionOptions
+            {
+                BaseUrl = finixBaseUrl
+            }
+        }
+    };
+
+    // Never log card data. The SDK does not log bodies unless explicitly enabled;
+    // pin these off so an environment variable cannot turn it on.
+    options.Logging = new LoggingOptions
+    {
+        LogRequestHeaders = false,
+        LogRequestBody = false,
+        LogResponseHeaders = false
+    };
+});
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<PaymentOperationLock>();
+builder.Services.AddScoped<FinixPaymentService>();
 
 var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
 builder.Services.AddAuthentication(config =>
